@@ -138,6 +138,22 @@ async def character_sheet_page(request: Request, character_id: int):
 async def home_dashboard_page(request: Request):
     return templates.TemplateResponse(request=request, name="dashboard.html")
 
+import json
+
+
+@app.get("/compendium/subclasses")
+def get_compendium_subclasses():
+    # Гарантированный путь относительно корня приложения
+    path = BASE_DIR / "data" / "subclasses.json"
+    if not path.exists():
+        path = BASE_DIR.parent / "app" / "data" / "subclasses.json"
+
+    if path.exists():
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    print(f"ОШИБКА: subclasses.json не найден по пути: {path}")
+    return {}
+
 from pathlib import Path
 from fastapi.staticfiles import StaticFiles
 

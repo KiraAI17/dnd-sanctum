@@ -713,6 +713,8 @@
     if (r.includes('орк') || r.includes('гоблин')) return '🦾';
     if (r.includes('волшебник') || r.includes('маг')) return '🧙';
     if (r.includes('халфлинг') || r.includes('полурослик')) return '🍃';
+    if (r.includes('ящер') || r.includes('lizard')) return '🐊';
+    if (r.includes('чейнджлинг')) return '🎭';
     return '👤';
   }
 
@@ -1148,12 +1150,25 @@
     cont.innerHTML = partyData.members.map(m => {
       const isLeader = m.is_dm ? '<span class="text-[9px] font-mono font-bold text-amber-300 bg-amber-950/40 border border-amber-800 px-1.5 py-0.5 rounded">👑 МАСТЕР</span>' : '';
       const charName = m.character_name ? `<a href="/characters/${m.character_id}/sheet" class="text-amber-200 font-serif font-bold text-sm hover:underline">${m.character_name}</a>` : '<span class="text-stone-500 text-xs italic">Персонаж не выбран</span>';
-      const charClass = m.character_class ? `<span class="text-[11px] text-stone-400 font-serif block">${m.character_race || ''} ${m.character_class}</span>` : '';
+
+      // --- ПРОВЕРКА МАСКИ ДЛЯ ЧЛЕНА ОТРЯДА ---
+      let squadRace = m.character_race || '';
+      if ((squadRace).toLowerCase().includes('чейнджлинг')) {
+        let vc = m.visual_custom || {};
+        if (typeof vc === 'string') {
+          try { vc = JSON.parse(vc); } catch(e) {}
+        }
+        if (vc && vc.disguise_active && vc.disguise_race) {
+          squadRace = vc.disguise_race;
+        }
+      }
+
+      const charClass = m.character_class ? `<span class="text-[11px] text-stone-400 font-serif block">${squadRace} • ${m.character_class}</span>` : '';
       const hpBadge = m.character_hp ? `<span class="px-2 py-0.5 rounded bg-black/60 border border-orange-950 font-mono text-foxOrange-400 text-xs">${m.character_hp}</span>` : '';
 
       const bannerStyle = m.banner_url ? `background-image: url('${m.banner_url}'); background-size: cover; background-position: center;` : '';
       const avatarSrc = m.avatar_url && m.avatar_url.trim() ? m.avatar_url : (m.banner_url && m.banner_url.trim() ? m.banner_url : '');
-      const raceEmoji = getRaceEmoji(m.character_race);
+      const raceEmoji = getRaceEmoji(squadRace);
 
       return `
         <div class="rounded-xl border border-orange-950/80 bg-[#120d09] overflow-hidden flex flex-col justify-between shadow relative group">

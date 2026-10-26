@@ -1,0 +1,418 @@
+import { DndRules } from '../rules/DndRules.js';
+import { FeatValidator } from '../rules/FeatValidator.js';
+
+export class LevelUpModal {
+  constructor(state, apiClient, onLevelUpSuccess) {
+    this.state = state;
+    this.api = apiClient;
+    this.onSuccess = onLevelUpSuccess;
+
+    this.nextTargetLevel = 2;
+    this.hitDieSides = 8;
+    this.currentAsiChoiceMode = 'stats';
+    this.compendiumFeats = [];
+    this.subclassesMap = {};
+
+    this.initSubclassesFallback();
+  }
+
+  initSubclassesFallback() {
+    this.subclassesFallback = {
+      "кровавый охотник": {
+        "Орден Призрачного клинка": { source: "Mercer", summary: "Охотники, истребляющие нежить ритуалами чистого эфира.", key_feature: "Ритуал эфира: доп. урон излучением против нежити." },
+        "Орден Мутанта": { source: "Mercer", summary: "Алхимики крови, меняющие тело мутагенами.", key_feature: "Мутагены: временные мутации характеристик." },
+        "Орден Ликантропа": { source: "Mercer", summary: "Воины с проклятием оборотня.", key_feature: "Звериная форма: КД, сопротивление урону и когти." },
+        "Орден Профанической души": { source: "Mercer", summary: "Договор с покровителями ради тёмных чар.", key_feature: "Договорная магия: ячейки магии колдуна." }
+      },
+      "монах": {
+        "Путь открытой ладони": { source: "PHB", summary: "Мастера безоружного боя и контроля энергии врагов.", key_feature: "Техника открытой ладони: нокдаун и отталкивание." },
+        "Путь тени": { source: "PHB", summary: "Ниндзя, использующие тени для маскировки и телепортации.", key_feature: "Искусство тени: чары тьмы и шаг сквозь тень." },
+        "Путь четырех стихий": { source: "PHB", summary: "Обуздание стихий через Ци.", key_feature: "Стихийные техники огня, воды, земли и воздуха." }
+      },
+      "воин": {
+        "Чемпион": { source: "PHB", summary: "Атлет с повышенной вероятностью крита.", key_feature: "Улучшенный крит: крит на 19 и 20." },
+        "Мастер боевых искусств": { source: "PHB", summary: "Тактический гений поля боя.", key_feature: "Маневры: кубы превосходства d8." },
+        "Рыцарь-мистик": { source: "PHB", summary: "Воин с боевой магией.", key_feature: "Связь с оружием и магия ограждения/воплощения." }
+      }
+    };
+  }
+
+  open() {
+    const char = this.state.get();
+    if (!char) return;
+
+    const curLevel = char.level || 1;
+    this.nextTargetLevel = curLevel + 1;
+
+    const curText = document.getElementById('lvlCurrentText');
+    const nextText = document.getElementById('lvlNextText');
+    if (curText) curText.textContent = curLevel;
+    if (nextText) nextText.textContent = this.nextTargetLevel;
+
+    this.hitDieSides = DndRules.getHitDieSides(char.class_name);
+    const conMod = DndRules.calcMod(char.stats?.con || 10);
+    const avgHp = Math.max(1, Math.floor(this.hitDieSides / 2) + 1 + conMod);
+
+    const formulaEl = document.getElementById('lvlHpFormula');
+    const hpInput = document.getElementById('lvlHpIncreaseInput');
+    if (formulaEl) formulaEl.textContent = `d${this.hitDieSides} + ${DndRules.formatMod(conMod)}`;
+    if (hpInput) hpInput.value = avgHp;
+
+    // 1. Боевой стиль на 2 ур.
+    const cName = (char.class_name || '').toLowerCase();
+    const isMartial = cName.includes('охотник') || cName.includes('воин') || cName.includes('паладин') || cName.includes('следопыт');
+    const styleBlock = document.getElementById('lvlFightingStyleBlock');
+    if (styleBlock) styleBlock.classList.toggle('hidden', !(this.nextTargetLevel === 2 && isMartial));
+
+    // 2. Архетип на 3 ур.
+    const subBlock = document.getElementById('lvlSubclassBlock');
+    if (subBlock) {
+      const showSub = (this.nextTargetLevel === 3);
+      subBlock.classList.toggle('hidden', !showSub);
+      if (showSub) this.loadSubclasses(char.class_name);
+    }
+
+    // 3. ASI или Черта на 4, 8, 12, 16, 19 ур.
+    const asiBlock = document.getElementById('lvlAsiBlock');
+    const isAsi = [4, 8, 12, 16, 19].includes(this.nextTargetLevel);
+    if (asiBlock) {
+      asiBlock.classList.toggle('hidden', !isAsi);
+      if (isAsi) this.switchAsiMode('stats');
+    }
+
+    // Компетентность: Плут на 6 ур., Бард на 3 и 10 ур.
+    const isRogueLvl6 = (cName.includes('плут') || cName.includes('rogue')) && (this.nextTargetLevel === 6);
+    const isBardExp = (cName.includes('бард') || cName.includes('bard')) && (this.nextTargetLevel === 3 || this.nextTargetLevel === 10);
+    const showExp = isRogueLvl6 || isBardExp;
+
+    const expBlock = document.getElementById('lvlExpertiseBlock');
+    if (expBlock) {
+      expBlock.classList.toggle('hidden', !showExp);
+      if (showExp) this.loadLvl6ExpertiseOptions(char);
+    }
+
+    document.getElementById('levelUpModal')?.classList.remove('hidden');
+  }
+
+  loadLvl6ExpertiseOptions(char) {
+    const s1 = document.getElementById('lvlExpertiseChoice1');
+    const s2 = document.getElementById('lvlExpertiseChoice2');
+    if (!s1 || !s2) return;
+
+    const currentExp = JSON.parse(localStorage.getItem(`char_${char.id}_expertise`) || '[]');
+    const allOptions = Array.from(new Set([
+      ...(char.skills || []),
+      "Акробатика", "Атлетика", "Внимательность", "Ловкость рук", "Обман",
+      "Проницательность", "Расследование", "Скрытность", "Убеждение", "Воровские инструменты"
+    ])).filter(opt => !currentExp.includes(opt));
+
+    s1.innerHTML = allOptions.map(o => `<option value="${o}">${o}</option>`).join('');
+    s2.innerHTML = allOptions.slice(1).map(o => `<option value="${o}">${o}</option>`).join('');
+  }
+
+  close() {
+    document.getElementById('levelUpModal')?.classList.add('hidden');
+  }
+
+  rollHp() {
+    const rolled = Math.floor(Math.random() * this.hitDieSides) + 1;
+    const conMod = DndRules.calcMod(this.state.get()?.stats?.con || 10);
+    const total = Math.max(1, rolled + conMod);
+    const hpInput = document.getElementById('lvlHpIncreaseInput');
+    if (hpInput) hpInput.value = total;
+    alert("Бросок d" + this.hitDieSides + ": (" + rolled + ") " + DndRules.formatMod(conMod) + " = +" + total + " к максимуму HP!");
+  }
+
+  async loadSubclasses(className) {
+    const sel = document.getElementById('lvlSubclassSelect');
+    if (!sel) return;
+
+    this.subclassesMap = {};
+    const norm = (className || '').toLowerCase().trim();
+
+    try {
+      const res = await fetch('/compendium/subclasses');
+      if (res.ok) {
+        let raw = await res.json();
+
+        // ВОТ ОНА — РАСПАКОВКА ОБЁРТКИ subclasses:
+        if (raw && raw.subclasses && typeof raw.subclasses === 'object') {
+          raw = raw.subclasses;
+        } else if (raw && raw.data && typeof raw.data === 'object') {
+          raw = raw.data;
+        }
+
+        console.log("Успешно распаковано подклассов:", Object.keys(raw).length);
+
+        for (const [sName, sData] of Object.entries(raw)) {
+          if (!sData || typeof sData !== 'object') continue;
+
+          const targetClass = (sData.class || sData.class_name || '').toLowerCase().trim();
+
+          // Разделяем Альтернативного воина и обычного Воина:
+          const isCharAlt = norm.includes('альт');
+          const isTargetAlt = targetClass.includes('альт');
+
+          if (isCharAlt !== isTargetAlt) {
+            continue;
+          }
+
+          // Для остальных (Бард, Плут, Монах, Варвар и др.):
+          const matches = targetClass === norm ||
+                          (norm && targetClass.includes(norm)) ||
+                          (targetClass && norm.includes(targetClass));
+
+          if (matches) {
+            this.subclassesMap[sName] = sData;
+          }
+        }
+      } else {
+        console.error("Ошибка ответа сервера:", res.status);
+      }
+    } catch (err) {
+      console.error("Сбой загрузки /compendium/subclasses:", err);
+    }
+
+    console.log("Найдено архетипов для «" + className + "»:", Object.keys(this.subclassesMap));
+
+    // Отрисовка в выпадающий список (обычными строками, чтобы не слетали кавычки)
+    if (Object.keys(this.subclassesMap).length === 0) {
+      sel.innerHTML = '<option value="">-- Архетипы не найдены в базе --</option>' +
+                      '<option value="custom">✍️ Свой авторский архетип...</option>';
+    } else {
+      sel.innerHTML = '<option value="">-- Выберите архетип --</option>' +
+        Object.keys(this.subclassesMap).map(n => '<option value="' + n + '">👑 ' + n + '</option>').join('') +
+        '<option value="custom">✍️ Свой авторский архетип...</option>';
+    }
+
+    this.onSubclassChange();
+  }
+
+
+  onSubclassChange() {
+    const sel = document.getElementById('lvlSubclassSelect');
+    const preview = document.getElementById('lvlSubclassPreviewBox');
+    const customBlock = document.getElementById('lvlCustomSubclassInputBlock');
+    if (!sel || !preview) return;
+
+    const val = sel.value;
+    if (val === 'custom') {
+      if (customBlock) customBlock.classList.remove('hidden');
+      preview.classList.add('hidden');
+      return;
+    } else {
+      if (customBlock) customBlock.classList.add('hidden');
+    }
+
+    if (!val || !this.subclassesMap[val]) {
+      preview.classList.add('hidden');
+      return;
+    }
+
+    // Если Бард выбирает Коллегию Мечей на 3 уровне — открываем выбор боевого стиля
+    const styleBlock = document.getElementById('lvlFightingStyleBlock');
+    const styleSelect = document.getElementById('lvlFightingStyleSelect');
+    if (val.includes('Мечей') || val.includes('Swords')) {
+      if (styleBlock && styleSelect) {
+        styleBlock.classList.remove('hidden');
+        styleSelect.innerHTML = `
+          <option value="Дуэлянт">Дуэлянт (+2 к урону одноручным оружием)</option>
+          <option value="Сражение двумя оружиями">Сражение двумя оружиями (модификатор ко 2-й руке)</option>
+        `;
+      }
+    }
+
+    const data = this.subclassesMap[val];
+    preview.classList.remove('hidden');
+    document.getElementById('lvlSubclassPreviewTitle').textContent = val;
+    document.getElementById('lvlSubclassPreviewSource').textContent = data.source || '5e';
+    document.getElementById('lvlSubclassPreviewSummary').textContent = data.summary || '';
+    document.getElementById('lvlSubclassPreviewKeyFeature').textContent = data.key_feature || '';
+  }
+
+  switchAsiMode(mode) {
+    this.currentAsiChoiceMode = mode;
+    const btnStats = document.getElementById('btnModeStats');
+    const btnFeat = document.getElementById('btnModeFeat');
+    const bStats = document.getElementById('asiStatsSubBlock');
+    const bFeat = document.getElementById('asiFeatSubBlock');
+
+    if (mode === 'stats') {
+      if (btnStats) btnStats.className = "py-1.5 rounded font-bold text-stone-950 bg-amber-400 transition-all";
+      if (btnFeat) btnFeat.className = "py-1.5 rounded font-bold text-stone-400 hover:text-amber-200 transition-all";
+      if (bStats) bStats.classList.remove('hidden');
+      if (bFeat) bFeat.classList.add('hidden');
+    } else {
+      if (btnFeat) btnFeat.className = "py-1.5 rounded font-bold text-stone-950 bg-amber-400 transition-all";
+      if (btnStats) btnStats.className = "py-1.5 rounded font-bold text-stone-400 hover:text-amber-200 transition-all";
+      if (bFeat) bFeat.classList.remove('hidden');
+      if (bStats) bStats.classList.add('hidden');
+      this.loadFeats();
+    }
+  }
+
+  async loadFeats() {
+    const sel = document.getElementById('lvlFeatSelect');
+    if (!sel) return;
+
+    if (this.compendiumFeats.length === 0) {
+      try {
+        const res = await apiFetch('/compendium/feats');
+        if (res.ok) this.compendiumFeats = await res.json();
+      } catch {}
+    }
+
+    const char = this.state.get();
+    sel.innerHTML = '<option value="">-- Выберите черту --</option>' + this.compendiumFeats.map(f => {
+      const check = FeatValidator.checkPrerequisite(f, char);
+      const isLocked = !check.ok;
+      const icon = isLocked ? '🔒 ' : '✨ ';
+      const disabled = isLocked ? 'disabled class="text-stone-600 bg-stone-950"' : 'class="text-amber-200 bg-stone-900"';
+      const hint = isLocked ? ` [${check.reason}]` : '';
+      return `<option value="${f.id || f.name}" ${disabled}>${icon}${f.name}${hint}</option>`;
+    }).join('');
+  }
+
+  onFeatChange() {
+    const sel = document.getElementById('lvlFeatSelect');
+    const preview = document.getElementById('lvlFeatPreviewBox');
+    const choiceBlock = document.getElementById('lvlFeatDynamicChoiceBlock');
+    const choiceSelect = document.getElementById('lvlFeatDynamicChoiceSelect');
+    if (!sel || !preview) return;
+
+    const featId = sel.value;
+    if (!featId) {
+      preview.classList.add('hidden');
+      if (choiceBlock) choiceBlock.classList.add('hidden');
+      return;
+    }
+
+    const f = this.compendiumFeats.find(x => (x.id === featId || x.name === featId));
+    if (!f) return;
+
+    preview.classList.remove('hidden');
+    document.getElementById('lvlFeatPreviewName').textContent = f.name;
+    document.getElementById('lvlFeatPreviewPrereq').textContent = f.prerequisite ? `Треб.: ${f.prerequisite}` : 'Без требований';
+    document.getElementById('lvlFeatPreviewDesc').textContent = f.description || '';
+
+    const badge = document.getElementById('lvlFeatStatBonusBadge');
+    const choiceInfo = FeatValidator.extractStatChoiceOptions(f);
+    const statDict = { str: 'Сила', dex: 'Ловкость', con: 'Телосложение', int: 'Интеллект', wis: 'Мудрость', cha: 'Харизма' };
+
+    if (choiceInfo.hasChoice && choiceBlock && choiceSelect) {
+      choiceBlock.classList.remove('hidden');
+      choiceSelect.innerHTML = choiceInfo.options.map(st => `<option value="${st}">+1 к ${statDict[st] || st.toUpperCase()}</option>`).join('');
+      if (badge) badge.classList.add('hidden');
+    } else {
+      if (choiceBlock) choiceBlock.classList.add('hidden');
+      if (f.stat_bonuses && typeof f.stat_bonuses === 'object' && !f.stat_bonuses.choice) {
+        const clean = Object.entries(f.stat_bonuses).filter(([k, v]) => typeof v === 'number');
+        if (clean.length > 0) {
+          const bStr = clean.map(([k, v]) => `+${v} к ${(statDict[k] || k).toUpperCase()}`).join(', ');
+          if (badge) {
+            badge.textContent = `⚡ Бонус к статам: ${bStr}`;
+            badge.classList.remove('hidden');
+          }
+        }
+      } else if (badge) {
+        badge.classList.add('hidden');
+      }
+    }
+  }
+
+  async submit(e) {
+    e.preventDefault();
+    const char = this.state.get();
+    if (!char) return;
+
+    const hpIncrease = parseInt(document.getElementById('lvlHpIncreaseInput')?.value) || 6;
+    const submitBtn = document.getElementById('btnSubmitLevelUp');
+    if (submitBtn) submitBtn.textContent = 'Сохраняем...';
+
+    const payload = { hp_increase: hpIncrease };
+
+    // 1. Боевой стиль
+    const styleBlock = document.getElementById('lvlFightingStyleBlock');
+    if (styleBlock && !styleBlock.classList.contains('hidden')) {
+      const selectedStyle = document.getElementById('lvlFightingStyleSelect')?.value;
+      payload.new_feat = {
+        name: `Боевой стиль: ${selectedStyle}`,
+        description: `Специализация в боевом стиле «${selectedStyle}».`
+      };
+    }
+
+    // 2. Архетип
+    const subBlock = document.getElementById('lvlSubclassBlock');
+    if (subBlock && !subBlock.classList.contains('hidden')) {
+      const selVal = document.getElementById('lvlSubclassSelect')?.value;
+      const finalSub = selVal === 'custom' ? document.getElementById('lvlCustomSubclassInput')?.value.trim() : selVal;
+      if (finalSub) payload.chosen_subclass = finalSub;
+    }
+
+    // 3. ASI или Черта
+    const asiBlock = document.getElementById('lvlAsiBlock');
+    if (asiBlock && !asiBlock.classList.contains('hidden')) {
+      if (this.currentAsiChoiceMode === 'stats') {
+        const s1 = document.getElementById('lvlAsiStat1')?.value;
+        const s2 = document.getElementById('lvlAsiStat2')?.value;
+        const statMap = {};
+        if (s1) statMap[s1] = (statMap[s1] || 0) + 1;
+        if (s2) statMap[s2] = (statMap[s2] || 0) + 1;
+        if (Object.keys(statMap).length > 0) payload.stat_increases = statMap;
+      } else {
+        const featId = document.getElementById('lvlFeatSelect')?.value;
+        const chosenFeat = this.compendiumFeats.find(x => (x.id === featId || x.name === featId));
+        if (chosenFeat) {
+          let featName = chosenFeat.name;
+          const choiceSelect = document.getElementById('lvlFeatDynamicChoiceSelect');
+          const choiceBlock = document.getElementById('lvlFeatDynamicChoiceBlock');
+
+          if (choiceBlock && !choiceBlock.classList.contains('hidden') && choiceSelect) {
+            const picked = choiceSelect.value;
+            const statDict = { str: 'Сила', dex: 'Ловкость', con: 'Телосложение', int: 'Интеллект', wis: 'Мудрость', cha: 'Харизма' };
+            featName = `${chosenFeat.name} (${statDict[picked] || picked.toUpperCase()})`;
+            payload.stat_increases = { [picked]: 1 };
+          } else if (chosenFeat.stat_bonuses && typeof chosenFeat.stat_bonuses === 'object') {
+            const numB = {};
+            for (const [k, v] of Object.entries(chosenFeat.stat_bonuses)) {
+              if (typeof v === 'number') numB[k] = v;
+            }
+            if (Object.keys(numB).length > 0) payload.stat_increases = numB;
+          }
+
+          payload.new_feat = { name: featName, description: chosenFeat.description || '' };
+        }
+      }
+    }
+
+    // Сохранение компетентности 6-го уровня (Плут)
+    const expBlock = document.getElementById('lvlExpertiseBlock');
+    if (expBlock && !expBlock.classList.contains('hidden')) {
+      const c1 = document.getElementById('lvlExpertiseChoice1')?.value;
+      const c2 = document.getElementById('lvlExpertiseChoice2')?.value;
+      if (c1 && c2 && c1 !== c2) {
+        const storageKey = "char_" + char.id + "_expertise";
+        let currentExp = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        currentExp.push(c1, c2);
+        localStorage.setItem(storageKey, JSON.stringify(Array.from(new Set(currentExp))));
+      }
+    }
+
+    try {
+      const res = await this.api.levelUp(payload);
+      if (res.ok) {
+        const updated = await res.json();
+        this.close();
+        if (this.onSuccess) this.onSuccess(updated);
+        alert(`🎉 Персонаж достиг ${updated.level} уровня!`);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Не удалось повысить уровень.");
+      }
+    } catch (err) {
+      alert("Сбой сети: " + err.message);
+    } finally {
+      if (submitBtn) submitBtn.textContent = 'Подтвердить уровень';
+    }
+  }
+}

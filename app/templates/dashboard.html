@@ -2,297 +2,399 @@
 
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-8 space-y-8">
-  <!-- ВЕРХНИЙ ХЕДЕР ХАБА -->
-  <div class="flex flex-wrap justify-between items-center gap-4 border-b border-orange-950/80 pb-6">
-    <div>
-      <h1 class="text-3xl sm:text-4xl font-serif font-bold text-amber-200 fox-embossed">Sanctum D&D 5e</h1>
-      <p class="text-xs sm:text-sm text-stone-400 font-serif mt-1">Святилище приключений. Управляйте столами, героями и кастомными расами.</p>
-    </div>
-    <div class="flex items-center gap-2">
+    <!-- ВЕРХНИЙ ХЕДЕР ХАБА -->
+    <div class="flex flex-wrap justify-between items-center gap-4 border-b border-orange-950/80 pb-6">
+        <div>
+            <h1 class="text-3xl sm:text-4xl font-serif font-bold text-amber-200 fox-embossed">Sanctum D&D 5e</h1>
+            <p class="text-xs sm:text-sm text-stone-400 font-serif mt-1">Святилище приключений. Управляйте столами,
+                героями и кастомными расами.</p>
+        </div>
+        <div class="flex items-center gap-2">
       <span class="text-xs font-mono font-bold px-3 py-1.5 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-300">
         Герой: <span id="hubUsername">Загрузка...</span>
       </span>
-    </div>
-  </div>
-
-  <!-- КАРТОЧКИ ХАБА -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-    <!-- КАРТОЧКА 1: СТОЛЫ -->
-    <div class="fox-card p-6 rounded-2xl border border-orange-950/90 bg-[#120d09]/95 hover:border-amber-500/50 transition-all flex flex-col justify-between space-y-4 shadow-xl group">
-      <div class="space-y-3">
-        <div class="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">⚔️</div>
-        <h2 class="text-xl font-serif font-bold text-amber-200">Столы приключений</h2>
-        <p class="text-xs text-stone-400 font-serif leading-relaxed">Создавайте открытые и закрытые кампании как DM или заходите к друзьям по названию и паролю.</p>
-      </div>
-      <div class="pt-2">
-        <a href="/parties-lobby" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-serif font-bold text-xs shadow-md hover:brightness-110 flex items-center justify-center gap-2">
-          <span>Гильдия столов</span> &rarr;
-        </a>
-      </div>
+        </div>
     </div>
 
-    <!-- КАРТОЧКА 2: ГЕРОИ И НИПЫ (ОТКРЫВАЕТ ВЫБОР!) -->
-    <div class="fox-card p-6 rounded-2xl border border-orange-950/90 bg-[#120d09]/95 hover:border-amber-500/50 transition-all flex flex-col justify-between space-y-4 shadow-xl group">
-      <div class="space-y-3">
-        <div class="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">🧙</div>
-        <h2 class="text-xl font-serif font-bold text-amber-200">Герои и НИПы</h2>
-        <p class="text-xs text-stone-400 font-serif leading-relaxed">Управляйте всеми вашими персонажами, открывайте интерактивные листы или создайте нового героя/НИПа.</p>
-      </div>
-      <div class="pt-2">
-        <button type="button" onclick="openCreateHeroChoiceModal()" class="w-full py-2.5 rounded-xl bg-stone-900 border border-orange-900/60 hover:border-amber-400 text-amber-200 font-serif font-bold text-xs flex items-center justify-center gap-1.5 shadow">
-          <span>＋ Создать героя / НИПа</span>
-        </button>
-      </div>
+    <!-- КАРТОЧКИ ХАБА -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- КАРТОЧКА 1: СТОЛЫ -->
+        <div class="fox-card p-6 rounded-2xl border border-orange-950/90 bg-[#120d09]/95 hover:border-amber-500/50 transition-all flex flex-col justify-between space-y-4 shadow-xl group">
+            <div class="space-y-3">
+                <div class="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                    ⚔️
+                </div>
+                <h2 class="text-xl font-serif font-bold text-amber-200">Столы приключений</h2>
+                <p class="text-xs text-stone-400 font-serif leading-relaxed">Создавайте открытые и закрытые кампании как
+                    DM или заходите к друзьям по названию и паролю.</p>
+            </div>
+            <div class="pt-2">
+                <a href="/parties-lobby"
+                   class="w-full py-2.5 rounded-xl bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-serif font-bold text-xs shadow-md hover:brightness-110 flex items-center justify-center gap-2">
+                    <span>Гильдия столов</span> &rarr;
+                </a>
+            </div>
+        </div>
+
+        <!-- КАРТОЧКА 2: ГЕРОИ И НИПЫ (ОТКРЫВАЕТ ВЫБОР!) -->
+        <div class="fox-card p-6 rounded-2xl border border-orange-950/90 bg-[#120d09]/95 hover:border-amber-500/50 transition-all flex flex-col justify-between space-y-4 shadow-xl group">
+            <div class="space-y-3">
+                <div class="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                    🧙
+                </div>
+                <h2 class="text-xl font-serif font-bold text-amber-200">Герои и НИПы</h2>
+                <p class="text-xs text-stone-400 font-serif leading-relaxed">Управляйте всеми вашими персонажами,
+                    открывайте интерактивные листы или создайте нового героя/НИПа.</p>
+            </div>
+            <div class="pt-2">
+                <button type="button" onclick="openCreateHeroChoiceModal()"
+                        class="w-full py-2.5 rounded-xl bg-stone-900 border border-orange-900/60 hover:border-amber-400 text-amber-200 font-serif font-bold text-xs flex items-center justify-center gap-1.5 shadow">
+                    <span>＋ Создать героя / НИПа</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- КАРТОЧКА 3: МАСТЕРСКАЯ РАС (ОТКРЫВАЕТ БИБЛИОТЕКУ СО СПИСКОМ!) -->
+        <div class="fox-card p-6 rounded-2xl border border-orange-950/90 bg-[#120d09]/95 hover:border-amber-500/50 transition-all flex flex-col justify-between space-y-4 shadow-xl group">
+            <div class="space-y-3">
+                <div class="w-12 h-12 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                    🧬
+                </div>
+                <h2 class="text-xl font-serif font-bold text-amber-200">Мастерская рас</h2>
+                <p class="text-xs text-stone-400 font-serif leading-relaxed">Библиотека ваших авторских рас с чертами.
+                    Настраивайте их заранее и импортируйте за столы.</p>
+            </div>
+            <div class="pt-2">
+                <button type="button" onclick="openGlobalRacesModal()"
+                        class="w-full py-2.5 rounded-xl bg-[#1c130d] border border-purple-900/60 hover:border-purple-400 text-purple-200 font-serif font-bold text-xs flex items-center justify-center gap-1.5 shadow">
+                    <span>👑 Библиотека рас (<span id="userRacesCount">0</span>)</span>
+                </button>
+            </div>
+        </div>
     </div>
 
-    <!-- КАРТОЧКА 3: МАСТЕРСКАЯ РАС (ОТКРЫВАЕТ БИБЛИОТЕКУ СО СПИСКОМ!) -->
-    <div class="fox-card p-6 rounded-2xl border border-orange-950/90 bg-[#120d09]/95 hover:border-amber-500/50 transition-all flex flex-col justify-between space-y-4 shadow-xl group">
-      <div class="space-y-3">
-        <div class="w-12 h-12 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">🧬</div>
-        <h2 class="text-xl font-serif font-bold text-amber-200">Мастерская рас</h2>
-        <p class="text-xs text-stone-400 font-serif leading-relaxed">Библиотека ваших авторских рас с чертами. Настраивайте их заранее и импортируйте за столы.</p>
-      </div>
-      <div class="pt-2">
-        <button type="button" onclick="openGlobalRacesModal()" class="w-full py-2.5 rounded-xl bg-[#1c130d] border border-purple-900/60 hover:border-purple-400 text-purple-200 font-serif font-bold text-xs flex items-center justify-center gap-1.5 shadow">
-          <span>👑 Библиотека рас (<span id="userRacesCount">0</span>)</span>
-        </button>
-      </div>
+    <!-- СПИСОК ПЕРСОНАЖЕЙ С ФИЛЬТРАМИ -->
+    <div class="fox-card p-6 rounded-2xl border border-orange-950/80 bg-[#120d09]/90 space-y-4 shadow-lg">
+        <div class="flex flex-wrap justify-between items-center border-b border-orange-950/80 pb-3 gap-2">
+            <h3 class="font-serif font-bold text-amber-200 text-base flex items-center gap-2">
+                <span>📜</span> Мои искатели приключений (<span id="hubCharsCount">0</span>)
+            </h3>
+            <div class="flex gap-1.5 text-xs font-serif">
+                <button type="button" onclick="filterChars('all')" id="flt_all"
+                        class="px-2.5 py-1 rounded bg-amber-400 text-stone-950 font-bold">Все
+                </button>
+                <button type="button" onclick="filterChars('hero')" id="flt_hero"
+                        class="px-2.5 py-1 rounded bg-stone-900 text-stone-400 hover:text-stone-200">Герои
+                </button>
+                <button type="button" onclick="filterChars('npc')" id="flt_npc"
+                        class="px-2.5 py-1 rounded bg-stone-900 text-stone-400 hover:text-stone-200">НИПы
+                </button>
+            </div>
+        </div>
+        <div id="hubCharactersGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            <div class="col-span-full text-center py-8 text-stone-500 italic font-serif">Загрузка персонажей...</div>
+        </div>
     </div>
-  </div>
-
-  <!-- СПИСОК ПЕРСОНАЖЕЙ С ФИЛЬТРАМИ -->
-  <div class="fox-card p-6 rounded-2xl border border-orange-950/80 bg-[#120d09]/90 space-y-4 shadow-lg">
-    <div class="flex flex-wrap justify-between items-center border-b border-orange-950/80 pb-3 gap-2">
-      <h3 class="font-serif font-bold text-amber-200 text-base flex items-center gap-2">
-        <span>📜</span> Мои искатели приключений (<span id="hubCharsCount">0</span>)
-      </h3>
-      <div class="flex gap-1.5 text-xs font-serif">
-        <button type="button" onclick="filterChars('all')" id="flt_all" class="px-2.5 py-1 rounded bg-amber-400 text-stone-950 font-bold">Все</button>
-        <button type="button" onclick="filterChars('hero')" id="flt_hero" class="px-2.5 py-1 rounded bg-stone-900 text-stone-400 hover:text-stone-200">Герои</button>
-        <button type="button" onclick="filterChars('npc')" id="flt_npc" class="px-2.5 py-1 rounded bg-stone-900 text-stone-400 hover:text-stone-200">НИПы</button>
-      </div>
-    </div>
-    <div id="hubCharactersGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-      <div class="col-span-full text-center py-8 text-stone-500 italic font-serif">Загрузка персонажей...</div>
-    </div>
-  </div>
 </div>
 
 <!-- МОДАЛКА ВЫБОРА: СОЗДАНИЕ ГЕРОЯ ИЛИ НИПА -->
-<div id="heroNpcChoiceModal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-  <div class="fox-card border border-amber-500/40 rounded-2xl max-w-sm w-full p-6 space-y-4 text-xs font-serif text-center shadow-2xl">
-    <h3 class="text-base font-bold text-amber-200 font-serif">Создание персонажа</h3>
-    <p class="text-stone-400 text-xs">Кого вы хотите добавить в свою коллекцию?</p>
-    <div class="space-y-2.5 pt-2">
-      <a href="/wizard" class="w-full py-3 rounded-xl bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-bold block shadow hover:brightness-110">
-        ⚔️ Игровой персонаж (Пошаговый конструктор)
-      </a>
-      <button type="button" onclick="openDirectNpcModal()" class="w-full py-3 rounded-xl bg-stone-900 border border-stone-700 text-amber-300 font-bold block hover:border-amber-400">
-        🧙‍♂️ Сюжетный НИП / Монстр
-      </button>
+<div id="heroNpcChoiceModal"
+     class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="fox-card border border-amber-500/40 rounded-2xl max-w-sm w-full p-6 space-y-4 text-xs font-serif text-center shadow-2xl">
+        <h3 class="text-base font-bold text-amber-200 font-serif">Создание персонажа</h3>
+        <p class="text-stone-400 text-xs">Кого вы хотите добавить в свою коллекцию?</p>
+        <div class="space-y-2.5 pt-2">
+            <a href="/wizard"
+               class="w-full py-3 rounded-xl bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-bold block shadow hover:brightness-110">
+                ⚔️ Игровой персонаж (Пошаговый конструктор)
+            </a>
+            <button type="button" onclick="openDirectNpcModal()"
+                    class="w-full py-3 rounded-xl bg-stone-900 border border-stone-700 text-amber-300 font-bold block hover:border-amber-400">
+                🧙‍♂️ Сюжетный НИП / Монстр
+            </button>
+        </div>
+        <div class="pt-2">
+            <button type="button" onclick="closeHeroNpcChoiceModal()"
+                    class="text-stone-500 hover:text-stone-300 text-xs">Отмена
+            </button>
+        </div>
     </div>
-    <div class="pt-2">
-      <button type="button" onclick="closeHeroNpcChoiceModal()" class="text-stone-500 hover:text-stone-300 text-xs">Отмена</button>
-    </div>
-  </div>
 </div>
 
 <!-- МОДАЛКА СОЗДАНИЯ БЫСТРОГО НИПА В ХАБЕ -->
-<div id="hubNpcModal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-  <div class="fox-card border border-amber-500/40 rounded-2xl max-w-md w-full p-6 space-y-3.5 text-xs font-serif shadow-2xl">
-    <div class="flex justify-between items-center border-b border-orange-950 pb-2">
-      <h3 class="text-sm font-bold text-amber-200 flex items-center gap-2"><span>🧙‍♂️</span> Создание быстрого НИПа</h3>
-      <button onclick="closeHubNpcModal()" class="text-stone-400 hover:text-white text-xl font-bold">&times;</button>
+<div id="hubNpcModal"
+     class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="fox-card border border-amber-500/40 rounded-2xl max-w-md w-full p-6 space-y-3.5 text-xs font-serif shadow-2xl">
+        <div class="flex justify-between items-center border-b border-orange-950 pb-2">
+            <h3 class="text-sm font-bold text-amber-200 flex items-center gap-2"><span>🧙‍♂️</span> Создание быстрого
+                НИПа</h3>
+            <button onclick="closeHubNpcModal()" class="text-stone-400 hover:text-white text-xl font-bold">&times;
+            </button>
+        </div>
+        <form onsubmit="submitHubNpc(event)" class="space-y-3">
+            <div>
+                <label class="font-bold text-amber-300 block mb-1">Имя НИПа *:</label>
+                <input type="text" id="hNpcName" required placeholder="Староста деревни, Капитан стражи..."
+                       class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100">
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="text-stone-400 block mb-1">Раса:</label>
+                    <input type="text" id="hNpcRace" value="Гуманоид"
+                           class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100">
+                </div>
+                <div>
+                    <label class="text-stone-400 block mb-1">Класс / Роль:</label>
+                    <input type="text" id="hNpcClass" value="НИП"
+                           class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="text-stone-400 block mb-1">Здоровье (HP):</label>
+                    <input type="number" id="hNpcHp" value="20"
+                           class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100 font-mono">
+                </div>
+                <div>
+                    <label class="text-stone-400 block mb-1">Класс Доспеха (КД):</label>
+                    <input type="number" id="hNpcAc" value="12"
+                           class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100 font-mono">
+                </div>
+            </div>
+            <div>
+                <label class="text-stone-400 block mb-1">Заметки / Описание:</label>
+                <textarea id="hNpcNotes" rows="2" placeholder="Характер, секреты, роль в сюжете..."
+                          class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100"></textarea>
+            </div>
+            <div class="flex justify-end gap-2 pt-2 border-t border-orange-950">
+                <button type="button" onclick="closeHubNpcModal()"
+                        class="px-3 py-1.5 rounded bg-stone-900 text-stone-400">Отмена
+                </button>
+                <button type="submit" class="px-4 py-1.5 rounded bg-amber-400 text-stone-950 font-bold">Создать НИПа
+                </button>
+            </div>
+        </form>
     </div>
-    <form onsubmit="submitHubNpc(event)" class="space-y-3">
-      <div>
-        <label class="font-bold text-amber-300 block mb-1">Имя НИПа *:</label>
-        <input type="text" id="hNpcName" required placeholder="Староста деревни, Капитан стражи..." class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100">
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <div>
-          <label class="text-stone-400 block mb-1">Раса:</label>
-          <input type="text" id="hNpcRace" value="Гуманоид" class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100">
-        </div>
-        <div>
-          <label class="text-stone-400 block mb-1">Класс / Роль:</label>
-          <input type="text" id="hNpcClass" value="НИП" class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100">
-        </div>
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <div>
-          <label class="text-stone-400 block mb-1">Здоровье (HP):</label>
-          <input type="number" id="hNpcHp" value="20" class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100 font-mono">
-        </div>
-        <div>
-          <label class="text-stone-400 block mb-1">Класс Доспеха (КД):</label>
-          <input type="number" id="hNpcAc" value="12" class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100 font-mono">
-        </div>
-      </div>
-      <div>
-        <label class="text-stone-400 block mb-1">Заметки / Описание:</label>
-        <textarea id="hNpcNotes" rows="2" placeholder="Характер, секреты, роль в сюжете..." class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100"></textarea>
-      </div>
-      <div class="flex justify-end gap-2 pt-2 border-t border-orange-950">
-        <button type="button" onclick="closeHubNpcModal()" class="px-3 py-1.5 rounded bg-stone-900 text-stone-400">Отмена</button>
-        <button type="submit" class="px-4 py-1.5 rounded bg-amber-400 text-stone-950 font-bold">Создать НИПа</button>
-      </div>
-    </form>
-  </div>
 </div>
 
 <!-- МОДАЛКА БИБЛИОТЕКИ РАС (СПИСОК СОХРАНЕННЫХ РАС) -->
-<div id="globalRacesModal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-  <div class="fox-card border border-amber-500/40 rounded-2xl max-w-xl w-full p-6 space-y-4 text-xs font-serif max-h-[90vh] overflow-y-auto shadow-2xl">
-    <div class="flex justify-between items-center border-b border-orange-950 pb-2">
-      <h3 class="text-sm font-bold text-amber-200 flex items-center gap-2"><span>🧬</span> Мастерская авторских рас</h3>
-      <button onclick="closeGlobalRacesModal()" class="text-stone-400 hover:text-white text-xl font-bold">&times;</button>
+<div id="globalRacesModal"
+     class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="fox-card border border-amber-500/40 rounded-2xl max-w-xl w-full p-6 space-y-4 text-xs font-serif max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div class="flex justify-between items-center border-b border-orange-950 pb-2">
+            <h3 class="text-sm font-bold text-amber-200 flex items-center gap-2"><span>🧬</span> Мастерская авторских рас
+            </h3>
+            <button onclick="closeGlobalRacesModal()" class="text-stone-400 hover:text-white text-xl font-bold">
+                &times;
+            </button>
+        </div>
+        <div id="hubRacesContainer" class="space-y-2">
+            <div class="text-center py-6 text-stone-500">Загрузка библиотеки...</div>
+        </div>
+        <div class="pt-2 border-t border-orange-950 flex justify-end gap-2">
+            <button type="button" onclick="closeGlobalRacesModal()"
+                    class="px-3 py-1.5 rounded bg-stone-900 text-stone-400">Закрыть
+            </button>
+            <button type="button" onclick="openCreateGlobalRaceForm()"
+                    class="px-4 py-2 rounded-xl bg-amber-400 text-stone-950 font-bold hover:brightness-110">＋ Создать
+                новую расу
+            </button>
+        </div>
     </div>
-    <div id="hubRacesContainer" class="space-y-2">
-      <div class="text-center py-6 text-stone-500">Загрузка библиотеки...</div>
-    </div>
-    <div class="pt-2 border-t border-orange-950 flex justify-end gap-2">
-      <button type="button" onclick="closeGlobalRacesModal()" class="px-3 py-1.5 rounded bg-stone-900 text-stone-400">Закрыть</button>
-      <button type="button" onclick="openCreateGlobalRaceForm()" class="px-4 py-2 rounded-xl bg-amber-400 text-stone-950 font-bold hover:brightness-110">＋ Создать новую расу</button>
-    </div>
-  </div>
 </div>
 
 <!-- МОДАЛКА ФОРМЫ СОЗДАНИЯ РАСЫ В ХАБЕ (С ЧЕРТАМИ!) -->
-<div id="newRaceFormModal" class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-  <div class="fox-card border border-amber-500/40 rounded-2xl max-w-lg w-full p-6 space-y-3.5 text-xs font-serif max-h-[90vh] overflow-y-auto shadow-2xl">
-    <div class="flex justify-between items-center border-b border-orange-950 pb-2">
-      <h3 class="text-sm font-bold text-amber-200 flex items-center gap-2"><span>🧬</span> Создание расы в библиотеку</h3>
-      <button onclick="closeNewRaceFormModal()" class="text-stone-400 hover:text-white text-xl font-bold">&times;</button>
+<div id="newRaceFormModal"
+     class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="fox-card border border-amber-500/40 rounded-2xl max-w-lg w-full p-6 space-y-3.5 text-xs font-serif max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div class="flex justify-between items-center border-b border-orange-950 pb-2">
+            <h3 class="text-sm font-bold text-amber-200 flex items-center gap-2"><span>🧬</span> Создание расы в
+                библиотеку</h3>
+            <button onclick="closeNewRaceFormModal()" class="text-stone-400 hover:text-white text-xl font-bold">
+                &times;
+            </button>
+        </div>
+        <form onsubmit="submitNewHubRace(event)" class="space-y-3">
+            <div>
+                <label class="font-bold text-amber-300 block mb-1">Название расы *:</label>
+                <input type="text" id="nhrName" required placeholder="Пещерный голиаф, Астральный скиталец..."
+                       class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="font-bold text-stone-300 block mb-1">Базовая скорость (фт):</label>
+                    <input type="number" id="nhrSpeed" value="30"
+                           class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100 font-mono">
+                </div>
+                <div class="flex items-center pt-5">
+                    <label class="flex items-center gap-2 cursor-pointer text-amber-200">
+                        <input type="checkbox" id="nhrDmOnly" class="rounded border-orange-900 text-foxOrange-600">
+                        <span>Эксклюзив для DM</span>
+                    </label>
+                </div>
+            </div>
+            <div>
+                <label class="text-stone-300 block mb-1">Описание расы:</label>
+                <textarea id="nhrDesc" rows="2" placeholder="Особенности физиологии и культуры..."
+                          class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100"></textarea>
+            </div>
+
+            <!-- Бонусы характеристик -->
+            <div class="p-3 bg-[#0d0907] border border-orange-950 rounded-xl space-y-2">
+                <span class="font-bold text-amber-300 block">Бонусы характеристик:</span>
+                <div class="grid grid-cols-6 gap-1.5 text-center font-mono">
+                    <div><span class="text-[10px] text-amber-400">СИЛ</span><input type="number" id="nhrStat_str"
+                                                                                   value="0"
+                                                                                   class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs">
+                    </div>
+                    <div><span class="text-[10px] text-amber-400">ЛОВ</span><input type="number" id="nhrStat_dex"
+                                                                                   value="0"
+                                                                                   class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs">
+                    </div>
+                    <div><span class="text-[10px] text-amber-400">ТЕЛ</span><input type="number" id="nhrStat_con"
+                                                                                   value="0"
+                                                                                   class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs">
+                    </div>
+                    <div><span class="text-[10px] text-amber-400">ИНТ</span><input type="number" id="nhrStat_int"
+                                                                                   value="0"
+                                                                                   class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs">
+                    </div>
+                    <div><span class="text-[10px] text-amber-400">МУД</span><input type="number" id="nhrStat_wis"
+                                                                                   value="0"
+                                                                                   class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs">
+                    </div>
+                    <div><span class="text-[10px] text-amber-400">ХАР</span><input type="number" id="nhrStat_cha"
+                                                                                   value="0"
+                                                                                   class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Черты расы -->
+            <div>
+                <div class="flex justify-between items-center mb-1">
+                    <label class="text-amber-300 font-bold">Особенности (черты) расы:</label>
+                    <button type="button" onclick="addHubRaceTraitRow()" class="text-amber-400 hover:underline">＋
+                        Добавить черту
+                    </button>
+                </div>
+                <div id="hubRaceTraitsContainer" class="space-y-2 max-h-[140px] overflow-y-auto pr-1"></div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-orange-950">
+                <button type="button" onclick="closeNewRaceFormModal()"
+                        class="px-3 py-1.5 rounded bg-stone-900 text-stone-400">Отмена
+                </button>
+                <button type="submit"
+                        class="px-4 py-1.5 rounded bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-bold hover:brightness-110">
+                    Сохранить в библиотеку
+                </button>
+            </div>
+        </form>
     </div>
-    <form onsubmit="submitNewHubRace(event)" class="space-y-3">
-      <div>
-        <label class="font-bold text-amber-300 block mb-1">Название расы *:</label>
-        <input type="text" id="nhrName" required placeholder="Пещерный голиаф, Астральный скиталец..." class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100">
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="font-bold text-stone-300 block mb-1">Базовая скорость (фт):</label>
-          <input type="number" id="nhrSpeed" value="30" class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100 font-mono">
-        </div>
-        <div class="flex items-center pt-5">
-          <label class="flex items-center gap-2 cursor-pointer text-amber-200">
-            <input type="checkbox" id="nhrDmOnly" class="rounded border-orange-900 text-foxOrange-600">
-            <span>Эксклюзив для DM</span>
-          </label>
-        </div>
-      </div>
-      <div>
-        <label class="text-stone-300 block mb-1">Описание расы:</label>
-        <textarea id="nhrDesc" rows="2" placeholder="Особенности физиологии и культуры..." class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100"></textarea>
-      </div>
-
-      <!-- Бонусы характеристик -->
-      <div class="p-3 bg-[#0d0907] border border-orange-950 rounded-xl space-y-2">
-        <span class="font-bold text-amber-300 block">Бонусы характеристик:</span>
-        <div class="grid grid-cols-6 gap-1.5 text-center font-mono">
-          <div><span class="text-[10px] text-amber-400">СИЛ</span><input type="number" id="nhrStat_str" value="0" class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs"></div>
-          <div><span class="text-[10px] text-amber-400">ЛОВ</span><input type="number" id="nhrStat_dex" value="0" class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs"></div>
-          <div><span class="text-[10px] text-amber-400">ТЕЛ</span><input type="number" id="nhrStat_con" value="0" class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs"></div>
-          <div><span class="text-[10px] text-amber-400">ИНТ</span><input type="number" id="nhrStat_int" value="0" class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs"></div>
-          <div><span class="text-[10px] text-amber-400">МУД</span><input type="number" id="nhrStat_wis" value="0" class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs"></div>
-          <div><span class="text-[10px] text-amber-400">ХАР</span><input type="number" id="nhrStat_cha" value="0" class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs"></div>
-        </div>
-      </div>
-
-      <!-- Черты расы -->
-      <div>
-        <div class="flex justify-between items-center mb-1">
-          <label class="text-amber-300 font-bold">Особенности (черты) расы:</label>
-          <button type="button" onclick="addHubRaceTraitRow()" class="text-amber-400 hover:underline">＋ Добавить черту</button>
-        </div>
-        <div id="hubRaceTraitsContainer" class="space-y-2 max-h-[140px] overflow-y-auto pr-1"></div>
-      </div>
-
-      <div class="flex justify-end gap-2 pt-2 border-t border-orange-950">
-        <button type="button" onclick="closeNewRaceFormModal()" class="px-3 py-1.5 rounded bg-stone-900 text-stone-400">Отмена</button>
-        <button type="submit" class="px-4 py-1.5 rounded bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-bold hover:brightness-110">Сохранить в библиотеку</button>
-      </div>
-    </form>
-  </div>
 </div>
 
 <script>
-  let allChars = [];
-  let currentFilter = 'all';
+    let allChars = [];
+    let currentFilter = 'all';
 
-  async function initHub() {
-    try {
-      const [uRes, charsRes, rRes] = await Promise.all([
-        apiFetch('/auth/me'),
-        apiFetch('/characters/'),
-        apiFetch('/compendium/races')
-      ]);
+    async function initHub() {
+      try {
+        const [uRes, charsRes, rRes] = await Promise.all([
+          apiFetch('/auth/me'),
+          apiFetch('/characters/'),
+          apiFetch('/compendium/races')
+        ]);
 
-      if (uRes.ok) {
-        const u = await uRes.json();
-        document.getElementById('hubUsername').textContent = u.username;
-      }
-      if (charsRes.ok) {
-        allChars = await charsRes.json();
-        renderChars();
-      }
-      if (rRes.ok) {
-        const rData = await rRes.json();
-        const customR = Array.isArray(rData) ? rData.filter(r => r.is_custom) : [];
-        document.getElementById('userRacesCount').textContent = customR.length;
-      }
-    } catch(e) { console.error(e); }
-  }
-
-  function getRaceEmoji(race) {
-    if (!race) return '👤';
-    const r = race.toLowerCase();
-    if (r.includes('эльф')) return '🧝';
-    if (r.includes('дварф') || r.includes('гном')) return '🛡️';
-    if (r.includes('кицунэ') || r.includes('лис')) return '🦊';
-    if (r.includes('дракон')) return '🐲';
-    if (r.includes('тифлинг') || r.includes('демон')) return '😈';
-    if (r.includes('орк') || r.includes('гоблин')) return '🦾';
-    if (r.includes('волшебник') || r.includes('маг')) return '🧙';
-    if (r.includes('халфлинг') || r.includes('полурослик')) return '🍃';
-    return '👤';
-  }
-
-  function filterChars(f) {
-    currentFilter = f;
-    ['all', 'hero', 'npc'].forEach(k => {
-      const b = document.getElementById(`flt_${k}`);
-      if (b) b.className = (k === f) ? "px-2.5 py-1 rounded bg-amber-400 text-stone-950 font-bold" : "px-2.5 py-1 rounded bg-stone-900 text-stone-400 hover:text-stone-200";
-    });
-    renderChars();
-  }
-
-  function renderChars() {
-    const grid = document.getElementById('hubCharactersGrid');
-    let list = allChars;
-    if (currentFilter === 'hero') list = allChars.filter(c => !c.is_npc);
-    if (currentFilter === 'npc') list = allChars.filter(c => c.is_npc);
-
-    document.getElementById('hubCharsCount').textContent = allChars.length;
-    if (!list.length) {
-      grid.innerHTML = '<div class="col-span-full text-center py-6 text-stone-500 font-serif">Персонажи не найдены.</div>';
-      return;
+        if (uRes.ok) {
+          const u = await uRes.json();
+          document.getElementById('hubUsername').textContent = u.username;
+        }
+        if (charsRes.ok) {
+          allChars = await charsRes.json();
+          renderChars();
+        }
+        if (rRes.ok) {
+          const rData = await rRes.json();
+          const customR = Array.isArray(rData) ? rData.filter(r => r.is_custom) : [];
+          document.getElementById('userRacesCount').textContent = customR.length;
+        }
+      } catch(e) { console.error(e); }
     }
 
-    grid.innerHTML = list.map(c => {
+    function getRaceEmoji(race) {
+      if (!race) return '👤';
+      const r = race.toLowerCase();
+      if (r.includes('эльф')) return '🧝';
+      if (r.includes('дварф') || r.includes('гном')) return '🛡️';
+      if (r.includes('кицунэ') || r.includes('лис')) return '🦊';
+      if (r.includes('дракон')) return '🐲';
+      if (r.includes('тифлинг') || r.includes('демон')) return '😈';
+      if (r.includes('орк') || r.includes('гоблин')) return '🦾';
+      if (r.includes('волшебник') || r.includes('маг')) return '🧙';
+      if (r.includes('халфлинг') || r.includes('полурослик')) return '🍃';
+      if (r.includes('ящер') || r.includes('lizard')) return '🐊';
+      if (r.includes('чейнджлинг')) return '🎭';
+      return '👤';
+    }
+
+    function filterChars(f) {
+      currentFilter = f;
+      ['all', 'hero', 'npc'].forEach(k => {
+        const b = document.getElementById(`flt_${k}`);
+        if (b) b.className = (k === f) ? "px-2.5 py-1 rounded bg-amber-400 text-stone-950 font-bold" : "px-2.5 py-1 rounded bg-stone-900 text-stone-400 hover:text-stone-200";
+      });
+      renderChars();
+    }
+
+    function renderChars() {
+      const grid = document.getElementById('hubCharactersGrid');
+      let list = allChars;
+      if (currentFilter === 'hero') list = allChars.filter(c => !c.is_npc);
+      if (currentFilter === 'npc') list = allChars.filter(c => c.is_npc);
+
+      document.getElementById('hubCharsCount').textContent = allChars.length;
+      if (!list.length) {
+        grid.innerHTML = '<div class="col-span-full text-center py-6 text-stone-500 font-serif">Персонажи не найдены.</div>';
+        return;
+      }
+
+      grid.innerHTML = list.map(c => {
       const bannerStyle = c.banner_url ? `background-image: url('${c.banner_url}'); background-size: cover; background-position: center;` : '';
       const bannerOverlay = c.banner_url ? '<div class="absolute inset-0 bg-gradient-to-t from-[#0e0907] via-[#0e0907]/60 to-transparent"></div>' : '';
 
-      // Умный выбор аватарки: если есть avatar_url, берем его. Если нет, но есть banner_url — берем его. Иначе — расовый эмодзи.
       const avatarSrc = c.avatar_url && c.avatar_url.trim() ? c.avatar_url : (c.banner_url && c.banner_url.trim() ? c.banner_url : '');
-      const raceEmoji = getRaceEmoji(c.race);
+
+      // --- УЧИТЫВАЕМ МАСКИРОВКУ ЧЕЙНДЖЛИНГА ---
+      let effRace = c.effective_race || c.race;
+      if ((c.race || '').toLowerCase().includes('чейнджлинг')) {
+        let vc = c.visual_custom || {};
+        if (typeof vc === 'string') {
+          try { vc = JSON.parse(vc); } catch(e) {}
+        }
+        if (vc && vc.disguise_active && vc.disguise_race) {
+          effRace = vc.disguise_race;
+        }
+      }
+      const raceEmoji = getRaceEmoji(effRace);
 
       return `
-        <div class="rounded-xl border border-orange-950/80 bg-[#0e0907] overflow-hidden flex flex-col justify-between shadow relative group">
+        <div id="charCard-${c.id}" class="rounded-xl border border-orange-950/80 bg-[#0e0907] overflow-hidden flex flex-col justify-between shadow relative group">
           <!-- БАННЕР-ШАПКА КАРТОЧКИ -->
           <div class="h-20 w-full relative bg-[#1a100a] flex items-end p-2.5" style="${bannerStyle}">
             ${bannerOverlay}
+
+            <!-- КНОПКА УДАЛЕНИЯ -->
+            <button
+              type="button"
+              onclick="deleteHubCharacter(event, ${c.id}, '${c.name.replace(/'/g, "\\'")}', ${c.is_npc ? 'true' : 'false'})"
+              title="Удалить навсегда"
+              class="absolute top-2 right-2 z-20 p-1.5 rounded-lg bg-black/70 hover:bg-rose-950/90 border border-stone-800 hover:border-rose-700 text-stone-400 hover:text-rose-300 transition-all shadow">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+              </svg>
+            </button>
+
             <div class="relative z-10 flex items-center gap-2">
               <div class="w-10 h-10 rounded-lg overflow-hidden border border-amber-500/40 bg-stone-900 shrink-0 shadow flex items-center justify-center">
                 ${avatarSrc ? `<img src="${avatarSrc}" class="w-full h-full object-cover">` : `<span class="text-base">${raceEmoji}</span>`}
@@ -305,7 +407,8 @@
           </div>
 
           <div class="p-4 space-y-2 flex flex-col justify-between">
-            <span class="text-[11px] text-stone-400 font-serif block">${c.race} • ${c.class_name} ${c.level} ур.</span>
+            <!-- ВЫВОДИМ ПУБЛИЧНУЮ РАСУ ВМЕСТО c.race -->
+            <span class="text-[11px] text-stone-400 font-serif block">${effRace} • ${c.class_name} ${c.level} ур.</span>
             <div class="pt-2 border-t border-orange-950/60 flex justify-between items-center">
               <span class="text-foxOrange-400 font-mono text-xs font-bold">${c.hp_current || c.hp_max || 10} HP</span>
               <a href="/characters/${c.id}/sheet" class="px-3 py-1 rounded-lg bg-[#1c130d] border border-orange-900/60 hover:border-amber-400 text-amber-300 text-xs font-serif font-bold">Лист &rarr;</a>
@@ -316,143 +419,182 @@
     }).join('');
   }
 
-  // --- МОДАЛКА ВЫБОРА: ГЕРОЙ VS НИП ---
-  function openCreateHeroChoiceModal() { document.getElementById('heroNpcChoiceModal')?.classList.remove('hidden'); }
-  function closeHeroNpcChoiceModal() { document.getElementById('heroNpcChoiceModal')?.classList.add('hidden'); }
+    // --- МОДАЛКА ВЫБОРА: ГЕРОЙ VS НИП ---
+    function openCreateHeroChoiceModal() { document.getElementById('heroNpcChoiceModal')?.classList.remove('hidden'); }
+    function closeHeroNpcChoiceModal() { document.getElementById('heroNpcChoiceModal')?.classList.add('hidden'); }
 
-  function openDirectNpcModal() {
-    closeHeroNpcChoiceModal();
-    document.getElementById('hubNpcModal')?.classList.remove('hidden');
-  }
-  function closeHubNpcModal() { document.getElementById('hubNpcModal')?.classList.add('hidden'); }
+    function openDirectNpcModal() {
+      closeHeroNpcChoiceModal();
+      document.getElementById('hubNpcModal')?.classList.remove('hidden');
+    }
+    function closeHubNpcModal() { document.getElementById('hubNpcModal')?.classList.add('hidden'); }
 
-  async function submitHubNpc(e) {
-    e.preventDefault();
-    const name = document.getElementById('hNpcName').value.trim();
-    const race = document.getElementById('hNpcRace').value.trim();
-    const cClass = document.getElementById('hNpcClass').value.trim();
-    const hp = parseInt(document.getElementById('hNpcHp').value) || 20;
-    const ac = parseInt(document.getElementById('hNpcAc').value) || 12;
-    const notes = document.getElementById('hNpcNotes').value.trim();
+    async function submitHubNpc(e) {
+      e.preventDefault();
+      const name = document.getElementById('hNpcName').value.trim();
+      const race = document.getElementById('hNpcRace').value.trim();
+      const cClass = document.getElementById('hNpcClass').value.trim();
+      const hp = parseInt(document.getElementById('hNpcHp').value) || 20;
+      const ac = parseInt(document.getElementById('hNpcAc').value) || 12;
+      const notes = document.getElementById('hNpcNotes').value.trim();
 
-    try {
-      const res = await apiFetch('/characters/', {
-        method: 'POST',
-        body: {
-          name, race, class_name: cClass, level: 1, hp_max: hp, hp_current: hp, armor_class: ac,
-          stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-          backstory: notes, is_npc: true, spells: []
+      try {
+        const res = await apiFetch('/characters/', {
+          method: 'POST',
+          body: {
+            name, race, class_name: cClass, level: 1, hp_max: hp, hp_current: hp, armor_class: ac,
+            stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+            backstory: notes, is_npc: true, spells: []
+          }
+        });
+        if (res.ok) {
+          closeHubNpcModal();
+          initHub();
+        } else {
+          const err = await res.json();
+          alert(err.detail || "Ошибка создания НИПа");
         }
-      });
-      if (res.ok) {
-        closeHubNpcModal();
-        initHub();
-      } else {
-        const err = await res.json();
-        alert(err.detail || "Ошибка создания НИПа");
-      }
-    } catch(err) { alert("Сбой соединения: " + err.message); }
-  }
+      } catch(err) { alert("Сбой соединения: " + err.message); }
+    }
 
-  // --- МОДАЛКА БИБЛИОТЕКИ РАС ---
-  function openGlobalRacesModal() {
-    document.getElementById('globalRacesModal')?.classList.remove('hidden');
-    loadHubRaces();
-  }
-  function closeGlobalRacesModal() { document.getElementById('globalRacesModal')?.classList.add('hidden'); }
-
-  async function loadHubRaces() {
-    const cont = document.getElementById('hubRacesContainer');
-    try {
-      const res = await apiFetch('/compendium/races');
-      if (res.ok) {
-        const data = await res.json();
-        const customR = Array.isArray(data) ? data.filter(r => r.is_custom) : [];
-        document.getElementById('userRacesCount').textContent = customR.length;
-        if (!customR.length) {
-          cont.innerHTML = '<div class="text-center py-6 text-stone-500">В вашей библиотеке пока нет авторских рас. Нажмите кнопку ниже, чтобы создать первую!</div>';
-          return;
-        }
-        cont.innerHTML = customR.map(r => `
-          <div class="p-3 rounded-xl border border-orange-950 bg-[#0a0705] flex justify-between items-center text-xs">
-            <div class="space-y-0.5">
-              <strong class="text-amber-200 block text-sm font-serif">${r.name}</strong>
-              <span class="text-stone-400 block">${r.description || ''}</span>
-              ${(r.traits || []).map(t => `<span class="text-amber-400 text-[11px] mr-2">• <b>${t.name}</b></span>`).join('')}
-            </div>
-            <button onclick="deleteHubRace('${r.id}')" class="text-rose-400 hover:text-rose-300 font-bold px-2 py-1 text-xs border border-rose-900/60 rounded bg-black/40">&times; Удалить</button>
-          </div>
-        `).join('');
-      }
-    } catch(e) {}
-  }
-
-  async function deleteHubRace(id) {
-    if (!confirm("Удалить расу из библиотеки?")) return;
-    try {
-      await apiFetch(`/compendium/races/${id}`, { method: 'DELETE' });
+    // --- МОДАЛКА БИБЛИОТЕКИ РАС ---
+    function openGlobalRacesModal() {
+      document.getElementById('globalRacesModal')?.classList.remove('hidden');
       loadHubRaces();
-      initHub();
-    } catch(e) {}
-  }
+    }
+    function closeGlobalRacesModal() { document.getElementById('globalRacesModal')?.classList.add('hidden'); }
 
-  function openCreateGlobalRaceForm() {
-    document.getElementById('hubRaceTraitsContainer').innerHTML = '';
-    addHubRaceTraitRow();
-    document.getElementById('newRaceFormModal')?.classList.remove('hidden');
-  }
-  function closeNewRaceFormModal() { document.getElementById('newRaceFormModal')?.classList.add('hidden'); }
+    async function loadHubRaces() {
+      const cont = document.getElementById('hubRacesContainer');
+      try {
+        const res = await apiFetch('/compendium/races');
+        if (res.ok) {
+          const data = await res.json();
+          const customR = Array.isArray(data) ? data.filter(r => r.is_custom) : [];
+          document.getElementById('userRacesCount').textContent = customR.length;
+          if (!customR.length) {
+            cont.innerHTML = '<div class="text-center py-6 text-stone-500">В вашей библиотеке пока нет авторских рас. Нажмите кнопку ниже, чтобы создать первую!</div>';
+            return;
+          }
+          cont.innerHTML = customR.map(r => `
+            <div class="p-3 rounded-xl border border-orange-950 bg-[#0a0705] flex justify-between items-center text-xs">
+              <div class="space-y-0.5">
+                <strong class="text-amber-200 block text-sm font-serif">${r.name}</strong>
+                <span class="text-stone-400 block">${r.description || ''}</span>
+                ${(r.traits || []).map(t => `<span class="text-amber-400 text-[11px] mr-2">• <b>${t.name}</b></span>`).join('')}
+              </div>
+              <button onclick="deleteHubRace('${r.id}')" class="text-rose-400 hover:text-rose-300 font-bold px-2 py-1 text-xs border border-rose-900/60 rounded bg-black/40">&times; Удалить</button>
+            </div>
+          `).join('');
+        }
+      } catch(e) {}
+    }
 
-  function addHubRaceTraitRow() {
-    const c = document.getElementById('hubRaceTraitsContainer');
-    const row = document.createElement('div');
-    row.className = "flex gap-2 items-center";
-    row.innerHTML = `
-      <input type="text" placeholder="Название черты" class="trait-name w-1/3 bg-[#0a0705] border border-stone-800 rounded p-1 text-amber-200">
-      <input type="text" placeholder="Описание особенности" class="trait-desc w-2/3 bg-[#0a0705] border border-stone-800 rounded p-1 text-stone-200">
-      <button type="button" onclick="this.parentElement.remove()" class="text-rose-400 font-bold px-1">&times;</button>
-    `;
-    c.appendChild(row);
-  }
-
-  async function submitNewHubRace(e) {
-    e.preventDefault();
-    const name = document.getElementById('nhrName').value.trim();
-    const speed = parseInt(document.getElementById('nhrSpeed').value) || 30;
-    const desc = document.getElementById('nhrDesc').value.trim();
-    const dmOnly = document.getElementById('nhrDmOnly')?.checked || false;
-    if (!name) return;
-
-    const bonuses = {};
-    ['str', 'dex', 'con', 'int', 'wis', 'cha'].forEach(k => {
-      const el = document.getElementById(`nhrStat_${k}`);
-      const v = el ? parseInt(el.value) || 0 : 0;
-      if (v !== 0) bonuses[k] = v;
-    });
-
-    const traits = [];
-    document.querySelectorAll('#hubRaceTraitsContainer > div').forEach(r => {
-      const tn = r.querySelector('.trait-name')?.value.trim();
-      const td = r.querySelector('.trait-desc')?.value.trim();
-      if (tn) traits.push({ name: tn, description: td || '' });
-    });
-
-    try {
-      const res = await apiFetch('/compendium/races', {
-        method: 'POST',
-        body: { name, speed, description: desc, traits, ability_bonuses: bonuses, dm_only: dmOnly }
-      });
-      if (res.ok) {
-        closeNewRaceFormModal();
+    async function deleteHubRace(id) {
+      if (!confirm("Удалить расу из библиотеки?")) return;
+      try {
+        await apiFetch(`/compendium/races/${id}`, { method: 'DELETE' });
         loadHubRaces();
         initHub();
-      } else {
-        const err = await res.json();
-        alert(err.detail || "Ошибка сохранения расы");
-      }
-    } catch(err) { alert("Сбой соединения: " + err.message); }
-  }
+      } catch(e) {}
+    }
 
-  document.addEventListener('DOMContentLoaded', initHub);
+    function openCreateGlobalRaceForm() {
+      document.getElementById('hubRaceTraitsContainer').innerHTML = '';
+      addHubRaceTraitRow();
+      document.getElementById('newRaceFormModal')?.classList.remove('hidden');
+    }
+    function closeNewRaceFormModal() { document.getElementById('newRaceFormModal')?.classList.add('hidden'); }
+
+    function addHubRaceTraitRow() {
+      const c = document.getElementById('hubRaceTraitsContainer');
+      const row = document.createElement('div');
+      row.className = "flex gap-2 items-center";
+      row.innerHTML = `
+        <input type="text" placeholder="Название черты" class="trait-name w-1/3 bg-[#0a0705] border border-stone-800 rounded p-1 text-amber-200">
+        <input type="text" placeholder="Описание особенности" class="trait-desc w-2/3 bg-[#0a0705] border border-stone-800 rounded p-1 text-stone-200">
+        <button type="button" onclick="this.parentElement.remove()" class="text-rose-400 font-bold px-1">&times;</button>
+      `;
+      c.appendChild(row);
+    }
+
+    async function submitNewHubRace(e) {
+      e.preventDefault();
+      const name = document.getElementById('nhrName').value.trim();
+      const speed = parseInt(document.getElementById('nhrSpeed').value) || 30;
+      const desc = document.getElementById('nhrDesc').value.trim();
+      const dmOnly = document.getElementById('nhrDmOnly')?.checked || false;
+      if (!name) return;
+
+      const bonuses = {};
+      ['str', 'dex', 'con', 'int', 'wis', 'cha'].forEach(k => {
+        const el = document.getElementById(`nhrStat_${k}`);
+        const v = el ? parseInt(el.value) || 0 : 0;
+        if (v !== 0) bonuses[k] = v;
+      });
+
+      const traits = [];
+      document.querySelectorAll('#hubRaceTraitsContainer > div').forEach(r => {
+        const tn = r.querySelector('.trait-name')?.value.trim();
+        const td = r.querySelector('.trait-desc')?.value.trim();
+        if (tn) traits.push({ name: tn, description: td || '' });
+      });
+
+      try {
+        const res = await apiFetch('/compendium/races', {
+          method: 'POST',
+          body: { name, speed, description: desc, traits, ability_bonuses: bonuses, dm_only: dmOnly }
+        });
+        if (res.ok) {
+          closeNewRaceFormModal();
+          loadHubRaces();
+          initHub();
+        } else {
+          const err = await res.json();
+          alert(err.detail || "Ошибка сохранения расы");
+        }
+      } catch(err) { alert("Сбой соединения: " + err.message); }
+    }
+
+    document.addEventListener('DOMContentLoaded', initHub);
+
+    // --- УДАЛЕНИЕ ПЕРСОНАЖА / НИПА ТОЛЬКО ВЛАДЕЛЬЦЕМ ---
+    async function deleteHubCharacter(event, charId, charName, isNpc) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+
+      const roleName = isNpc ? "НИПа" : "персонажа";
+      const ok = confirm(`Удалить ${roleName} «${charName}»?\nЭто действие необратимо и доступно только владельцу.`);
+      if (!ok) return;
+
+      try {
+        const res = await apiFetch(`/characters/${charId}`, {
+          method: 'DELETE'
+        });
+
+        if (res.ok) {
+          // Убираем из массива и обновляем отображение
+          allChars = allChars.filter(c => c.id !== charId);
+
+          // Плавная анимация исчезновения карточки
+          const card = document.getElementById(`charCard-${charId}`);
+          if (card) {
+            card.style.transition = 'all 0.3s ease-out';
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.9)';
+            setTimeout(() => renderChars(), 300);
+          } else {
+            renderChars();
+          }
+        } else {
+          const err = await res.json().catch(() => ({}));
+          alert(err.detail || "Не удалось удалить персонажа (возможно, вы не являетесь его владельцем).");
+        }
+      } catch (err) {
+        alert("Сетевая ошибка при удалении: " + err.message);
+      }
+    }
 </script>
 {% endblock %}

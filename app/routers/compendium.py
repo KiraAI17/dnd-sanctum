@@ -167,3 +167,27 @@ async def get_compendium_spells():
         return json.loads(f.read_text(encoding="utf-8"))
     except Exception:
         return []
+
+
+@router.get("/blood-curses", summary="Справочник проклятий крови")
+async def get_compendium_blood_curses():
+    f = DATA_DIR / "blood_curses.json"
+    if not f.exists():
+        return []
+    return json.loads(f.read_text(encoding="utf-8"))
+
+
+@router.get("/mutagens", summary="Справочник мутагенов")
+async def get_compendium_mutagens():
+    f = DATA_DIR / "mutagens.json"
+    if not f.exists():
+        return []
+    return json.loads(f.read_text(encoding="utf-8"))
+
+
+@router.get("/maneuvers", summary="Справочник приёмов воина")
+async def get_compendium_maneuvers():
+    f = DATA_DIR / "maneuvers.json"
+    if not f.exists():
+        return []
+    return json.loads(f.read_text(encoding="utf-8"))

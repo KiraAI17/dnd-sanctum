@@ -1,4 +1,4 @@
-#app/models/character
+# app/models/character
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, JSON, String, Table
@@ -144,3 +144,20 @@ class Character(Base):
         secondary=character_modifiers,
         lazy="selectin",
     )
+
+    @property
+    def effective_race(self) -> str:
+        """Возвращает публичную расу с учётом маскировки Чейнджлинга."""
+        if not self.race:
+            return "Неизвестно"
+        if "чейнджлинг" in self.race.lower():
+            custom = self.visual_custom or {}
+            if isinstance(custom, str):
+                import json
+                try:
+                    custom = json.loads(custom)
+                except Exception:
+                    custom = {}
+            if isinstance(custom, dict) and custom.get("disguise_active"):
+                return custom.get("disguise_race") or self.race
+        return self.race

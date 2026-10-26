@@ -287,6 +287,30 @@ async def update_party_member_hp(party_id: int, character_id: int, payload: dict
     return {"status": "ok", "hp_current": char.hp_current, "hp_max": char.hp_max}
 
 
+def get_effective_race(character: Optional[Character]) -> Optional[str]:
+    """Возвращает публичную маску, если персонаж — замаскированный чейнджлинг."""
+    if not character:
+        return None
+
+    # Если в модели Character уже есть свойство effective_race:
+    if hasattr(character, "effective_race"):
+        return character.effective_race
+
+    # Иначе проверяем visual_custom напрямую:
+    race_str = str(character.race or "")
+    if "чейнджлинг" in race_str.lower():
+        vc = character.visual_custom or {}
+        if isinstance(vc, str):
+            try:
+                vc = json.loads(vc)
+            except Exception:
+                vc = {}
+        if isinstance(vc, dict) and vc.get("disguise_active") and vc.get("disguise_race"):
+            return vc["disguise_race"]
+
+    return character.race
+
+
 @router.get("/{party_id}", response_model=PartyDetailResponse, summary="Комната стола")
 async def get_party_detail(party_id: int, db: DbSession, current_user: CurrentUser):
     stmt = (
@@ -330,7 +354,7 @@ async def get_party_detail(party_id: int, db: DbSession, current_user: CurrentUs
             character_hp_current=cur_hp,
             character_hp_max=max_hp,
             character_ac=ac_val or 10,
-            character_race=c.race if c else None,
+            character_race=get_effective_race(c),
             joined_at=m.joined_at,
         ))
 
@@ -689,7 +713,7 @@ async def get_party_npcs(party_id: int, db: DbSession, current_user: CurrentUser
     return [{
         "id": c.id,
         "name": c.name,
-        "race": c.race,
+        "race": get_effective_race(c),
         "class_name": c.class_name,
         "level": c.level,
         "hp_current": getattr(c, "hp_current", 10),

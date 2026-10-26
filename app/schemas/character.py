@@ -117,6 +117,7 @@ class CharacterCreate(BaseModel):
                 raise ValueError(f"Stat '{stat}' must be between 1 and 30 (D&D 5e rules)")
         return v
 
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class CharacterShortResponse(BaseModel):
     id: int
@@ -125,7 +126,7 @@ class CharacterShortResponse(BaseModel):
     class_name: str
     level: int
     race: str
-    is_npc: bool = Field(default=False) # <-- Убедитесь, что это поле здесь есть!
+    is_npc: bool = Field(default=False)
     hp_current: int
     hp_max: int
     armor_class: int
@@ -140,6 +141,21 @@ class CharacterShortResponse(BaseModel):
     background: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="after")
+    def mask_changeling_disguise(self) -> "CharacterShortResponse":
+        """Автоматически подменяет race на disguise_race, если маскировка активна."""
+        if "чейнджлинг" in (self.race or "").lower():
+            vc = self.visual_custom or {}
+            if isinstance(vc, str):
+                import json
+                try:
+                    vc = json.loads(vc)
+                except Exception:
+                    vc = {}
+            if isinstance(vc, dict) and vc.get("disguise_active") and vc.get("disguise_race"):
+                self.race = vc["disguise_race"]
+        return self
 
 
 class CharacterDetailResponse(CharacterShortResponse):

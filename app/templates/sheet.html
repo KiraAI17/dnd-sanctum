@@ -81,6 +81,11 @@
                                         class="text-amber-400 hover:text-amber-200 text-xs px-1.5 py-0.5 rounded bg-black/40 border border-orange-950/60"
                                         title="Настройки">⚙️
                                 </button>
+                                <button type="button" id="btnChangelingMask" onclick="window.openDisguiseModal()"
+                                        class="hidden text-amber-300 hover:text-amber-100 text-xs px-2 py-0.5 rounded bg-black/50 border border-purple-500/60 shadow"
+                                        title="Перевёртыш: принять облик любой расы или сбросить маску">
+                                    🎭 Сменить облик
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -91,10 +96,13 @@
                             <span class="text-[9px] uppercase tracking-widest text-stone-400">КД (AC)</span>
                             <span id="statAc" class="text-lg sm:text-xl font-black dynamic-accent">10</span>
                         </div>
-                        <div class="bg-[#0e0907]/90 dynamic-border border rounded-xl p-2.5 flex flex-col items-center justify-center cursor-pointer hover:border-amber-400 transition-colors"
-                             onclick="rollInit()">
-                            <span class="text-[9px] uppercase tracking-widest text-stone-400">Иниц.</span>
-                            <span id="statInit" class="text-lg sm:text-xl font-black dynamic-accent">+0</span>
+                        <!-- Плашка Инициативы (адаптивная, не вылезает за рамки) -->
+                        <div class="bg-[#0e0907]/90 dynamic-border border rounded-xl p-2 sm:p-2.5 flex flex-col items-center justify-center cursor-pointer hover:border-amber-400/60 transition-all group overflow-hidden"
+                             onclick="window.rollInitiative()"
+                             title="Нажмите, чтобы бросить инициативу в бой">
+                            <span class="text-[8px] sm:text-[9px] uppercase tracking-tighter sm:tracking-widest text-stone-400 font-serif block group-hover:text-amber-300 truncate w-full text-center">Инициатива</span>
+                            <strong id="statInitiative"
+                                    class="text-lg sm:text-xl font-black font-mono text-amber-300 leading-tight">+0</strong>
                         </div>
                         <div class="bg-[#0e0907]/90 dynamic-border border rounded-xl p-2.5 flex flex-col items-center justify-center">
                             <span class="text-[9px] uppercase tracking-widest text-stone-400">Скорость</span>
@@ -174,10 +182,26 @@
                 🩸 Магия Крови
             </button>
 
+            <!-- Вкладка Воина и альт версии (только для воина и альт. версии) -->
+            <button type="button" id="tabBtnFighterManeuvers" onclick="window.switchSheetTab('FighterManeuvers')"
+                    class="pb-2 px-1 text-xs font-bold border-b-2 border-transparent text-stone-400 hover:text-amber-200 whitespace-nowrap border-b-2 border-transparent">
+                ⚔️ Приёмы воина
+            </button>
+
+            <button type="button" id="tabBtnRogue" onclick="window.switchSheetTab('Rogue')"
+                    class="pb-2 px-1 text-xs font-bold border-b-2 border-transparent text-stone-400 hover:text-amber-200 whitespace-nowrap border-b-2 border-transparent">
+                <span>🗡️</span> <span>Скрытность и Трюки</span>
+            </button>
+
             <!-- Вкладка Монаха (только для Монаха со 2 уровня) -->
             <button id="tabBtnMonkKi" onclick="switchSheetTab('monkki')"
                     class="hidden py-3 px-4 font-bold text-xs sm:text-sm text-amber-300 hover:text-amber-100 whitespace-nowrap border-b-2 border-transparent">
                 ☯️ Энергия Ци
+            </button>
+
+            <button type="button" id="tabBtnBard" onclick="window.switchSheetTab('Bard')"
+                    class="pb-2 px-1 text-xs font-bold border-b-2 border-transparent text-stone-400 hover:text-amber-200 whitespace-nowrap hidden font-serif">
+                <span>🪕</span> <span>Вдохновение и Музыка</span>
             </button>
 
             <!-- Вкладка магии (только для заклинателей) -->
@@ -311,251 +335,751 @@
             </div>
         </div>
 
-        <!-- 3. СПЕЦИАЛЬНАЯ ВКЛАДКА: МАГИЯ КРОВИ (ГЕМОКРАФТИЯ) -->
-        <div id="tabBloodHunter" class="space-y-6 hidden">
-            <!-- СТАТУС ГЕМОКРАФТИИ -->
-            <div class="fox-card dynamic-card rounded-xl p-5 border border-rose-950/80 bg-[#120808] space-y-4 shadow-xl">
-                <div class="flex flex-wrap justify-between items-center border-b border-rose-950/60 pb-3 gap-2">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xl">🩸</span>
-                        <h3 class="text-base font-bold text-rose-300 font-serif">Инструменты Кровавого Охотника</h3>
-                    </div>
-                    <div class="flex items-center gap-3 font-mono text-xs">
-                        <div class="px-3 py-1 bg-black/60 rounded-lg border border-rose-900 text-rose-200">
-                            Кость гемокрафтии: <strong id="bhDieDisplay"
-                                                       class="text-amber-400 text-sm font-bold">d4</strong>
+        <!-- 3. ПОЛНАЯ ВКЛАДКА: МАГИЯ КРОВИ (ГЕМОКРАФТИЯ КРОВАВОГО ОХОТНИКА) -->
+        <div id="tabBloodHunter" class="space-y-6 hidden font-serif">
+            <!-- ШАПКА РЕСУРСОВ И СТАТИСТИКИ ГЕМОКРАФТА -->
+            <div class="fox-card dynamic-card rounded-2xl p-5 border border-rose-950/80 bg-[#120808] space-y-4 shadow-2xl">
+                <div class="flex flex-wrap justify-between items-center border-b border-rose-950/60 pb-3 gap-3">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-2xl animate-pulse">🩸</span>
+                        <div>
+                            <h3 class="text-base font-bold text-rose-200 tracking-wide">Гемокрафтия и Темные
+                                Искусства</h3>
+                            <span class="text-[10px] text-stone-400 block font-mono">Классовые ресурсы и ритуалы Кровавого Охотника</span>
                         </div>
-                        <div class="px-3 py-1 bg-black/60 rounded-lg border border-rose-900 text-rose-200">
-                            Сл магии крови: <strong id="bhSaveDcDisplay"
-                                                    class="text-amber-400 text-sm font-bold">13</strong>
+                    </div>
+
+                    <!-- Ключевые показатели гемокрафта -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-center text-xs w-full sm:w-auto">
+                        <div class="p-2 bg-black/60 rounded-xl border border-rose-950/80">
+                            <span class="text-[9px] uppercase tracking-widest text-stone-400 block font-serif">Кость гемокрафта</span>
+                            <strong id="bhDieDisplay" class="text-amber-400 text-sm font-bold">1d4</strong>
+                        </div>
+
+                        <div class="p-2 bg-black/60 rounded-xl border border-rose-950/80">
+                            <span class="text-[9px] uppercase tracking-widest text-stone-400 block font-serif">Мод. Гемокрафта</span>
+                            <div class="flex items-center justify-center gap-1">
+                                <strong id="bhHemocraftModDisplay" class="text-rose-300 text-sm font-bold">+3</strong>
+                                <select id="bhAbilitySelect"
+                                        onchange="window.bloodHunter.changeHemocraftAbility(this.value)"
+                                        class="bg-[#1a0c0c] border border-rose-900/60 rounded text-[10px] text-stone-300 px-1 py-0.5"
+                                        title="Ключевая характеристика гемокрафта">
+                                    <option value="int">INT</option>
+                                    <option value="wis">WIS</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="p-2 bg-black/60 rounded-xl border border-rose-950/80">
+                            <span class="text-[9px] uppercase tracking-widest text-stone-400 block font-serif">Сл магии крови</span>
+                            <strong id="bhSaveDcDisplay" class="text-amber-300 text-sm font-bold">13</strong>
+                        </div>
+
+                        <div class="p-2 bg-black/60 rounded-xl border border-rose-950/80">
+                            <div class="flex justify-between items-center mb-0.5">
+                                <span class="text-[9px] uppercase tracking-widest text-stone-400 font-serif">Проклятия</span>
+                                <button type="button" onclick="window.bloodHunter.restoreBloodCurses()"
+                                        class="text-[9px] text-amber-400 hover:underline">Отдых
+                                </button>
+                            </div>
+                            <strong id="bhCursesTracker" class="text-emerald-400 text-sm font-bold">1 / 1</strong>
                         </div>
                     </div>
                 </div>
 
-                <!-- 1. БАГРОВЫЙ КОДЕКС -->
+                <!-- СПЕЦИАЛЬНЫЙ БЛОК: ГИБРИДНАЯ ТРАНСФОРМАЦИЯ ЛИКАНТРОПА (ТОЛЬКО ДЛЯ ОРДЕНА ЛИКАНТРОПОВ 3+ УР) -->
+                <div id="bhLycanPanel"
+                     class="hidden p-4 rounded-xl bg-gradient-to-r from-stone-950 via-[#180a0a] to-stone-950 border border-amber-500/40 space-y-3">
+                    <div class="flex flex-wrap justify-between items-center gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xl">🐺</span>
+                            <div>
+                                <strong class="text-amber-200 text-sm block">Гибридная трансформация (Звериная
+                                    форма)</strong>
+                                <span class="text-[10px] text-stone-400">Превращение бонусным действием на 1 час (1/отдых, с 11 ур. 2/отдых, с 18 ур. неограниченно)</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="btnToggleLycanForm" onclick="window.bloodHunter.toggleLycanForm()"
+                                    class="px-4 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-foxOrange-600 hover:brightness-110 text-stone-950 font-bold text-xs shadow-md active:scale-95 transition-all">
+                                🐺 Принять форму зверя
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="bhLycanActiveEffects"
+                         class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-[11px] pt-1">
+                        <div class="p-2 rounded bg-black/50 border border-amber-950/80">
+                            <strong class="text-amber-300 block">🛡️ Крепкая шкура:</strong>
+                            <span class="text-stone-300">+1 к КД, сопротивление дробящему, колющему и рубящему немагическому урону.</span>
+                        </div>
+                        <div class="p-2 rounded bg-black/50 border border-amber-950/80">
+                            <strong class="text-amber-300 block">🐾 Удары хищника:</strong>
+                            <span class="text-stone-300">Когти наносят 1к6 (1к8 с 11 ур.) рубящего урона (СИЛ/ЛОВ). Доп. удар когтями бонусным действием.</span>
+                        </div>
+                        <div class="p-2 rounded bg-black/50 border border-amber-950/80">
+                            <strong class="text-amber-300 block">🦾 Дикая мощь:</strong>
+                            <span class="text-stone-300">Преимущество на проверки/спасброски Силы; +1 к урону в рукопашной (+2 на 11 ур, +3 на 18 ур).</span>
+                        </div>
+                        <div class="p-2 rounded bg-black/50 border border-rose-950/80">
+                            <strong class="text-rose-400 block">🩸 Жажда крови:</strong>
+                            <span class="text-stone-300">Если HP < половины, в начале хода спасбросок Мудрости (Сл 8), иначе атака ближайшего существа.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- РИТУАЛЫ И БАГРОВЫЙ КОДЕКС (CRIMSON RITE) -->
                 <div class="p-4 rounded-xl bg-black/40 border border-rose-950 space-y-3">
-                    <div class="flex justify-between items-center">
-                        <strong class="text-amber-200 text-sm font-serif flex items-center gap-1.5">
-                            <span>🔥</span> <span>Багровый кодекс (Crimson Rite)</span>
+                    <div class="flex flex-wrap justify-between items-center gap-2">
+                        <strong class="text-amber-200 text-sm flex items-center gap-1.5">
+                            <span>🔥</span> <span>Багровый кодекс (Алый обряд / Crimson Rite)</span>
                         </strong>
                         <span id="bhActiveRiteBadge"
                               class="text-[10px] font-mono px-2 py-0.5 rounded bg-stone-900 text-stone-500 border border-stone-800">Ритуал не активен</span>
                     </div>
-                    <p class="text-xs text-stone-300 font-serif leading-relaxed">
-                        Пожертвуйте здоровье в размере броска вашей кости гемокрафтии, чтобы напитать оружие стихийным
-                        уроном (+1 кость урона при каждом попадании).
+                    <p class="text-xs text-stone-300 leading-relaxed">
+                        Пожертвуйте здоровье в размере броска вашей кости гемокрафта, чтобы напитать оружие (или когти)
+                        стихией. Оружие считается магическим и наносит дополнительную кость гемокрафта стихийного урона
+                        при каждом попадании до окончания отдыха.
                     </p>
 
                     <div class="flex flex-wrap items-center gap-2 pt-1">
                         <select id="bhRiteTypeSelect"
-                                class="bg-[#180a0a] border border-rose-900 rounded-lg p-2 text-xs text-amber-200 font-serif">
-                            <option value="Пламя (Огонь)">🔥 Пламя (Урон огнём)</option>
-                            <option value="Заморозка (Холод)">❄️ Заморозка (Урон холодом)</option>
-                            <option value="Гроза (Молния)">⚡ Гроза (Урон молнией)</option>
-                            <option value="Эфир (Излучение)" id="bhRiteDawnOpt" class="hidden">✨ Эфир (Излучение — Орден
-                                Призрачного клинка)
+                                class="bg-[#180a0a] border border-rose-900 rounded-lg p-2 text-xs text-amber-200">
+                            <option value="Пламя (Огонь)">🔥 Обряд пламени (Урон огнём)</option>
+                            <option value="Мороз (Холод)">❄️ Обряд мороза (Урон холодом)</option>
+                            <option value="Буря (Электричество)">⚡ Обряд бури (Урон молнией)</option>
+                            <option value="Рассвет (Излучение)" id="bhRiteDawnOpt" class="hidden">✨ Обряд рассвета
+                                (Излучение — Орден Призрачных убийц)
+                            </option>
+                            <!-- Эзотерические обряды с 14 ур -->
+                            <option value="Мёртвые (Некротический)" id="bhRiteDeadOpt" class="hidden">💀 Обряд мёртвых
+                                (Некротический урон — 14 ур.)
+                            </option>
+                            <option value="Провидец (Психический)" id="bhRiteOracleOpt" class="hidden">👁️ Обряд провидца
+                                (Психический урон — 14 ур.)
+                            </option>
+                            <option value="Рёв (Звук)" id="bhRiteRoarOpt" class="hidden">🔊 Обряд рёва (Звуковой урон —
+                                14 ур.)
                             </option>
                         </select>
-                        <button type="button" onclick="activateCrimsonRite()"
+
+                        <button type="button" onclick="window.bloodHunter.activateCrimsonRite()"
                                 class="px-3.5 py-2 rounded-lg bg-gradient-to-r from-rose-700 to-rose-950 text-amber-100 font-bold hover:brightness-110 active:scale-95 transition-all text-xs flex items-center gap-1.5 shadow">
-                            <span>🩸</span> <span>Активировать (бросок кости в урон HP)</span>
+                            <span>🩸</span> <span>Активировать (жертва 1 кости HP)</span>
                         </button>
-                        <button type="button" onclick="deactivateCrimsonRite()"
+                        <button type="button" onclick="window.bloodHunter.deactivateCrimsonRite()"
                                 class="px-2.5 py-2 rounded-lg bg-stone-900 text-stone-400 hover:text-stone-200 text-xs">
-                            Снять ритуал
+                            Снять обряд
                         </button>
                     </div>
                 </div>
 
-                <!-- 2. ПРОКЛЯТИЯ КРОВИ -->
-                <div class="p-4 rounded-xl bg-black/40 border border-rose-950 space-y-3">
+                <!-- КЛЕЙМО НАКАЗАНИЯ (BRAND OF CASTIGATION - 6+ УРОВЕНЬ) -->
+                <div id="bhBrandSection"
+                     class="hidden p-4 rounded-xl bg-black/40 border border-purple-950/80 space-y-2 text-xs">
                     <div class="flex justify-between items-center">
-                        <strong class="text-amber-200 text-sm font-serif flex items-center gap-1.5">
-                            <span>👁️</span> <span>Проклятия крови (Blood Maledict)</span>
+                        <strong class="text-purple-300 text-sm flex items-center gap-1.5">
+                            <span>⚡</span> <span>Клеймо наказания (Brand of Castigation — 6+ ур.)</span>
                         </strong>
-                        <div class="flex items-center gap-2 font-mono text-xs">
-                            <span class="text-stone-400">Использования:</span>
-                            <span id="bhCursesTracker" class="text-amber-300 font-bold">1 / 1</span>
-                            <button onclick="restoreBloodCurses()"
-                                    class="px-2 py-0.5 rounded bg-stone-900 border border-stone-800 text-stone-300 text-[10px] hover:text-amber-300">
-                                Сброс
+                        <span id="bhBrandStatusBadge"
+                              class="text-[10px] font-mono px-2 py-0.5 rounded bg-stone-900 text-stone-500 border border-stone-800">Клеймо свободно</span>
+                    </div>
+                    <p class="text-stone-300 leading-relaxed">
+                        Наносится при ударе Алым обрядом (1 раз за отдых). Вы чувствуете точное направление к врагу.
+                        Когда цель наносит урон вам или существу в 5 футах от вас, она получает <strong
+                            id="bhBrandDmgDisplay" class="text-amber-300 font-mono">3</strong> урона психической
+                        энергией (с 13 ур. удваивается и запрещает Рывок/телепортацию).
+                    </p>
+                    <div class="flex gap-2 items-center pt-1">
+                        <input type="text" id="bhBrandTargetInput" placeholder="Имя заклеймённого врага..."
+                               class="bg-[#180a0a] border border-purple-900 rounded p-1.5 text-xs text-stone-100 flex-1 max-w-xs">
+                        <button type="button" onclick="window.bloodHunter.applyBrand()"
+                                class="px-3 py-1.5 rounded bg-purple-950 border border-purple-700 text-purple-200 font-bold hover:bg-purple-900">
+                            Наложить клеймо
+                        </button>
+                        <button type="button" onclick="window.bloodHunter.clearBrand()"
+                                class="px-2 py-1.5 rounded bg-stone-900 text-stone-400 hover:text-stone-200">Снять
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ПАССИВНЫЕ ЧУТЬЯ И ПСИХОМЕТРИЯ -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <!-- Охотничья погибель (1 ур) -->
+                    <div class="p-3.5 rounded-xl bg-black/40 border border-rose-950 space-y-1.5">
+                        <strong class="text-amber-300 block">🏹 Охотничья погибель (1 ур.)</strong>
+                        <p class="text-stone-300 text-[11px] leading-relaxed">Преимущество на выслеживание (Выживание) и
+                            воспоминания (История/Магия) о Феях, Исчадиях и Нежити.</p>
+                        <div class="flex gap-1.5 pt-1">
+                            <button type="button" onclick="window.bloodHunter.rollHuntersBane('track')"
+                                    class="px-2.5 py-1 rounded bg-[#180a0a] border border-orange-900 text-amber-200 text-[10px] hover:border-amber-400">
+                                🐾 Выслеживание (Выживание)
+                            </button>
+                            <button type="button" onclick="window.bloodHunter.rollHuntersBane('recall')"
+                                    class="px-2.5 py-1 rounded bg-[#180a0a] border border-orange-900 text-amber-200 text-[10px] hover:border-amber-400">
+                                📜 Знания (История)
                             </button>
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
-                        <div class="p-3 rounded-lg bg-[#180a0a] border border-rose-950 space-y-1.5">
-                            <div class="flex justify-between items-start">
-                                <strong class="text-rose-200 font-serif">Проклятие меченого</strong>
-                                <span class="text-[9px] font-mono text-stone-400">Бонусное</span>
-                            </div>
-                            <p class="text-[11px] text-stone-300 font-serif">Удваивает кости урона Багрового кодекса по
-                                проклятому врагу.</p>
-                            <div class="flex gap-1.5 pt-1">
-                                <button onclick="useBloodCurse('Проклятие меченого', false)"
-                                        class="px-2 py-1 rounded bg-stone-900 border border-rose-900 text-rose-300 text-[10px] hover:bg-rose-950">
-                                    Применить
-                                </button>
-                                <button onclick="useBloodCurse('Проклятие меченого', true)"
-                                        class="px-2 py-1 rounded bg-rose-900 text-amber-100 text-[10px] font-bold hover:brightness-110">
-                                    🩸 Усилить (урон HP)
-                                </button>
-                            </div>
-                        </div>
+                    <!-- Мрачная психометрия (9 ур) -->
+                    <div id="bhPsychometryCard"
+                         class="hidden p-3.5 rounded-xl bg-black/40 border border-rose-950 space-y-1.5">
+                        <strong class="text-amber-300 block">🔮 Мрачная психометрия (9 ур.)</strong>
+                        <p class="text-stone-300 text-[11px] leading-relaxed">Преимущество на проверки Истории при
+                            считывании тёмного прошлого предметов и мест погребений.</p>
+                        <button type="button" onclick="window.bloodHunter.rollPsychometry()"
+                                class="px-2.5 py-1 rounded bg-[#180a0a] border border-orange-900 text-amber-200 text-[10px] hover:border-amber-400">
+                            👁️ Считать прошлое (История с преимуществом)
+                        </button>
+                    </div>
+                </div>
 
-                        <div class="p-3 rounded-lg bg-[#180a0a] border border-rose-950 space-y-1.5">
-                            <div class="flex justify-between items-start">
-                                <strong class="text-rose-200 font-serif">Проклятие скованного</strong>
-                                <span class="text-[9px] font-mono text-stone-400">Бонусное</span>
-                            </div>
-                            <p class="text-[11px] text-stone-300 font-serif">Скорость врага падает до 0, а при усилении
-                                цель не может совершать реакции.</p>
-                            <div class="flex gap-1.5 pt-1">
-                                <button onclick="useBloodCurse('Проклятие скованного', false)"
-                                        class="px-2 py-1 rounded bg-stone-900 border border-rose-900 text-rose-300 text-[10px] hover:bg-rose-950">
-                                    Применить
-                                </button>
-                                <button onclick="useBloodCurse('Проклятие скованного', true)"
-                                        class="px-2 py-1 rounded bg-rose-900 text-amber-100 text-[10px] font-bold hover:brightness-110">
-                                    🩸 Усилить (урон HP)
-                                </button>
-                            </div>
-                        </div>
+                <!-- ПРОКЛЯТИЯ КРОВИ (BLOOD MALEDICT) -->
+                <div class="p-4 rounded-xl bg-black/40 border border-rose-950 space-y-3">
+                    <div class="flex justify-between items-center border-b border-rose-950/60 pb-2">
+                        <strong class="text-amber-200 text-sm flex items-center gap-1.5">
+                            <span>👁️</span> <span>Известные Проклятия Крови (Blood Maledict)</span>
+                        </strong>
+                        <span class="text-[10px] text-stone-400 font-mono">Жертвуйте кость HP для усиления</span>
+                    </div>
 
-                        <div class="p-3 rounded-lg bg-[#180a0a] border border-rose-950 space-y-1.5">
-                            <div class="flex justify-between items-start">
-                                <strong class="text-rose-200 font-serif">Проклятие взаимного страдания</strong>
-                                <span class="text-[9px] font-mono text-stone-400">Реакция</span>
-                            </div>
-                            <p class="text-[11px] text-stone-300 font-serif">Когда враг наносит вам урон, он сам
-                                получает урон костью гемокрафтии (при усилении — психической энергией).</p>
-                            <div class="flex gap-1.5 pt-1">
-                                <button onclick="useBloodCurse('Проклятие взаимного страдания', false)"
-                                        class="px-2 py-1 rounded bg-stone-900 border border-rose-900 text-rose-300 text-[10px] hover:bg-rose-950">
-                                    Применить
-                                </button>
-                                <button onclick="useBloodCurse('Проклятие взаимного страдания', true)"
-                                        class="px-2 py-1 rounded bg-rose-900 text-amber-100 text-[10px] font-bold hover:brightness-110">
-                                    🩸 Усилить (урон HP)
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="p-3 rounded-lg bg-[#180a0a] border border-rose-950 space-y-1.5">
-                            <div class="flex justify-between items-start">
-                                <strong class="text-rose-200 font-serif">Проклятие павшего чудовища</strong>
-                                <span class="text-[9px] font-mono text-stone-400">Реакция</span>
-                            </div>
-                            <p class="text-[11px] text-stone-300 font-serif">Когда существо рядом падает до 0 HP,
-                                заставьте его труп немедленно совершить одну атаку по вашему выбору.</p>
-                            <div class="flex gap-1.5 pt-1">
-                                <button onclick="useBloodCurse('Проклятие павшего чудовища', false)"
-                                        class="px-2 py-1 rounded bg-stone-900 border border-rose-900 text-rose-300 text-[10px] hover:bg-rose-950">
-                                    Применить
-                                </button>
-                                <button onclick="useBloodCurse('Проклятие павшего чудовища', true)"
-                                        class="px-2 py-1 rounded bg-rose-900 text-amber-100 text-[10px] font-bold hover:brightness-110">
-                                    🩸 Усилить (урон HP)
-                                </button>
-                            </div>
-                        </div>
+                    <div id="bhKnownCursesList" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 text-xs">
+                        <!-- Список генерируется динамически из базы blood_curses.json или дефолтных -->
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- СПЕЦИАЛЬНАЯ ВКЛАДКА: ЭНЕРГИЯ ЦИ (МОНАХ) -->
-        <div id="tabMonkKi" class="space-y-6 hidden">
-            <div class="fox-card dynamic-card rounded-xl p-5 border border-amber-500/30 bg-[#120d09] space-y-4 shadow-xl">
-                <div class="flex flex-wrap justify-between items-center border-b border-orange-950/60 pb-3 gap-2">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xl">☯️</span>
-                        <h3 class="text-base font-bold text-amber-200 font-serif">Монашеские техники и Энергия Ци</h3>
-                    </div>
-                    <div class="flex items-center gap-3 font-mono text-xs">
-                        <div class="px-3 py-1 bg-black/60 rounded-lg border border-amber-900 text-amber-200">
-                            Сл спасброска Ци: <strong id="kiSaveDcDisplay"
-                                                      class="text-amber-400 text-sm font-bold">13</strong>
+        <!-- 4. ПОЛНАЯ ВКЛАДКА: ЭНЕРГИЯ ЦИ (МОНАХ) -->
+        <div id="tabMonkKi" class="space-y-6 hidden font-serif">
+            <div class="fox-card dynamic-card rounded-2xl p-5 border border-amber-950/80 bg-[#100d08] space-y-4 shadow-2xl">
+                <div class="flex flex-wrap justify-between items-center border-b border-amber-950/60 pb-3 gap-3">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-2xl animate-spin" style="animation-duration: 12s;">☯️</span>
+                        <div>
+                            <h3 class="text-base font-bold text-amber-200 tracking-wide">Мистическая Энергия Ци</h3>
+                            <span class="text-[10px] text-stone-400 block font-mono">Боевые искусства и концентрация духа Монаха</span>
                         </div>
-                        <div class="px-3 py-1 bg-black/60 rounded-lg border border-amber-900 text-amber-200 flex items-center gap-2">
-                            <span>Запас Ци:</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-center text-xs w-full sm:w-auto">
+                        <div class="p-2 bg-black/60 rounded-xl border border-amber-950/80">
+                            <span class="text-[9px] uppercase tracking-widest text-stone-400 block font-serif">Кость искусств</span>
+                            <strong id="monkDieDisplay" class="text-amber-400 text-sm font-bold">1d4</strong>
+                        </div>
+
+                        <div class="p-2 bg-black/60 rounded-xl border border-amber-950/80">
+                            <span class="text-[9px] uppercase tracking-widest text-stone-400 block font-serif">КД без брони</span>
+                            <strong id="monkUnarmoredAcDisplay" class="text-amber-300 text-sm font-bold">15</strong>
+                        </div>
+
+                        <div class="p-2 bg-black/60 rounded-xl border border-amber-950/80">
+                            <span class="text-[9px] uppercase tracking-widest text-stone-400 block font-serif">Сл магии Ци</span>
+                            <strong id="kiSaveDcDisplay" class="text-amber-300 text-sm font-bold">13</strong>
+                        </div>
+
+                        <div class="p-2 bg-black/60 rounded-xl border border-amber-950/80">
+                            <div class="flex justify-between items-center mb-0.5">
+                                <span class="text-[9px] uppercase tracking-widest text-stone-400 font-serif">Очки Ци</span>
+                                <button type="button" onclick="window.monkKi.restoreKiPoints()"
+                                        class="text-[9px] text-amber-400 hover:underline">Отдых
+                                </button>
+                            </div>
                             <strong id="kiPointsDisplay" class="text-emerald-400 text-sm font-bold">2 / 2</strong>
-                            <button onclick="restoreKiPoints()"
-                                    class="px-1.5 py-0.5 rounded bg-amber-950 border border-amber-800 text-[10px] text-amber-300 hover:bg-amber-900 ml-1">
-                                Отдых
+                        </div>
+                    </div>
+                </div>
+
+                <!-- БАЗОВЫЕ ПРИЕМЫ ЦИ (С 2 УРОВНЯ) -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div class="p-3.5 rounded-xl bg-black/40 border border-amber-950/80 flex flex-col justify-between space-y-2">
+                        <div>
+                            <strong class="text-amber-300 text-xs block">🌪️ Шквал ударов (1 Ци)</strong>
+                            <p class="text-stone-300 text-[11px] mt-1 leading-relaxed">Сразу после действия «Атака»
+                                совершите два безоружных удара бонусным действием.</p>
+                        </div>
+                        <button type="button" onclick="window.monkKi.spendKi(1, 'Шквал ударов')"
+                                class="w-full py-1.5 rounded-lg bg-amber-950/80 border border-amber-800 text-amber-200 font-bold hover:bg-amber-900">
+                            Активировать (1 Ци)
+                        </button>
+                    </div>
+
+                    <div class="p-3.5 rounded-xl bg-black/40 border border-amber-950/80 flex flex-col justify-between space-y-2">
+                        <div>
+                            <strong class="text-amber-300 text-xs block">🛡️ Терпеливая оборона (1 Ци)</strong>
+                            <p class="text-stone-300 text-[11px] mt-1 leading-relaxed">Совершите действие «Уклонение»
+                                бонусным действием в свой ход.</p>
+                        </div>
+                        <button type="button" onclick="window.monkKi.spendKi(1, 'Терпеливая оборона')"
+                                class="w-full py-1.5 rounded-lg bg-amber-950/80 border border-amber-800 text-amber-200 font-bold hover:bg-amber-900">
+                            Активировать (1 Ци)
+                        </button>
+                    </div>
+
+                    <div class="p-3.5 rounded-xl bg-black/40 border border-amber-950/80 flex flex-col justify-between space-y-2">
+                        <div>
+                            <strong class="text-amber-300 text-xs block">💨 Поступь ветра (1 Ци)</strong>
+                            <p class="text-stone-300 text-[11px] mt-1 leading-relaxed">Бонусным действием совершите
+                                «Отход» или «Рывок». Дальность прыжков удваивается.</p>
+                        </div>
+                        <button type="button" onclick="window.monkKi.spendKi(1, 'Поступь ветра')"
+                                class="w-full py-1.5 rounded-lg bg-amber-950/80 border border-amber-800 text-amber-200 font-bold hover:bg-amber-900">
+                            Активировать (1 Ци)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ПРОДВИНУТЫЕ ТЕХНИКИ -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <!-- Отражение снарядов (3 ур) -->
+                    <div class="p-3.5 rounded-xl bg-black/40 border border-amber-950/80 space-y-2">
+                        <strong class="text-amber-300 text-xs block">🖐️ Отражение снарядов (3 ур.)</strong>
+                        <p class="text-stone-300 text-[11px] leading-relaxed">Реакцией снизьте урон от стрелы или
+                            снаряда на 1к10 + ЛОВ + Уровень монаха. Если урон 0 — поймайте снаряд и метните обратно за 1
+                            Ци.</p>
+                        <div class="flex gap-2">
+                            <button type="button" onclick="window.monkKi.deflectMissiles()"
+                                    class="flex-1 py-1 rounded bg-[#18110a] border border-amber-900 text-amber-200 text-[11px]">
+                                Бросок снижения урона
+                            </button>
+                            <button type="button" onclick="window.monkKi.spendKi(1, 'Ответный бросок снаряда')"
+                                    class="px-2.5 py-1 rounded bg-amber-950 border border-amber-700 text-amber-300 text-[11px] font-bold">
+                                Метнуть (1 Ци)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Ошеломляющий удар (5 ур) -->
+                    <div id="monkStunStrikeCard"
+                         class="hidden p-3.5 rounded-xl bg-black/40 border border-amber-950/80 space-y-2">
+                        <strong class="text-amber-300 text-xs block">⚡ Ошеломляющий удар (5 ур.)</strong>
+                        <p class="text-stone-300 text-[11px] leading-relaxed">При попадании рукопашной атакой потратьте
+                            1 Ци: цель проходит спасбросок Телосложения или получает ошеломление до конца вашего
+                            следующего хода.</p>
+                        <button type="button" onclick="window.monkKi.spendKi(1, 'Ошеломляющий удар')"
+                                class="w-full py-1 rounded bg-amber-900/80 text-amber-100 font-bold text-[11px]">
+                            Нанести Ошеломляющий удар (1 Ци)
+                        </button>
+                    </div>
+
+                    <!-- Ускоренное исцеление (4 ур, Tasha) -->
+                    <div id="monkQuickHealCard"
+                         class="hidden p-3.5 rounded-xl bg-black/40 border border-amber-950/80 space-y-2">
+                        <strong class="text-amber-300 text-xs block">✨ Ускоренное исцеление (4 ур.)</strong>
+                        <p class="text-stone-300 text-[11px] leading-relaxed">Действием потратьте 2 Ци и восстановите
+                            себе хиты: Кость боевых искусств + Бонус мастерства.</p>
+                        <button type="button" onclick="window.monkKi.quickenedHealing()"
+                                class="w-full py-1 rounded bg-emerald-950 border border-emerald-800 text-emerald-300 font-bold text-[11px]">
+                            Исцелиться (2 Ци)
+                        </button>
+                    </div>
+
+                    <!-- Фокусировка на цели (5 ур, Tasha) -->
+                    <div id="monkFocusedAimCard"
+                         class="hidden p-3.5 rounded-xl bg-black/40 border border-amber-950/80 space-y-2">
+                        <strong class="text-amber-300 text-xs block">🎯 Фокусировка на цели (5 ур.)</strong>
+                        <p class="text-stone-300 text-[11px] leading-relaxed">При промахе атакой потратьте очки Ци для
+                            добавления бонуса (+2 за каждое очко Ци).</p>
+                        <div class="flex gap-1.5">
+                            <button type="button" onclick="window.monkKi.focusedAim(1)"
+                                    class="flex-1 py-1 rounded bg-[#18110a] border border-amber-900 text-amber-200 text-[10px]">
+                                +2 к атаке (1 Ци)
+                            </button>
+                            <button type="button" onclick="window.monkKi.focusedAim(2)"
+                                    class="flex-1 py-1 rounded bg-[#18110a] border border-amber-900 text-amber-200 text-[10px]">
+                                +4 к атаке (2 Ци)
+                            </button>
+                            <button type="button" onclick="window.monkKi.focusedAim(3)"
+                                    class="flex-1 py-1 rounded bg-[#18110a] border border-amber-900 text-amber-200 text-[10px]">
+                                +6 к атаке (3 Ци)
                             </button>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-                    <!-- Шквал ударов -->
-                    <div class="p-3.5 rounded-xl bg-black/40 border border-orange-950 flex flex-col justify-between space-y-2">
+        <!-- 5. ВКЛАДКА: ПРИЁМЫ АЛЬТЕРНАТИВНОГО ВОИНА -->
+        <div id="tabFighterManeuvers" class="space-y-6 hidden font-serif">
+            <div class="fox-card dynamic-card rounded-2xl p-5 border border-amber-950/80 bg-[#120a06] space-y-4 shadow-2xl">
+                <div class="flex flex-wrap justify-between items-center border-b border-orange-950/60 pb-3 gap-3">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-2xl animate-pulse">⚔️</span>
                         <div>
-                            <div class="flex justify-between items-start">
-                                <strong class="text-amber-200 font-serif text-sm">Шквал ударов</strong>
-                                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-800 text-amber-300">1 Ци</span>
-                            </div>
-                            <p class="text-stone-300 text-[11px] font-serif mt-1">Сразу после совершения действия Атака
-                                вы совершаете две безоружные атаки бонусным действием.</p>
+                            <h3 class="text-base font-bold text-amber-200 tracking-wide">Тактическое мастерство и
+                                Приёмы</h3>
+                            <span class="text-[10px] text-stone-400 block font-mono">Боевые стойки, маневры и кубы превосходства Воина</span>
                         </div>
-                        <button onclick="spendKi(1, 'Шквал ударов (2 безоружные атаки)')"
-                                class="w-full py-1.5 rounded-lg bg-amber-400 text-stone-950 font-bold hover:brightness-110 active:scale-95 transition-all">
-                            Применить (1 Ци)
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono text-center text-xs w-full sm:w-auto">
+                        <div class="p-2 bg-black/60 rounded-xl border border-orange-950/80">
+                            <span class="text-[9px] uppercase tracking-widest text-stone-400 block font-serif">Куб превосходства</span>
+                            <strong id="ftrDieDisplay" class="text-amber-400 text-sm font-bold">1d6</strong>
+                        </div>
+
+                        <div class="p-2 bg-black/60 rounded-xl border border-orange-950/80">
+                            <span class="text-[9px] uppercase tracking-widest text-stone-400 block font-serif">Сл спасброска</span>
+                            <div class="flex items-center justify-center gap-1">
+                                <strong id="ftrSaveDcDisplay" class="text-amber-300 text-sm font-bold">13</strong>
+                                <select id="ftrAbilitySelect" onchange="window.fighterApp.setPrimaryAbility(this.value)"
+                                        class="bg-[#180e09] border border-orange-900 rounded text-[10px] text-stone-300 px-1 py-0.5">
+                                    <option value="str">STR</option>
+                                    <option value="dex">DEX</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="p-2 bg-black/60 rounded-xl border border-orange-950/80">
+                            <div class="flex justify-between items-center mb-0.5">
+                                <span class="text-[9px] uppercase tracking-widest text-stone-400 font-serif">Пул костей</span>
+                                <button type="button" onclick="window.fighterApp.restoreDice()"
+                                        class="text-[9px] text-amber-400 hover:underline">Отдых
+                                </button>
+                            </div>
+                            <strong id="ftrDicePoolDisplay" class="text-emerald-400 text-sm font-bold">2 / 2</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- КЛАВИШИ БАЗОВЫХ ВОИНСКИХ ФИЧ -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <!-- Второе дыхание -->
+                    <div id="ftrSecondWindCard"
+                         class="p-3.5 rounded-xl bg-black/40 border border-orange-950 space-y-2 flex flex-col justify-between">
+                        <div>
+                            <strong class="text-amber-300 text-xs block">💨 Второе дыхание (1 ур.)</strong>
+                            <p class="text-stone-300 text-[11px] mt-1 leading-relaxed">Бонусным действием восстановите
+                                хиты (1 раз за короткий или продолжительный отдых).</p>
+                        </div>
+                        <button type="button" id="btnFtrSecondWind" onclick="window.fighterApp.useSecondWind()"
+                                class="w-full py-1.5 rounded-lg bg-emerald-950 border border-emerald-800 text-emerald-300 font-bold hover:bg-emerald-900">
+                            Исцелиться (1d10 + ур.)
                         </button>
                     </div>
 
-                    <!-- Терпеливая оборона -->
-                    <div class="p-3.5 rounded-xl bg-black/40 border border-orange-950 flex flex-col justify-between space-y-2">
+                    <!-- Намётанный глаз (3 ур) -->
+                    <div id="ftrStudiedEyeCard"
+                         class="hidden p-3.5 rounded-xl bg-black/40 border border-orange-950 space-y-2 flex flex-col justify-between">
                         <div>
-                            <div class="flex justify-between items-start">
-                                <strong class="text-amber-200 font-serif text-sm">Терпеливая оборона</strong>
-                                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-800 text-amber-300">1 Ци</span>
-                            </div>
-                            <p class="text-stone-300 text-[11px] font-serif mt-1">Бонусным действием вы принимаете
-                                действие Уклонение (помеха врагам на атаки по вам).</p>
+                            <strong class="text-amber-300 text-xs block">👁️ Намётанный глаз (3 ур.)</strong>
+                            <p class="text-stone-300 text-[11px] mt-1 leading-relaxed">Бонусным действием просканируйте
+                                врага, чтобы узнать его КД, чувства, резисты или характеристики.</p>
                         </div>
-                        <button onclick="spendKi(1, 'Терпеливая оборона (Уклонение)')"
-                                class="w-full py-1.5 rounded-lg bg-amber-400 text-stone-950 font-bold hover:brightness-110 active:scale-95 transition-all">
-                            Применить (1 Ци)
+                        <button type="button" onclick="window.fighterApp.rollStudiedEye()"
+                                class="w-full py-1.5 rounded-lg bg-[#1a0e08] border border-orange-900 text-amber-200 hover:border-amber-400">
+                            Проверка анализа цели
                         </button>
                     </div>
 
-                    <!-- Поступь ветра -->
-                    <div class="p-3.5 rounded-xl bg-black/40 border border-orange-950 flex flex-col justify-between space-y-2">
+                    <!-- Всплеск действий (2 ур) -->
+                    <div class="p-3.5 rounded-xl bg-black/40 border border-orange-950 space-y-2 flex flex-col justify-between">
                         <div>
-                            <div class="flex justify-between items-start">
-                                <strong class="text-amber-200 font-serif text-sm">Поступь ветра</strong>
-                                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-800 text-amber-300">1 Ци</span>
-                            </div>
-                            <p class="text-stone-300 text-[11px] font-serif mt-1">Бонусным действием совершите Отход или
-                                Рывок. Дальность ваших прыжков удваивается.</p>
+                            <strong class="text-amber-300 text-xs block">⚡ Всплеск действий (2 ур.)</strong>
+                            <p class="text-stone-300 text-[11px] mt-1 leading-relaxed">Совершите одно дополнительное
+                                действие в свой ход (1 раз за отдых).</p>
                         </div>
-                        <button onclick="spendKi(1, 'Поступь ветра (Рывок/Отход)')"
-                                class="w-full py-1.5 rounded-lg bg-amber-400 text-stone-950 font-bold hover:brightness-110 active:scale-95 transition-all">
-                            Применить (1 Ци)
+                        <button type="button"
+                                onclick="alert('⚡ Всплеск действий активирован! Вы получаете одно дополнительное действие в свой текущий ход.')"
+                                class="w-full py-1.5 rounded-lg bg-amber-950 border border-amber-800 text-amber-200 font-bold hover:bg-amber-900">
+                            Активировать Action Surge
                         </button>
                     </div>
+                </div>
 
-                    <!-- Ошеломляющий удар (с 5 уровня) -->
-                    <div id="monkStunStrikeCard"
-                         class="hidden p-3.5 rounded-xl bg-black/40 border border-orange-950 flex flex-col justify-between space-y-2">
-                        <div>
-                            <div class="flex justify-between items-start">
-                                <strong class="text-amber-200 font-serif text-sm">Ошеломляющий удар</strong>
-                                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-800 text-amber-300">1 Ци • 5 ур.</span>
-                            </div>
-                            <p class="text-stone-300 text-[11px] font-serif mt-1">При попадании цель совершает
-                                спасбросок Телосложения против Сл Ци или становится ошеломлённой.</p>
-                        </div>
-                        <button onclick="spendKi(1, 'Ошеломляющий удар (Спасбросок Телосложения)')"
-                                class="w-full py-1.5 rounded-lg bg-foxOrange-600 text-amber-100 font-bold hover:brightness-110 active:scale-95 transition-all">
-                            Удар Ци (1 Ци)
-                        </button>
+                <!-- ИЗУЧЕННЫЕ ПРИЁМЫ -->
+                <div class="space-y-3 pt-2">
+                    <div class="flex justify-between items-center border-b border-orange-950/60 pb-2">
+                        <strong class="text-amber-200 text-sm flex items-center gap-1.5">
+                            <span>🎯</span> <span>Изученные боевые приёмы и маневры</span>
+                        </strong>
+                        <span class="text-[10px] text-stone-400 font-mono">1 кость на одну атаку или проверку</span>
+                    </div>
+
+                    <div id="ftrKnownManeuversList"
+                         class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                        <!-- Генерируется из FighterController.js -->
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- 6. ПОЛНАЯ ВКЛАДКА: СКРЫТНОСТЬ И ТРЮКИ (ПЛУТ) -->
+        <div id="tabRogue" class="space-y-6 hidden font-serif">
+            <div class="fox-card dynamic-card rounded-2xl p-5 border border-stone-800 bg-[#0c0907] space-y-4 shadow-2xl">
+                <div class="flex flex-wrap justify-between items-center border-b border-stone-800/80 pb-3 gap-3">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-2xl animate-pulse">🗡️</span>
+                        <div>
+                            <h3 class="text-base font-bold text-amber-200 tracking-wide">Плутовские приёмы и
+                                Скрытность</h3>
+                            <span class="text-[10px] text-stone-400 block font-mono">Скрытая атака, уклонения и хитрости Плута</span>
+                        </div>
+                    </div>
+
+                    <!-- Скрытая атака (Sneak Attack) плашка -->
+                    <div class="flex items-center gap-2 bg-black/60 px-3.5 py-2 rounded-xl border border-stone-800">
+                        <div>
+                            <span class="text-[9px] uppercase tracking-widest text-stone-400 block font-serif">Скрытая атака</span>
+                            <strong id="rogueSneakDiceDisplay" class="text-foxOrange-400 font-mono text-base font-bold">1d6</strong>
+                        </div>
+                        <button type="button" onclick="window.rogueApp.rollSneakAttack()"
+                                class="ml-2 px-3 py-1.5 rounded-lg bg-foxOrange-700 hover:bg-foxOrange-600 text-stone-950 font-bold text-xs shadow transition-all">
+                            🎲 Бросок урона
+                        </button>
+                    </div>
+                </div>
+
+                <!-- БЛОК КОМПЕТЕНТНОСТИ (УДВОЕННЫЙ БОНУС) -->
+                <div class="p-3.5 rounded-xl bg-black/40 border border-stone-800/80 space-y-2">
+                    <div class="flex justify-between items-center">
+                <span class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                  <span>⭐</span> <span>Компетентность (Удвоение бонуса мастерства):</span>
+                </span>
+                        <span class="text-[10px] text-stone-400 font-mono">1 ур: 2 владения • 6 ур: +2 владения</span>
+                    </div>
+                    <button type="button" onclick="window.rogueApp.rollThievesTools()"
+                            class="px-3 py-1.5 rounded-lg bg-stone-900 border border-amber-900/60 hover:border-amber-400 text-amber-300 font-bold text-xs flex items-center gap-1.5 shadow">
+                        <span>🗝️</span> <span>Взлом / Ловушки (Воровские инструменты)</span>
+                    </button>
+                    <div id="rogueExpertiseList"></div>
+                </div>
+
+                <!-- ХИТРОЕ ДЕЙСТВИЕ И ТОЧНОЕ ПРИЦЕЛИВАНИЕ -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 text-xs">
+                    <div class="p-3 rounded-xl bg-[#120d09] border border-stone-800 space-y-1">
+                        <strong class="text-amber-200 text-xs block">🏃 Рывок (Cunning Action)</strong>
+                        <p class="text-[11px] text-stone-400">Совершите Рывок бонусным действием, удвоив
+                            перемещение.</p>
+                    </div>
+
+                    <div class="p-3 rounded-xl bg-[#120d09] border border-stone-800 space-y-1">
+                        <strong class="text-amber-200 text-xs block">💨 Отход (Cunning Action)</strong>
+                        <p class="text-[11px] text-stone-400">Бонусным действием выйдите из зоны досягаемости без
+                            провокаций.</p>
+                    </div>
+
+                    <div class="p-3 rounded-xl bg-[#120d09] border border-stone-800 space-y-1">
+                        <strong class="text-amber-200 text-xs block">👁️ Засада (Cunning Action)</strong>
+                        <p class="text-[11px] text-stone-400">Бонусным действием совершите проверку Ловкости
+                            (Скрытность).</p>
+                    </div>
+
+                    <div class="p-3 rounded-xl bg-[#120d09] border border-stone-800 flex flex-col justify-between space-y-1">
+                        <div>
+                            <strong class="text-amber-200 text-xs block">🎯 Точное прицеливание</strong>
+                            <p class="text-[11px] text-stone-400">Преимущество на атаку, если стоите на месте.</p>
+                        </div>
+                        <button type="button" onclick="window.rogueApp.useSteadyAim()"
+                                class="w-full py-1 rounded bg-amber-950/80 border border-amber-800 text-amber-200 text-[11px] font-bold hover:bg-amber-900 mt-1">
+                            Прицелиться (Скорость 0)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- КАРТОЧКИ ЗАЩИТНЫХ УМЕНИЙ (5+ УР) -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div id="rogueUncannyDodgeCard"
+                         class="hidden p-3.5 rounded-xl bg-black/40 border border-stone-800 space-y-1.5">
+                        <strong class="text-amber-300 text-xs block">🛡️ Невероятное уклонение (5 ур.)</strong>
+                        <p class="text-stone-300 text-[11px] leading-relaxed">Реакцией уменьшите урон от видимой
+                            попавшей атаки вдвое.</p>
+                    </div>
+
+                    <div id="rogueEvasionCard"
+                         class="hidden p-3.5 rounded-xl bg-black/40 border border-stone-800 space-y-1.5">
+                        <strong class="text-amber-300 text-xs block">⚡ Увёртливость (7 ур.)</strong>
+                        <p class="text-stone-300 text-[11px] leading-relaxed">Спасбросок Ловкости: 0 урона при успехе,
+                            половина при провале.</p>
+                    </div>
+
+                    <div id="rogueReliableTalentCard"
+                         class="hidden p-3.5 rounded-xl bg-black/40 border border-stone-800 space-y-1.5">
+                        <strong class="text-amber-300 text-xs block">🎲 Надёжный талант (11 ур.)</strong>
+                        <p class="text-stone-300 text-[11px] leading-relaxed">Результат d20 от 1 до 9 считается за 10
+                            для всех проверок с владением.</p>
+                    </div>
+                </div>
+
+                <!-- ПАНЕЛЬ: КЛИНОК ДУШИ (SOULKNIFE) -->
+                <div id="rogueSoulknifePanel"
+                     class="hidden p-4 rounded-xl bg-[#140e16] border border-purple-900/60 space-y-3">
+                    <div class="flex justify-between items-center border-b border-purple-900/50 pb-2">
+                <span class="text-purple-200 font-bold text-xs flex items-center gap-1.5">
+                  <span>🧠</span> <span>Псионическая энергия (Клинок души)</span>
+                </span>
+                        <div class="flex items-center gap-2 font-mono text-xs">
+                            <span id="roguePsiDicePoolDisplay" class="text-purple-300 font-bold">4 / 4 (d6)</span>
+                            <button type="button" onclick="window.rogueApp.restorePsiDice()"
+                                    class="text-purple-400 hover:underline text-[10px]">Отдых
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <button type="button" onclick="window.rogueApp.spendPsiDie('Пси-усиленная сноровка')"
+                                class="py-1.5 px-2 rounded bg-purple-950/80 border border-purple-800 text-purple-200 font-bold hover:bg-purple-900 text-left">
+                            ➕ Пси-сноровка (добавить кость к проверке)
+                        </button>
+                        <button type="button" onclick="window.rogueApp.spendPsiDie('Психическая телепортация')"
+                                class="py-1.5 px-2 rounded bg-purple-950/80 border border-purple-800 text-purple-200 font-bold hover:bg-purple-900 text-left">
+                            🌀 Пси-телепортация (кость × 10 фт)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ПАНЕЛЬ: ФАНТОМ (PHANTOM) -->
+                <div id="roguePhantomPanel"
+                     class="hidden p-4 rounded-xl bg-[#091210] border border-emerald-900/60 space-y-2">
+                    <div class="flex justify-between items-center border-b border-emerald-900/50 pb-1.5">
+                <span class="text-emerald-200 font-bold text-xs flex items-center gap-1.5">
+                  <span>👻</span> <span>Безделушки душ (Фантом)</span>
+                </span>
+                        <span id="rogueSoulTrinketsDisplay"
+                              class="text-emerald-300 font-mono font-bold text-xs">0 / 3</span>
+                    </div>
+                    <p class="text-[11px] text-stone-300">Дают преимущество на спасброски Телосложения и от смерти,
+                        бесплатные «Могильные вопли» и призрачную походку.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ВКЛАДКА БАРДА: ВДОХНОВЕНИЕ И МУЗЫКА -->
+        <div id="tabBard" class="space-y-6 hidden font-serif">
+            <div class="fox-card dynamic-card rounded-2xl p-5 border border-amber-950/80 bg-[#120d09] space-y-4 shadow-2xl">
+                <div class="flex flex-wrap justify-between items-center border-b border-orange-950/60 pb-3 gap-3">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-2xl animate-bounce">🪕</span>
+                        <div>
+                            <h3 class="text-base font-bold text-amber-200 tracking-wide">Вдохновение и Песни Барда</h3>
+                            <span class="text-[10px] text-stone-400 block font-mono">Бонусные кости, Песнь отдыха и магия коллегии</span>
+                        </div>
+                    </div>
+
+                    <!-- Плашка пула вдохновения -->
+                    <div class="flex items-center gap-3 bg-black/60 px-4 py-2 rounded-xl border border-orange-950/80">
+                        <div>
+                            <span class="text-[9px] uppercase tracking-widest text-stone-400 font-serif block">Кость вдохновения</span>
+                            <strong id="bardInspDieDisplay"
+                                    class="text-amber-300 font-mono text-base font-bold">d6</strong>
+                        </div>
+                        <div class="border-l border-stone-800 pl-3">
+                            <div class="flex justify-between items-center gap-2">
+                                <span class="text-[9px] uppercase tracking-widest text-stone-400 font-serif">Запас</span>
+                                <button type="button" onclick="window.bardApp.restoreInspiration()"
+                                        class="text-[9px] text-amber-400 hover:underline">Отдых
+                                </button>
+                            </div>
+                            <strong id="bardInspPoolDisplay" class="text-emerald-400 font-mono text-base font-bold">3 /
+                                3</strong>
+                        </div>
+                        <button type="button" onclick="window.bardApp.spendInspiration('Вдохновение барда')"
+                                class="ml-1 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-foxOrange-600 text-stone-950 font-bold text-xs shadow hover:brightness-110 active:scale-95 transition-all">
+                            ✨ Дать союзнику
+                        </button>
+                    </div>
+                </div>
+
+                <!-- БАЗОВЫЕ УМЕНИЯ: ПЕСНЬ ОТДЫХА, МАСТЕР НА ВСЕ РУКИ, КОНТРОЧАРОВАНИЕ -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div class="p-3.5 rounded-xl bg-black/40 border border-orange-950/80 space-y-1.5">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-amber-300 font-bold">🎭 Мастер на все руки (2 ур.)</span>
+                        </div>
+                        <p class="text-stone-300 text-[11px] leading-relaxed">
+                            Половина бонуса мастерства автоматически включена во все проверки характеристик без владения
+                            и в бросок инициативы!
+                        </p>
+                    </div>
+
+                    <div id="bardSongOfRestCard"
+                         class="hidden p-3.5 rounded-xl bg-black/40 border border-orange-950/80 flex flex-col justify-between space-y-2">
+                        <div>
+                            <strong class="text-amber-300 block">🎵 Песнь отдыха (<span id="bardSongDieDisplay">d6</span>)</strong>
+                            <p class="text-stone-300 text-[11px] mt-1">Дополнительное исцеление союзникам при коротком
+                                отдыхе.</p>
+                        </div>
+                        <button type="button" onclick="window.bardApp.rollSongOfRest()"
+                                class="w-full py-1.5 rounded-lg bg-amber-950/80 border border-amber-800 text-amber-200 font-bold hover:bg-amber-900">
+                            🎲 Бросить исцеление песни
+                        </button>
+                    </div>
+
+                    <div id="bardCountercharmCard"
+                         class="hidden p-3.5 rounded-xl bg-black/40 border border-orange-950/80 space-y-1.5">
+                        <strong class="text-amber-300 block">🛡️ Контрочарование (6 ур.)</strong>
+                        <p class="text-stone-300 text-[11px] leading-relaxed">Действием начните выступление: вы и
+                            союзники в 30 фт получаете преимущество на спасброски от испуга и очарования.</p>
+                    </div>
+                </div>
+
+                <!-- ПАНЕЛЬ: КОЛЛЕГИЯ МЕЧЕЙ (SWORDS) -->
+                <div id="bardSwordsPanel"
+                     class="hidden p-4 rounded-xl bg-[#140e0a] border border-orange-900/60 space-y-3 text-xs">
+                    <div class="flex justify-between items-center border-b border-orange-950 pb-2">
+                        <strong class="text-amber-200 text-sm flex items-center gap-1.5">
+                            <span>⚔️</span> <span>Росчерки клинка (Коллегия Мечей)</span>
+                        </strong>
+                        <span class="text-[10px] text-stone-400 font-mono">+10 фт к скорости при Атаке</span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <button type="button" onclick="window.bardApp.useFlourish('Оборонительный (+КД)')"
+                                class="p-2 rounded bg-stone-900 border border-amber-900/60 hover:border-amber-400 text-left">
+                            <strong class="text-amber-300 block">🛡️ Оборонительный</strong>
+                            <span class="text-[10px] text-stone-400">+кость к урону и к вашему КД на раунд</span>
+                        </button>
+                        <button type="button" onclick="window.bardApp.useFlourish('Режущий (Урон по 2 целям)')"
+                                class="p-2 rounded bg-stone-900 border border-amber-900/60 hover:border-amber-400 text-left">
+                            <strong class="text-amber-300 block">⚔️ Режущий</strong>
+                            <span class="text-[10px] text-stone-400">+кость к урону цели и врагу в 5 фт</span>
+                        </button>
+                        <button type="button" onclick="window.bardApp.useFlourish('Мобильный (Отталкивание)')"
+                                class="p-2 rounded bg-stone-900 border border-amber-900/60 hover:border-amber-400 text-left">
+                            <strong class="text-amber-300 block">💨 Мобильный</strong>
+                            <span class="text-[10px] text-stone-400">Отталкивание на 5+кость фт и шаг вплотную</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ПАНЕЛЬ: КОЛЛЕГИЯ ШЁПОТОВ (WHISPERS) -->
+                <div id="bardWhispersPanel"
+                     class="hidden p-4 rounded-xl bg-[#130a14] border border-purple-900/60 space-y-3 text-xs">
+                    <div class="flex justify-between items-center border-b border-purple-900/40 pb-2">
+                        <strong class="text-purple-200 text-sm flex items-center gap-1.5">
+                            <span>🗡️🧠</span> <span>Психические клинки (Коллегия Шёпотов)</span>
+                        </strong>
+                        <span id="bardWhispersDiceDisplay" class="font-mono text-purple-300 font-bold">2d6</span>
+                    </div>
+                    <p class="text-[11px] text-stone-300">При попадании атакой оружием потратьте 1 вдохновение барда для
+                        нанесения сокрушительного психического урона.</p>
+                    <button type="button" onclick="window.bardApp.usePsychicBlades()"
+                            class="px-4 py-2 rounded-lg bg-purple-950 border border-purple-700 text-purple-200 font-bold hover:bg-purple-900">
+                        ⚡ Нанести урон Психическими клинками
+                    </button>
+                </div>
+
+                <!-- ПАНЕЛЬ: КОЛЛЕГИЯ ДУХОВ (SPIRITS) -->
+                <div id="bardSpiritsPanel"
+                     class="hidden p-4 rounded-xl bg-[#0a1114] border border-teal-900/60 space-y-3 text-xs">
+                    <div class="flex justify-between items-center border-b border-teal-900/40 pb-2">
+                        <strong class="text-teal-200 text-sm flex items-center gap-1.5">
+                            <span>🔮</span> <span>Истории с того света (Коллегия Духов)</span>
+                        </strong>
+                        <button type="button" onclick="window.bardApp.rollSpiritsTable()"
+                                class="px-3 py-1.5 rounded-lg bg-teal-950 border border-teal-700 text-teal-200 font-bold hover:bg-teal-900">
+                            🎲 Призвать духа (Трата 1 вдохновения)
+                        </button>
+                    </div>
+                    <div id="bardActiveSpiritTaleBox"
+                         class="hidden p-3 bg-black/60 rounded-xl border border-teal-800/80 space-y-1">
+                        <strong id="bardSpiritTaleTitle" class="text-teal-300 text-xs block">...</strong>
+                        <p id="bardSpiritTaleDesc" class="text-[11px] text-stone-300 leading-relaxed"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
 
         <!-- 4. ВКЛАДКА: КНИГА ЗАКЛИНАНИЙ С ИНТЕРАКТИВНЫМИ ЯЧЕЙКАМИ -->
         <div id="tabSpells" class="space-y-6 hidden">
@@ -880,6 +1404,28 @@
                 </div>
             </div>
 
+            <!-- ВЫБОР КОМПЕТЕНТНОСТИ НА 6 УРОВНЕ (ПЛУТ) -->
+            <div id="lvlExpertiseBlock"
+                 class="hidden p-3.5 bg-amber-950/30 border border-amber-500/40 rounded-xl space-y-3 font-serif">
+                <div>
+                    <strong class="text-amber-300 text-sm block">⭐ Улучшение: Компетентность (6 уровень)</strong>
+                    <p class="text-stone-300 text-xs">Выберите ещё два ваших владения (навыки или воровские инструменты)
+                        для удвоения бонуса мастерства:</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <label class="text-stone-400 block mb-1">Первое владение:</label>
+                        <select id="lvlExpertiseChoice1"
+                                class="w-full bg-[#120d09] border border-orange-900 rounded p-2 text-amber-200"></select>
+                    </div>
+                    <div>
+                        <label class="text-stone-400 block mb-1">Второе владение:</label>
+                        <select id="lvlExpertiseChoice2"
+                                class="w-full bg-[#120d09] border border-orange-900 rounded p-2 text-amber-200"></select>
+                    </div>
+                </div>
+            </div>
+
             <!-- 3. ВЫБОР: ХАРАКТЕРИСТИКИ (ASI) ИЛИ ЧЕРТА (FEAT) НА 4, 8, 12, 16, 19 УР. -->
             <div id="lvlAsiBlock" class="hidden space-y-3 p-3.5 bg-[#0d0907] border border-emerald-500/40 rounded-xl">
                 <label class="font-bold text-emerald-300 flex items-center gap-1.5">
@@ -1151,10 +1697,57 @@
     </button>
 </div>
 
+<!-- МОДАЛКА ПЕРЕВЁРТЫША (СМЕНА РАСЫ И ОБЛИКА) -->
+<div id="disguiseModal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4 font-serif">
+    <div class="fox-card border border-purple-500/60 rounded-2xl max-w-sm w-full p-5 space-y-4 bg-[#120a17] text-xs shadow-2xl">
+        <div class="flex justify-between items-center border-b border-purple-900/60 pb-2">
+            <h3 class="text-sm font-bold text-purple-200 flex items-center gap-1.5">
+                <span>🎭</span> <span>Способность «Перевёртыш»</span>
+            </h3>
+            <button type="button" onclick="window.closeDisguiseModal()" class="text-stone-400 hover:text-white text-xl font-bold">&times;</button>
+        </div>
+
+        <p class="text-stone-300 text-[11px] leading-relaxed">
+            Действием вы меняете облик и голос. Выберите расу из списка компендиума или введите любую внешность вручную:
+        </p>
+
+        <div class="space-y-3">
+            <div>
+                <label class="text-amber-300 font-bold block mb-1">Принять облик расы:</label>
+                <select id="disguiseRaceSelect" onchange="window.onDisguiseSelectChange(this.value)"
+                        class="w-full bg-black/70 border border-purple-900 rounded p-2 text-stone-100 font-serif">
+                    <option value="">-- Загрузка рас... --</option>
+                </select>
+            </div>
+
+            <div id="customDisguiseBlock" class="hidden">
+                <label class="text-stone-400 block mb-1">Своя форма / Описание облика:</label>
+                <input type="text" id="customDisguiseInput" placeholder="Старый нищий человек, стражник..."
+                       class="w-full bg-black/70 border border-purple-900 rounded p-2 text-stone-100">
+            </div>
+
+            <div class="pt-2 flex flex-col gap-2">
+                <button type="button" onclick="window.applyDisguise(true)"
+                        class="w-full py-2 rounded-lg bg-gradient-to-r from-purple-700 to-amber-600 text-stone-950 font-bold hover:brightness-110 shadow">
+                    ✨ Принять выбранный облик
+                </button>
+                <button type="button" onclick="window.applyDisguise(false)"
+                        class="w-full py-1.5 rounded-lg bg-stone-900 border border-stone-800 text-stone-400 hover:text-rose-300">
+                    Сбросить маску (Истинный облик чейнджлинга)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 <script>
+    window.CHARACTER_ID = {{ character_id }};
     window.getRaceEmoji = function(race) {
       if (!race) return '⚔️';
       const r = String(race).toLowerCase();
+      if (r.includes('ящер') || r.includes('lizard')) return '🐊';
+      if (r.includes('чейнджлинг') || r.includes('перевертыш')) return '🎭';
       if (r.includes('эльф')) return '🧝';
       if (r.includes('дварф') || r.includes('гном')) return '🛡️';
       if (r.includes('кицунэ') || r.includes('лис')) return '🦊';
@@ -1163,1914 +1756,8 @@
       if (r.includes('орк') || r.includes('гоблин')) return '🦾';
       if (r.includes('волшебник') || r.includes('маг')) return '🧙';
       if (r.includes('халфлинг') || r.includes('полурослик')) return '🍃';
-      if (r.includes('илверн')) return '🦉';
       return '👤';
     };
-    function getRaceEmoji(race) { return window.getRaceEmoji(race); }
-
-    function getProficiencyBonus(level = 1) {
-      return 2 + Math.floor((Math.max(1, level) - 1) / 4);
-    }
-
-    const charId = {{ character_id }};
-    let characterData = null;
-    let COMPENDIUM_SPELLS = [];
-    let currentSpellCircle = 'all';
-
-    // --- КОНФИГУРАЦИЯ НАВЫКОВ И АВТОМАТИЧЕСКИЙ ПАРСИНГ ВЛАДЕНИЙ ---
-    const SKILLS_MAP = {
-      "Акробатика": "dex",
-      "Анализ": "int",
-      "Атлетика": "str",
-      "Внимательность": "wis",
-      "Выживание": "wis",
-      "Выступление": "cha",
-      "Запугивание": "cha",
-      "История": "int",
-      "Ловкость рук": "dex",
-      "Магия": "int",
-      "Медицина": "wis",
-      "Обман": "cha",
-      "Природа": "int",
-      "Проницательность": "wis",
-      "Религия": "int",
-      "Скрытность": "dex",
-      "Убеждение": "cha",
-      "Уход за животными": "wis"
-    };
-
-    function extractAllProficiencies(character) {
-      if (!character) return { skills: [], expertise: [], armor: [], weapons: [], tools: [], savingThrows: [] };
-
-      const profSkills = new Set(character.proficient_skills || character.skills || []);
-      const expSkills = new Set(character.expertise_skills || []);
-      const armorProfs = new Set(character.armor_proficiencies || []);
-      const weaponProfs = new Set(character.weapon_proficiencies || []);
-      const toolProfs = new Set(character.tool_proficiencies || []);
-      const saveProfs = new Set(character.saving_throws || []);
-
-      // Подтягиваем расовые особенности из компендиума, если раса в кэше
-      let raceTraits = character.traits || character.race_traits || [];
-      if (raceTraits.length === 0 && character.race && window.ALL_RACES_CACHE) {
-        const rObj = (window.ALL_RACES_CACHE || []).find(r => r.name.toLowerCase() === character.race.toLowerCase());
-        if (rObj && rObj.traits) raceTraits = rObj.traits;
-      }
-
-      const corpusItems = [
-        ...raceTraits,
-        ...(character.features || []),
-        ...(character.feats || [])
-      ];
-
-      const fullText = corpusItems.map(it => {
-        if (typeof it === 'string') return it;
-        return `${it.name || ''}: ${it.description || it.desc || ''}`;
-      }).join('\n').toLowerCase();
-
-      // 1. Навыки
-      Object.keys(SKILLS_MAP).forEach(sk => {
-        const skLower = sk.toLowerCase();
-        const regexExp = new RegExp(`(компетентност|удваивает[^.\\n]*?мастерств)[^.\\n]*?${skLower}`, 'i');
-        const regexProf = new RegExp(`(владе(ние|ете|ет)|навык(ом|а)?)[^.\\n]*?${skLower}`, 'i');
-
-        if (regexExp.test(fullText)) {
-          expSkills.add(sk);
-          profSkills.add(sk);
-        } else if (regexProf.test(fullText)) {
-          profSkills.add(sk);
-        }
-      });
-
-      // 2. Доспехи
-      ["легкие доспехи", "средние доспехи", "тяжелые доспехи", "щиты"].forEach(a => {
-        if (fullText.includes(a)) {
-          if (a.includes("легк")) armorProfs.add("Легкие доспехи");
-          if (a.includes("средн")) armorProfs.add("Средние доспехи");
-          if (a.includes("тяжел")) armorProfs.add("Тяжелые доспехи");
-          if (a.includes("щит")) armorProfs.add("Щиты");
-        }
-      });
-
-      // 3. Оружие
-      ["простое оружие", "воинское оружие", "короткие мечи", "длинные мечи", "рапиры", "ручные арбалеты", "длинные луки"].forEach(w => {
-        if (fullText.includes(w)) {
-          if (w.includes("прост")) weaponProfs.add("Простое оружие");
-          if (w.includes("воинск")) weaponProfs.add("Воинское оружие");
-          if (w.includes("коротк") && w.includes("меч")) weaponProfs.add("Короткие мечи");
-          if (w.includes("длинн") && w.includes("меч")) weaponProfs.add("Длинные мечи");
-          if (w.includes("рапир")) weaponProfs.add("Рапиры");
-          if (w.includes("арбалет")) weaponProfs.add("Ручные арбалеты");
-          if (w.includes("длинн") && w.includes("лук")) weaponProfs.add("Длинные луки");
-        }
-      });
-
-      return {
-        skills: Array.from(profSkills),
-        expertise: Array.from(expSkills),
-        armor: Array.from(armorProfs),
-        weapons: Array.from(weaponProfs),
-        tools: Array.from(toolProfs),
-        savingThrows: Array.from(saveProfs)
-      };
-    }
-
-    function extractDiceFormula(text) {
-      if (!text) return null;
-      const normalized = text.toLowerCase().replace(/к/g, 'd').replace(/ /g, '');
-      const match = normalized.match(/(\d+d\d+(?:[\+\-]\d+)?)/);
-      return match ? match[1] : null;
-    }
-
-    function calcMod(score) { return Math.floor(((score || 10) - 10) / 2); }
-    function formatMod(mod) { return mod >= 0 ? `+${mod}` : `${mod}`; }
-
-    // 1. ПРОВЕРКА: ЯВЛЯЕТСЯ ЛИ ГЕРОЙ ЗАКЛИНАТЕЛЕМ
-    function checkIsSpellcaster(c) {
-      if (!c) return false;
-      const cName = (c.class_name || '').toLowerCase();
-      const sub = (c.subclass || '').toLowerCase();
-      const lvl = c.level || 1;
-
-      // Полные заклинатели
-      const fullCasters = ['волшебник', 'чародей', 'жрец', 'друид', 'бард', 'колдун', 'wizard', 'sorcerer', 'cleric', 'druid', 'bard', 'warlock'];
-      if (fullCasters.some(fc => cName.includes(fc))) return true;
-
-      // Полузаклинатели (с 2 уровня)
-      if ((cName.includes('паладин') || cName.includes('следопыт')) && lvl >= 2) return true;
-
-      // Архетипы с магией (с 3 уровня)
-      if (lvl >= 3) {
-        if (sub.includes('мистический ловкач') || sub.includes('рыцарь-мистик') || sub.includes('профанической души')) {
-          return true;
-        }
-      }
-
-      // Если в объекте персонажа уже есть ячейки или заклинания
-      if (c.spells && c.spells.length > 0) return true;
-      if (c.spell_slots && Object.values(c.spell_slots).some(s => s.max > 0)) return true;
-
-      return false;
-    }
-
-    // 2. ОБНОВЛЁННОЕ ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
-      function switchSheetTab(tab) {
-      const tabs = ['Stats', 'Combat', 'BloodHunter', 'MonkKi', 'Spells', 'Inventory', 'Features', 'Bio', 'Settings'];
-
-      tabs.forEach(t => {
-        const el = document.getElementById(`tab${t}`);
-        const btn = document.getElementById(`tabBtn${t}`);
-        const isCur = t.toLowerCase() === tab.toLowerCase();
-
-        // Переключаем показ самого содержимого вкладки
-        if (el) el.classList.toggle('hidden', !isCur);
-
-        // Переключаем активную подсветку кнопки, не трогая класс 'hidden'
-        if (btn) {
-          if (isCur) {
-            btn.classList.add('text-amber-300', 'border-foxOrange-500');
-            btn.classList.remove('text-stone-400', 'border-transparent');
-          } else {
-            btn.classList.remove('text-amber-300', 'border-foxOrange-500');
-            btn.classList.add('text-stone-400', 'border-transparent');
-          }
-        }
-      });
-
-      // Гарантированно удерживаем скрытыми вкладки чужих классов
-      updateSpecialTabsVisibility();
-    }
-
-
-    // 4. МЕХАНИКА МОНАХА (ЦИ)
-    function renderMonkKiTab() {
-      const c = characterData;
-      if (!c) return;
-      const lvl = c.level || 1;
-      const prof = getProficiencyBonus(lvl);
-      const wisMod = calcMod(c.stats?.wis || 10);
-      const saveDc = 8 + prof + wisMod;
-
-      const dcEl = document.getElementById('kiSaveDcDisplay');
-      if (dcEl) dcEl.textContent = `${saveDc} (8 + ${prof} БМ + ${formatMod(wisMod)} МУД)`;
-
-      const maxKi = lvl;
-      const usedKi = parseInt(localStorage.getItem(`char_${charId}_ki_used`) || '0');
-      const pointsEl = document.getElementById('kiPointsDisplay');
-      if (pointsEl) pointsEl.textContent = `${Math.max(0, maxKi - usedKi)} / ${maxKi}`;
-
-      const stunCard = document.getElementById('monkStunStrikeCard');
-      if (stunCard) stunCard.classList.toggle('hidden', lvl < 5);
-    }
-
-    function spendKi(amount, name) {
-      if (!characterData) return;
-      const maxKi = characterData.level || 1;
-      let usedKi = parseInt(localStorage.getItem(`char_${charId}_ki_used`) || '0');
-
-      if (usedKi + amount > maxKi) {
-        alert("Недостаточно очков Ци! Совершите отдых или медитацию.");
-        return;
-      }
-
-      usedKi += amount;
-      localStorage.setItem(`char_${charId}_ki_used`, String(usedKi));
-      renderMonkKiTab();
-      alert(`☯️ Использовано ${amount} очко Ци на технику: ${name}!`);
-    }
-
-    function restoreKiPoints() {
-      localStorage.setItem(`char_${charId}_ki_used`, '0');
-      renderMonkKiTab();
-      alert("Очки Ци полностью восстановлены (30 мин. медитации на коротком отдыхе).");
-    }
-
-    // 5. ИСПРАВЛЕНИЕ ВЫБОРА ЧЕРТЫ («СТОЙКИЙ» И ВЫБОР СТАТ)
-    function onSelectFeatInLevelUp() {
-      const sel = document.getElementById('lvlFeatSelect');
-      const preview = document.getElementById('lvlFeatPreviewBox');
-      const choiceBlock = document.getElementById('lvlFeatDynamicChoiceBlock');
-      const choiceSelect = document.getElementById('lvlFeatDynamicChoiceSelect');
-      const choiceLabel = document.getElementById('lvlFeatDynamicChoiceLabel');
-      if (!sel || !preview) return;
-
-      const featId = sel.value;
-      if (!featId) {
-        preview.classList.add('hidden');
-        if (choiceBlock) choiceBlock.classList.add('hidden');
-        return;
-      }
-
-      const f = COMPENDIUM_FEATS.find(x => (x.id === featId || x.name === featId));
-      if (!f) return;
-
-      preview.classList.remove('hidden');
-      document.getElementById('lvlFeatPreviewName').textContent = f.name;
-      document.getElementById('lvlFeatPreviewPrereq').textContent = f.prerequisite ? `Треб.: ${f.prerequisite}` : 'Без требований';
-      document.getElementById('lvlFeatPreviewDesc').textContent = f.description || '';
-
-      const badge = document.getElementById('lvlFeatStatBonusBadge');
-
-      // Проверяем: это черта с динамическим выбором статы (как «Стойкий»)
-      let hasChoice = false;
-      let choiceOptions = [];
-
-      // Распознаем формат { choice: [...] } или options: [{ type: 'stat_choice' }]
-      if (f.stat_bonuses && f.stat_bonuses.choice) {
-        hasChoice = true;
-        choiceOptions = Array.isArray(f.stat_bonuses.choice)
-          ? f.stat_bonuses.choice
-          : String(f.stat_bonuses.choice).split(',');
-      } else if (f.options && Array.isArray(f.options)) {
-        const opt = f.options.find(o => o.type === 'stat_choice' || o.stats);
-        if (opt && opt.stats) {
-          hasChoice = true;
-          choiceOptions = opt.stats;
-        }
-      } else if (f.name.toLowerCase().includes('стойкий') || (f.id && f.id.toLowerCase().includes('resilient'))) {
-        hasChoice = true;
-        choiceOptions = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
-      }
-
-      const statDict = { str: 'Сила', dex: 'Ловкость', con: 'Телосложение', int: 'Интеллект', wis: 'Мудрость', cha: 'Харизма' };
-
-      if (hasChoice && choiceBlock && choiceSelect) {
-        choiceBlock.classList.remove('hidden');
-        choiceLabel.textContent = `Выберите характеристику для +1 (и спасброска):`;
-        choiceSelect.innerHTML = choiceOptions.map(st => {
-          const key = st.trim().toLowerCase();
-          return `<option value="${key}">+1 к ${statDict[key] || key.toUpperCase()}</option>`;
-        }).join('');
-        badge.classList.add('hidden');
-      } else {
-        if (choiceBlock) choiceBlock.classList.add('hidden');
-
-        // Фиксированный бонус (например, +1 к Харизме у Актера)
-        if (f.stat_bonuses && typeof f.stat_bonuses === 'object' && !f.stat_bonuses.choice) {
-          const cleanBonuses = Object.entries(f.stat_bonuses).filter(([k, v]) => typeof v === 'number');
-          if (cleanBonuses.length > 0) {
-            const bStr = cleanBonuses.map(([k, v]) => `+${v} к ${(statDict[k] || k).toUpperCase()}`).join(', ');
-            badge.textContent = `⚡ Бонус к статам: ${bStr}`;
-            badge.classList.remove('hidden');
-          } else {
-            badge.classList.add('hidden');
-          }
-        } else {
-          badge.classList.add('hidden');
-        }
-      }
-    }
-
-    async function loadCharacterData() {
-      try {
-        const res = await apiFetch(`/characters/${charId}`);
-        if (!res.ok) throw new Error("Не удалось загрузить данные");
-        characterData = await res.json();
-
-        // Предзагрузка компендиума рас для отображения кастомных черт
-        if (!window.ALL_RACES_CACHE) {
-          try {
-            const rRes = await apiFetch('/compendium/races');
-            if (rRes.ok) window.ALL_RACES_CACHE = await rRes.json();
-          } catch(e) {}
-        }
-
-        renderSheet();
-        applyVisuals();
-        loadCoins();
-        loadArmorSelection();
-        document.getElementById('sheetLoading').classList.add('hidden');
-        document.getElementById('sheetContent').classList.remove('hidden');
-      } catch (err) {
-        document.getElementById('sheetLoading').textContent = "Ошибка загрузки: " + err.message;
-      }
-    }
-
-    const THEME_PRESETS = {
-      ember: { accent: '#f59e0b', border: '#d97706', cardBg: '#0e0907', textColor: '#fde68a' },
-      arcane: { accent: '#a855f7', border: '#7e22ce', cardBg: '#0b070f', textColor: '#f3e8ff' },
-      forest: { accent: '#10b981', border: '#047857', cardBg: '#070a08', textColor: '#d1fae5' },
-      dark: { accent: '#71717a', border: '#3f3f46', cardBg: '#09090b', textColor: '#f4f4f5' }
-    };
-
-    function applyPreset(presetName) {
-      const p = THEME_PRESETS[presetName];
-      if (!p) return;
-      document.getElementById('pickerAccent').value = p.accent;
-      document.getElementById('pickerBorder').value = p.border;
-      document.getElementById('pickerCardBg').value = p.cardBg;
-      document.getElementById('pickerText').value = p.textColor;
-      previewCustomColors();
-    }
-
-    function applyVisuals() {
-      const c = characterData;
-      const bannerEl = document.getElementById('heroCoverBg');
-      const avatarImg = document.getElementById('charAvatarImg');
-      const avatarPh = document.getElementById('charAvatarPlaceholder');
-
-      if (c.banner_url && c.banner_url.trim()) {
-        bannerEl.style.backgroundImage = `url('${c.banner_url}')`;
-        document.getElementById('visualBannerInput').value = c.banner_url;
-      } else {
-        bannerEl.style.backgroundImage = 'none';
-        document.getElementById('visualBannerInput').value = '';
-      }
-
-      if (c.avatar_url && c.avatar_url.trim()) {
-        avatarImg.src = c.avatar_url;
-        avatarImg.classList.remove('hidden');
-        avatarPh.classList.add('hidden');
-      } else {
-        avatarImg.classList.add('hidden');
-        avatarPh.classList.remove('hidden');
-        avatarPh.textContent = getRaceEmoji(c.race);
-      }
-
-      let custom = {};
-      try {
-        custom = typeof c.visual_custom === 'string' ? JSON.parse(c.visual_custom) : (c.visual_custom || {});
-      } catch {}
-
-      let colors = {};
-      try {
-        colors = typeof c.custom_colors === 'string' ? JSON.parse(c.custom_colors) : (c.custom_colors || {});
-      } catch {}
-
-      const accent = custom.accent || colors.accent || '#f59e0b';
-      const border = custom.border || colors.border || '#d97706';
-      const cardBg = custom.cardBg || '#0e0907';
-      const textColor = custom.textColor || '#fde68a';
-
-      if (document.getElementById('pickerAccent')) document.getElementById('pickerAccent').value = accent;
-      if (document.getElementById('pickerBorder')) document.getElementById('pickerBorder').value = border;
-      if (document.getElementById('pickerCardBg')) document.getElementById('pickerCardBg').value = cardBg;
-      if (document.getElementById('pickerText')) document.getElementById('pickerText').value = textColor;
-
-      if (document.getElementById('valAccent')) document.getElementById('valAccent').textContent = accent;
-      if (document.getElementById('valBorder')) document.getElementById('valBorder').textContent = border;
-      if (document.getElementById('valCardBg')) document.getElementById('valCardBg').textContent = cardBg;
-      if (document.getElementById('valText')) document.getElementById('valText').textContent = textColor;
-
-      const root = document.documentElement;
-      root.style.setProperty('--theme-accent', accent);
-      root.style.setProperty('--theme-border', border);
-      root.style.setProperty('--theme-card-bg', cardBg);
-      root.style.setProperty('--theme-glow', hexToRgba(accent, 0.25));
-
-      document.querySelectorAll('.dynamic-accent, h1, h2, h3, .dynamic-card strong').forEach(el => {
-        if (!el.classList.contains('text-rose-400') && !el.classList.contains('text-emerald-400')) {
-          el.style.color = textColor;
-        }
-      });
-    }
-
-    function hexToRgba(hex, alpha) {
-      let c = hex.replace('#', '');
-      if (c.length === 3) c = c.split('').map(x => x + x).join('');
-      const num = parseInt(c, 16);
-      return `rgba(${num >> 16}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`;
-    }
-
-    function previewCustomColors() {
-      const accent = document.getElementById('pickerAccent').value;
-      const border = document.getElementById('pickerBorder').value;
-      const cardBg = document.getElementById('pickerCardBg').value;
-      const textColor = document.getElementById('pickerText').value;
-
-      document.getElementById('valAccent').textContent = accent;
-      document.getElementById('valBorder').textContent = border;
-      document.getElementById('valCardBg').textContent = cardBg;
-      document.getElementById('valText').textContent = textColor;
-
-      const root = document.documentElement;
-      root.style.setProperty('--theme-accent', accent);
-      root.style.setProperty('--theme-border', border);
-      root.style.setProperty('--theme-card-bg', cardBg);
-      root.style.setProperty('--theme-glow', hexToRgba(accent, 0.25));
-
-      document.querySelectorAll('.dynamic-accent, h1, h2, h3, .dynamic-card strong').forEach(el => {
-        if (!el.classList.contains('text-rose-400') && !el.classList.contains('text-emerald-400')) {
-          el.style.color = textColor;
-        }
-      });
-    }
-
-    async function submitVisualTheme() {
-      const name = document.getElementById('settingsCharName').value.trim();
-      const avatar = document.getElementById('visualAvatarInput').value.trim();
-      const banner = document.getElementById('visualBannerInput').value.trim();
-
-      const accent = document.getElementById('pickerAccent').value;
-      const border = document.getElementById('pickerBorder').value;
-      const cardBg = document.getElementById('pickerCardBg').value;
-      const textColor = document.getElementById('pickerText').value;
-
-      const payload = {
-        name: name || characterData.name,
-        avatar_url: avatar || null,
-        banner_url: banner || null,
-        visual_theme: 'custom',
-        visual_custom: { accent, border, cardBg, textColor }
-      };
-
-      try {
-        const res = await apiFetch(`/characters/${charId}/visual`, {
-          method: 'PATCH',
-          body: payload
-        });
-        if (res.ok) {
-          characterData = await res.json();
-          renderSheet();
-          applyVisuals();
-          alert("Полная кастомизация успешно сохранена!");
-        } else {
-          const err = await res.json().catch(() => ({}));
-          alert(err.detail || "Ошибка сервера при сохранении кастомизации.");
-        }
-      } catch (err) {
-        alert("Ошибка сохранения: " + err.message);
-      }
-    }
-
-    function renderSheet() {
-      const c = characterData;
-      const stats = c.stats || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
-      const profBonus = getProficiencyBonus(c.level || 1);
-
-      document.getElementById('charNameDisplay').textContent = c.name;
-      document.getElementById('settingsCharName').value = c.name;
-      document.getElementById('charLevelBadge').textContent = `Ур. ${c.level}`;
-
-      // Подкласс отображается в шапке героя!
-      document.getElementById('charSubDisplay').textContent = c.subclass ? `${c.race} • ${c.class_name} (${c.subclass})` : `${c.race} • ${c.class_name}`;
-
-      document.getElementById('statInit').textContent = formatMod(calcMod(stats.dex));
-      document.getElementById('statSpeed').textContent = `${c.speed || 30} фт`;
-      document.getElementById('statProf').textContent = `+${profBonus}`;
-
-      document.getElementById('hpCurrentDisplay').textContent = c.hp_current;
-      document.getElementById('hpMaxDisplay').textContent = c.hp_max;
-      const hpPercent = Math.max(0, Math.min(100, Math.round((c.hp_current / (c.hp_max || 1)) * 100)));
-      document.getElementById('hpProgressBar').style.width = `${hpPercent}%`;
-
-      for (const [key, val] of Object.entries(stats)) {
-        document.getElementById(`score-${key}`).textContent = val;
-        document.getElementById(`mod-${key}`).textContent = formatMod(calcMod(val));
-      }
-
-      renderSkills(stats);
-      renderSpellSlots();
-      renderSpellsList();
-      renderBioTab();
-      renderInventoryTab();
-      renderFeaturesTab();
-      renderWeaponsTab();
-      updateArmorSelection();
-
-      function updateSpecialTabsVisibility() {
-        const c = characterData;
-        if (!c) return;
-        const cName = (c.class_name || '').toLowerCase();
-        const lvl = c.level || 1;
-
-        // Магия Крови (только Кровавый охотник)
-        const isBH = cName.includes('охотник') || cName.includes('blood');
-        const bhBtn = document.getElementById('tabBtnBloodHunter');
-        if (bhBtn) {
-          bhBtn.classList.toggle('hidden', !isBH);
-          if (isBH) renderBloodHunterTab();
-        }
-
-        // Энергия Ци (только Монах со 2 ур.)
-        const isMonk = (cName.includes('монах') || cName.includes('monk')) && lvl >= 2;
-        const monkBtn = document.getElementById('tabBtnMonkKi');
-        if (monkBtn) {
-          monkBtn.classList.toggle('hidden', !isMonk);
-          if (isMonk) renderMonkKiTab();
-        }
-
-        // Книга Заклинаний (только для заклинателей)
-        const isCaster = checkIsSpellcaster(c);
-        const spellsBtn = document.getElementById('tabBtnSpells');
-        if (spellsBtn) {
-          spellsBtn.classList.toggle('hidden', !isCaster);
-        }
-      }
-
-      updateSpecialTabsVisibility();
-    }
-
-    // --- ОТРИСОВКА НАВЫКОВ С РАСЧЁТОМ ВЛАДЕНИЯ (🟢 И 🌟) ---
-    function renderSkills(stats) {
-      const grid = document.getElementById('skillsGrid');
-      if (!grid) return;
-
-      const c = characterData || {};
-      const level = c.level || 1;
-      const profBonus = getProficiencyBonus(level);
-      const profs = extractAllProficiencies(c);
-
-      grid.innerHTML = Object.entries(SKILLS_MAP).map(([skillName, statKey]) => {
-        const statVal = stats[statKey] || 10;
-        const statMod = calcMod(statVal);
-
-        const hasExpertise = profs.expertise.some(s => s.toLowerCase() === skillName.toLowerCase());
-        const hasProf = hasExpertise || profs.skills.some(s => s.toLowerCase() === skillName.toLowerCase());
-
-        let totalMod = statMod;
-        let icon = '⚪';
-        let titleHint = 'Без владения';
-        let cardBgClass = 'bg-[#0e0907]/70 border-orange-950/40 text-stone-300';
-        let modColorClass = 'dynamic-accent';
-
-        if (hasExpertise) {
-          totalMod += profBonus * 2;
-          icon = '🌟';
-          titleHint = `Экспертиза (+${profBonus * 2})`;
-          cardBgClass = 'bg-amber-950/30 border-amber-500/60 text-amber-200 font-bold';
-          modColorClass = 'text-amber-300 font-black';
-        } else if (hasProf) {
-          totalMod += profBonus;
-          icon = '🟢';
-          titleHint = `Владение (+${profBonus})`;
-          cardBgClass = 'bg-[#140e0a] border-amber-900/60 text-amber-100 font-semibold';
-          modColorClass = 'text-amber-400 font-bold';
-        }
-
-        const modStr = formatMod(totalMod);
-
-        return `
-          <div onclick="rollCheck('${skillName}', ${totalMod})" title="${titleHint}" class="flex items-center justify-between p-2.5 rounded-lg border hover:border-amber-400 cursor-pointer transition-all ${cardBgClass}">
-            <div class="flex items-center gap-1.5 truncate">
-              <span class="text-xs select-none">${icon}</span>
-              <span class="text-xs truncate">${skillName}</span>
-              <span class="text-[9px] font-mono text-stone-500 uppercase">(${statKey})</span>
-            </div>
-            <span class="font-mono text-xs ${modColorClass}">${modStr}</span>
-          </div>
-        `;
-      }).join('');
-    }
-
-    // --- ЛОГИКА ВКЛАДКИ КРОВАВОГО ОХОТНИКА (ГЕМОКРАФТИЯ) ---
-    function getHemocraftDie(level = 1) {
-      if (level >= 17) return 10;
-      if (level >= 11) return 8;
-      if (level >= 5) return 6;
-      return 4;
-    }
-
-    function renderBloodHunterTab() {
-      const c = characterData;
-      if (!c) return;
-
-      const level = c.level || 1;
-      const dieSides = getHemocraftDie(level);
-      const prof = getProficiencyBonus(level);
-      const intMod = calcMod(c.stats?.int || 10);
-      const saveDc = 8 + prof + intMod;
-
-      const dieEl = document.getElementById('bhDieDisplay');
-      const dcEl = document.getElementById('bhSaveDcDisplay');
-      if (dieEl) dieEl.textContent = `d${dieSides}`;
-      if (dcEl) dcEl.textContent = `${saveDc} (8 + ${prof} БМ + ${formatMod(intMod)} ИНТ)`;
-
-      // Доступен ли ритуал эфира
-      const riteDawnOpt = document.getElementById('bhRiteDawnOpt');
-      if (riteDawnOpt) {
-        riteDawnOpt.classList.toggle('hidden', !(c.subclass && c.subclass.includes('Призрачн')));
-      }
-
-      // Трекер проклятий
-      const maxCurses = level >= 17 ? 4 : (level >= 13 ? 3 : (level >= 6 ? 2 : 1));
-      const usedCurses = parseInt(localStorage.getItem(`char_${charId}_bh_curses_used`) || '0');
-      const cursesEl = document.getElementById('bhCursesTracker');
-      if (cursesEl) cursesEl.textContent = `${Math.max(0, maxCurses - usedCurses)} / ${maxCurses}`;
-
-      // Статус ритуала
-      const activeRite = localStorage.getItem(`char_${charId}_bh_active_rite`);
-      const badge = document.getElementById('bhActiveRiteBadge');
-      if (badge) {
-        if (activeRite) {
-          badge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800 font-bold";
-          badge.textContent = `Активен: ${activeRite}`;
-        } else {
-          badge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-stone-900 text-stone-500 border border-stone-800";
-          badge.textContent = "Ритуал не активен";
-        }
-      }
-    }
-
-    async function activateCrimsonRite() {
-      if (!characterData) return;
-      const level = characterData.level || 1;
-      const dieSides = getHemocraftDie(level);
-      const rolled = Math.floor(Math.random() * dieSides) + 1;
-
-      const riteName = document.getElementById('bhRiteTypeSelect').value;
-      await modifyHp(-rolled);
-
-      localStorage.setItem(`char_${charId}_bh_active_rite`, `${riteName} (+1d${dieSides})`);
-      renderBloodHunterTab();
-      alert(`🩸 Багровый кодекс «${riteName}» активирован!\nВы пожертвовали ${rolled} HP (бросок d${dieSides}). Теперь ваше оружие наносит +1d${dieSides} стихийного урона при каждом ударе!`);
-    }
-
-    function deactivateCrimsonRite() {
-      localStorage.removeItem(`char_${charId}_bh_active_rite`);
-      renderBloodHunterTab();
-      alert("Багровый кодекс снят с оружия.");
-    }
-
-    async function useBloodCurse(name, isAmplified) {
-      if (!characterData) return;
-      const level = characterData.level || 1;
-      const maxCurses = level >= 17 ? 4 : (level >= 13 ? 3 : (level >= 6 ? 2 : 1));
-      let usedCurses = parseInt(localStorage.getItem(`char_${charId}_bh_curses_used`) || '0');
-
-      if (usedCurses >= maxCurses) {
-        if (!confirm("У вас закончились использования проклятий крови до отдыха! Всё равно применить?")) return;
-      } else {
-        usedCurses++;
-        localStorage.setItem(`char_${charId}_bh_curses_used`, String(usedCurses));
-      }
-
-      if (isAmplified) {
-        const dieSides = getHemocraftDie(level);
-        const hpDmg = Math.floor(Math.random() * dieSides) + 1;
-        await modifyHp(-hpDmg);
-        alert(`🩸 УСИЛЕННОЕ ${name}!\nВы пожертвовали ${hpDmg} HP (бросок d${dieSides}) ради мощного усиления проклятия!`);
-      } else {
-        alert(`👁️ ${name} успешно применено к цели.`);
-      }
-
-      renderBloodHunterTab();
-    }
-
-    function restoreBloodCurses() {
-      localStorage.setItem(`char_${charId}_bh_curses_used`, '0');
-      renderBloodHunterTab();
-      alert("Использования проклятий крови восстановлены.");
-    }
-
-    function updateArmorSelection() {
-      const sel = document.getElementById('armorTypeSelect');
-      const customBlock = document.getElementById('customArmorInputBlock');
-      const shieldToggle = document.getElementById('shieldEquippedToggle');
-      if (!sel) return;
-
-      const val = sel.value;
-      if (val === 'custom') {
-        customBlock.classList.remove('hidden');
-      } else {
-        customBlock.classList.add('hidden');
-      }
-
-      const dexMod = calcMod(characterData?.stats?.dex || 10);
-      let baseAc = 10 + dexMod;
-      let descArmor = "Без доспеха (10 + Ловкость)";
-
-      if (val === 'leather') { baseAc = 11 + dexMod; descArmor = "Кожаный (11 + Ловкость)"; }
-      else if (val === 'studded') { baseAc = 12 + dexMod; descArmor = "Проклепанная кожа (12 + Ловкость)"; }
-      else if (val === 'chain_shirt') { baseAc = 13 + Math.min(2, dexMod); descArmor = "Кольчужная рубашка (13 + Ловкость [макс 2])"; }
-      else if (val === 'breastplate') { baseAc = 14 + Math.min(2, dexMod); descArmor = "Нагрудник (14 + Ловкость [макс 2])"; }
-      else if (val === 'plate') { baseAc = 18; descArmor = "Латы (18, без ловкости)"; }
-      else if (val === 'custom') {
-        const customText = document.getElementById('customArmorText')?.value || '';
-        const match = customText.match(/кд\s*(\d+)/i);
-        if (match) {
-          baseAc = parseInt(match[1]);
-          descArmor = customText;
-        }
-      }
-
-      const hasShield = shieldToggle?.checked || false;
-      const finalAc = baseAc + (hasShield ? 2 : 0);
-
-      document.getElementById('statAc').textContent = finalAc;
-      document.getElementById('combatAcSummary').textContent = `${finalAc} (${descArmor}${hasShield ? ' + 2 щит' : ''})`;
-
-      localStorage.setItem(`char_${charId}_armor`, JSON.stringify({ type: val, custom: document.getElementById('customArmorText')?.value || '', shield: hasShield }));
-    }
-
-    function loadArmorSelection() {
-      const raw = localStorage.getItem(`char_${charId}_armor`);
-      if (raw) {
-        try {
-          const a = JSON.parse(raw);
-          if (document.getElementById('armorTypeSelect')) document.getElementById('armorTypeSelect').value = a.type || 'none';
-          if (document.getElementById('customArmorText')) document.getElementById('customArmorText').value = a.custom || '';
-          if (document.getElementById('shieldEquippedToggle')) document.getElementById('shieldEquippedToggle').checked = !!a.shield;
-        } catch(e) {}
-      }
-      updateArmorSelection();
-    }
-
-    function renderSpellSlots() {
-      const tracker = document.getElementById('slotsTrackerGrid');
-      if (!tracker) return;
-      tracker.innerHTML = '';
-      const slots = characterData.spell_slots || {};
-      let hasSlots = false;
-      for (let lvl = 1; lvl <= 9; lvl++) {
-        const s = slots[String(lvl)];
-        if (s && s.max > 0) {
-          hasSlots = true;
-          let circles = '';
-          for (let i = 0; i < s.max; i++) {
-            const isUsed = i < s.used;
-            circles += `
-              <button onclick="toggleSpellSlot(${lvl}, ${i})" class="w-4 h-4 rounded-full border border-amber-400 transition-all ${isUsed ? 'bg-transparent border-stone-600' : 'bg-gradient-to-br from-foxOrange-500 to-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.5)]'}"></button>
-            `;
-          }
-          tracker.innerHTML += `
-            <div class="bg-[#0e0907]/90 dynamic-border border rounded-xl p-3 text-center shadow space-y-2">
-              <span class="text-xs text-amber-300 font-bold block">${lvl} круг</span>
-              <div class="flex flex-wrap items-center justify-center gap-1">${circles}</div>
-              <span class="font-mono text-stone-400 text-[11px]">${s.max - s.used} / ${s.max}</span>
-            </div>`;
-        }
-      }
-      if (!hasSlots) tracker.innerHTML = '<div class="col-span-full text-center text-xs text-stone-500 italic">Нет ячеек магии.</div>';
-    }
-
-    async function toggleSpellSlot(level, index) {
-      const slots = characterData.spell_slots || {};
-      const slot = slots[String(level)];
-      if (!slot) return;
-      let newUsed = (index < slot.used) ? index : index + 1;
-      try {
-        const res = await apiFetch(`/characters/${charId}/slots`, {
-          method: 'PATCH',
-          body: { level: level, used: newUsed }
-        });
-        if (res.ok) {
-          slot.used = newUsed;
-          renderSpellSlots();
-        }
-      } catch(e) {}
-    }
-
-    function selectSpellCircle(lvl) {
-      currentSpellCircle = lvl;
-      ['all', 0, 1, 2, 3, 4, 5].forEach(l => {
-        const b = document.getElementById(`sc_tab_${l}`);
-        if (b) {
-          b.className = (l === lvl) ? "px-3 py-1 rounded-lg bg-amber-400 text-stone-950 font-bold text-xs" : "px-3 py-1 rounded-lg bg-stone-900 text-stone-400 text-xs hover:text-stone-200";
-        }
-      });
-      renderSpellsList();
-    }
-
-    function renderSpellsList() {
-      const cont = document.getElementById('spellsContainer');
-      if (!cont) return;
-      let spells = characterData.spells || [];
-
-      if (currentSpellCircle !== 'all') {
-        spells = spells.filter(s => (s.level || 0) === currentSpellCircle);
-      }
-
-      if (!spells.length) {
-        cont.innerHTML = '<div class="p-6 fox-card dynamic-card rounded-xl border border-dashed border-orange-900/40 text-center text-stone-400 text-xs">Заклинания для этого круга не найдены.</div>';
-        return;
-      }
-
-      cont.innerHTML = spells.map(sp => {
-        const name = typeof sp === 'string' ? sp : sp.name;
-        const school = typeof sp === 'object' ? (sp.school || 'Магия') : 'Магия';
-        const lvl = typeof sp === 'object' ? (sp.level || 0) : 0;
-        let dmg = typeof sp === 'object' && sp.damage_dice ? sp.damage_dice : null;
-        const desc = typeof sp === 'object' && sp.description ? sp.description : '';
-
-        if (!dmg && desc) {
-          dmg = extractDiceFormula(desc);
-        }
-
-        const lvlLabel = lvl === 0 ? 'Заговор' : `${lvl} круг`;
-
-        return `
-          <div onclick="rollFormula('Каст: ${name}', '${dmg || '1d8'}')" class="p-4 rounded-xl bg-[#0e0907] border border-orange-950 hover:border-amber-400 cursor-pointer flex justify-between items-center text-xs shadow transition-all">
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <strong class="text-amber-200 text-sm font-serif">${name}</strong>
-                <span class="px-2 py-0.5 rounded bg-amber-950/60 border border-amber-800 text-amber-300 text-[10px] font-mono">${lvlLabel}</span>
-                <span class="text-stone-400 text-[11px]">${school}</span>
-              </div>
-              ${desc ? `<p class="text-stone-300 text-[11px] italic">${desc}</p>` : ''}
-            </div>
-            <div class="flex items-center gap-2">
-              ${dmg ? `<span class="px-2.5 py-1 rounded bg-foxOrange-700 text-amber-100 font-mono font-bold hover:scale-105 transition-transform" title="Кликните для броска">🎲 ${dmg}</span>` : ''}
-              <button onclick="event.stopPropagation(); deleteSpell('${name}')" class="text-rose-400 font-bold hover:text-rose-300 p-1">🗑️</button>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function renderBioTab() {
-      document.getElementById('bioAlignmentDisplay').textContent = characterData.alignment || 'Нейтральный';
-      document.getElementById('bioBackgroundDisplay').textContent = characterData.background || 'Обыватель (Есть описание в компендиуме)';
-      document.getElementById('sheetBackstoryInput').value = characterData.backstory || '';
-    }
-
-    let customInventory = [];
-
-    function loadInventory() {
-      const raw = localStorage.getItem(`char_${charId}_inventory`);
-      if (raw) {
-        try {
-          customInventory = JSON.parse(raw);
-        } catch(e) { customInventory = []; }
-      }
-      if (!customInventory.length && characterData && characterData.starting_equipment) {
-        customInventory = characterData.starting_equipment.map(name => ({
-          name: typeof name === 'string' ? name : name.name,
-          category: 'Прочее',
-          attribute: '',
-          description: '',
-          quantity: 1
-        }));
-      }
-    }
-
-    function saveInventory() {
-      localStorage.setItem(`char_${charId}_inventory`, JSON.stringify(customInventory));
-    }
-
-    function onItemCategoryChange(val) {
-      const customBlock = document.getElementById('customCategoryBlock');
-      const attrBlock = document.getElementById('itemDynamicAttrBlock');
-      const attrLabel = document.getElementById('itemAttrLabel');
-      const attrInput = document.getElementById('iAttrValue');
-
-      if (val === 'custom') {
-        customBlock.classList.remove('hidden');
-      } else {
-        customBlock.classList.add('hidden');
-      }
-
-      if (val === 'Оружие') {
-        attrBlock.classList.remove('hidden');
-        attrLabel.textContent = "Кубы урона (например, 1d8+3):";
-        attrInput.placeholder = "1d8+3";
-      } else if (val === 'Броня / Щит') {
-        attrBlock.classList.remove('hidden');
-        attrLabel.textContent = "Бонус КД (например, +2):";
-        attrInput.placeholder = "+2";
-      } else if (val.includes('Расходник')) {
-        attrBlock.classList.remove('hidden');
-        attrLabel.textContent = "Эффект / Хил (например, хил 2d4+2):";
-        attrInput.placeholder = "хил 2d4+2";
-      } else {
-        attrBlock.classList.add('hidden');
-      }
-    }
-
-    function renderInventoryTab() {
-      const eq = document.getElementById('equipmentListContainer');
-      if (!eq) return;
-
-      loadInventory();
-
-      if (!customInventory.length) {
-        eq.innerHTML = '<div class="col-span-full text-center py-6 text-stone-500 italic">Рюкзак пуст.</div>';
-        return;
-      }
-
-      eq.innerHTML = customInventory.map((item, idx) => {
-        const name = item.name || 'Предмет';
-        const cat = item.category || 'Предмет';
-        const desc = item.description || '';
-        const attr = item.attribute || '';
-        const qty = item.quantity !== undefined ? item.quantity : 1;
-        const isPotion = cat.includes('Расходник') || name.toLowerCase().includes('зель') || name.toLowerCase().includes('свиток');
-        const formula = extractDiceFormula(attr) || extractDiceFormula(desc);
-
-        return `
-          <div class="p-3.5 rounded-xl bg-[#0e0907] border border-orange-950 flex flex-col justify-between space-y-2 shadow">
-            <div>
-              <div class="flex justify-between items-start">
-                <strong class="text-amber-200 text-sm font-serif">${name}</strong>
-                <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-stone-900 text-stone-400 border border-stone-800">${cat}</span>
-              </div>
-              ${attr ? `<span class="text-amber-400 text-[11px] font-mono block mt-0.5">⚡ ${attr}</span>` : ''}
-              ${desc ? `<p class="text-stone-300 text-[11px] mt-1">${desc}</p>` : ''}
-            </div>
-
-            <div class="flex items-center justify-between pt-2 border-t border-orange-950/60 gap-2 text-xs">
-              <div class="flex items-center gap-1 bg-[#140e0a] border border-orange-900/60 rounded-lg px-1.5 py-0.5 font-mono">
-                <button type="button" onclick="changeItemQuantity(${idx}, -1)" class="text-stone-400 hover:text-amber-300 px-1 font-bold">−</button>
-                <span class="text-amber-200 font-bold px-1">${qty}</span>
-                <button type="button" onclick="changeItemQuantity(${idx}, 1)" class="text-stone-400 hover:text-amber-300 px-1 font-bold">＋</button>
-              </div>
-
-              <div class="flex items-center gap-1.5">
-                ${isPotion ? `<button onclick="usePotionEffect('${name}', '${attr || desc}')" class="px-2 py-1 rounded bg-emerald-950 border border-emerald-900 text-emerald-300 text-[10px] font-bold">✨ Применить</button>` : ''}
-                ${formula ? `<button onclick="rollFormula('Использование: ${name}', '${formula}')" class="px-2 py-1 rounded bg-foxOrange-700 text-amber-100 text-[10px] font-mono font-bold" title="Бросить кубик">🎲 ${formula}</button>` : ''}
-                <button onclick="deleteInventoryItem(${idx})" class="text-rose-400 hover:text-rose-300 text-xs font-bold p-1" title="Удалить">🗑️</button>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    async function usePotionEffect(name, desc) {
-      if (desc.toLowerCase().includes('хил') || desc.toLowerCase().includes('hp') || desc.toLowerCase().includes('восстанавл')) {
-        await modifyHp(10);
-        alert(`Расходник «${name}» успешно использован! Восстановлено здоровье.`);
-      } else {
-        alert(`Эффект расходника «${name}» активирован: ${desc}`);
-      }
-    }
-
-    function handleCreateItem(e) {
-      e.preventDefault();
-      const name = document.getElementById('iName').value.trim();
-      const catSel = document.getElementById('iCategory').value;
-      const customCat = document.getElementById('iCustomCategory').value.trim();
-      const cat = catSel === 'custom' ? (customCat || 'Прочее') : catSel;
-      const attr = document.getElementById('iAttrValue').value.trim();
-      const desc = document.getElementById('iDesc').value.trim();
-      if (!name) return;
-
-      loadInventory();
-      customInventory.push({ name, category: cat, attribute: attr, description: desc, quantity: 1 });
-      saveInventory();
-      closeItemModal();
-      e.target.reset();
-      renderInventoryTab();
-    }
-
-    function deleteInventoryItem(idx) {
-      if (!confirm("Удалить предмет из рюкзака?")) return;
-      loadInventory();
-      customInventory.splice(idx, 1);
-      saveInventory();
-      renderInventoryTab();
-    }
-
-    function changeItemQuantity(idx, delta) {
-      loadInventory();
-      if (customInventory[idx]) {
-        const currentQty = customInventory[idx].quantity !== undefined ? customInventory[idx].quantity : 1;
-        const newQty = currentQty + delta;
-        if (newQty <= 0) {
-          if (confirm(`Удалить «${customInventory[idx].name}» из инвентаря, так как количество стало 0?`)) {
-            customInventory.splice(idx, 1);
-          }
-        } else {
-          customInventory[idx].quantity = newQty;
-        }
-        saveInventory();
-        renderInventoryTab();
-      }
-    }
-
-    function openItemModal() { document.getElementById('itemModal').classList.remove('hidden'); }
-    function closeItemModal() { document.getElementById('itemModal').classList.add('hidden'); }
-
-    let customWeapons = [];
-
-    function loadWeapons() {
-      const raw = localStorage.getItem(`char_${charId}_weapons`);
-      if (raw) {
-        try {
-          customWeapons = JSON.parse(raw);
-        } catch(e) { customWeapons = []; }
-      }
-      if (!customWeapons.length) {
-        customWeapons = [
-          { name: "Боевой посох", atk: "+3", dmg: "1d6+1" },
-          { name: "Легкий арбалет", atk: "+4", dmg: "1d8+2" }
-        ];
-      }
-    }
-
-    function saveWeapons() {
-      localStorage.setItem(`char_${charId}_weapons`, JSON.stringify(customWeapons));
-    }
-
-    function renderWeaponsTab() {
-      const list = document.getElementById('combatWeaponsList');
-      if (!list) return;
-      loadWeapons();
-      if (!customWeapons.length) {
-        list.innerHTML = '<div class="text-center py-4 text-stone-500 italic">Оружие не добавлено.</div>';
-        return;
-      }
-      list.innerHTML = customWeapons.map((w, idx) => `
-        <div class="p-3 bg-[#0d0a08] border border-orange-950 rounded-lg flex justify-between items-center text-xs">
-          <div>
-            <strong class="text-amber-200 text-sm font-serif">${w.name}</strong>
-            <span class="text-stone-400 block">Атака: ${w.atk} • Урон: ${w.dmg}</span>
-          </div>
-          <div class="flex gap-2">
-            <button onclick="rollFormula('Атака: ${w.name}', '1d20${w.atk}')" class="px-2.5 py-1 rounded bg-[#160f0b] border border-orange-900 text-amber-300 font-mono font-bold hover:border-amber-400">Атака (${w.atk})</button>
-            <button onclick="rollFormula('Урон: ${w.name}', '${w.dmg}')" class="px-2.5 py-1 rounded bg-foxOrange-700 text-amber-100 font-mono font-bold hover:bg-foxOrange-600">Урон (${w.dmg})</button>
-            <button onclick="deleteWeapon(${idx})" class="text-rose-400 font-bold p-1 hover:text-rose-300">🗑️ Удалить</button>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    function openWeaponModal() { document.getElementById('weaponModal').classList.remove('hidden'); }
-    function closeWeaponModal() { document.getElementById('weaponModal').classList.add('hidden'); }
-
-    function handleCreateWeapon(e) {
-      e.preventDefault();
-      const name = document.getElementById('wName').value.trim();
-      const atk = document.getElementById('wAtk').value.trim();
-      const dmg = document.getElementById('wDmg').value.trim();
-      if (!name) return;
-
-      loadWeapons();
-      customWeapons.push({ name, atk: atk.startsWith('+') || atk.startsWith('-') ? atk : `+${atk}`, dmg });
-      saveWeapons();
-      closeWeaponModal();
-      e.target.reset();
-      renderWeaponsTab();
-    }
-
-    function deleteWeapon(idx) {
-      loadWeapons();
-      customWeapons.splice(idx, 1);
-      saveWeapons();
-      renderWeaponsTab();
-    }
-
-    // ОБНОВЛЁННАЯ ФУНКЦИЯ ОСОБЕННОСТЕЙ (ПОДДЯЖКА КАСТОМНЫХ РАС И АРХЕТИПОВ)
-    async function renderFeaturesTab() {
-      const cont = document.getElementById('featsListContainer');
-      if (!cont) return;
-      const c = characterData;
-      if (!c) return;
-
-      let html = '';
-
-      // 1. Расовые особенности (из объекта персонажа или прямо из компендиума рас)
-      let raceTraits = c.traits || c.race_traits || [];
-      if (raceTraits.length === 0 && c.race) {
-        if (!window.ALL_RACES_CACHE) {
-          try {
-            const rRes = await apiFetch('/compendium/races');
-            if (rRes.ok) window.ALL_RACES_CACHE = await rRes.json();
-          } catch(e) {}
-        }
-        const rObj = (window.ALL_RACES_CACHE || []).find(r => r.name.toLowerCase() === c.race.toLowerCase());
-        if (rObj && rObj.traits) {
-          raceTraits = rObj.traits;
-        }
-      }
-
-      html += `
-        <div class="space-y-2">
-          <div class="flex items-center gap-2 border-b border-orange-950/80 pb-1">
-            <span class="text-sm">🧬</span>
-            <h4 class="font-serif font-bold text-amber-200 text-sm">Расовые особенности: ${c.race}</h4>
-          </div>
-      `;
-
-      if (raceTraits.length > 0) {
-        raceTraits.forEach(t => {
-          const name = typeof t === 'string' ? t.split(':')[0].trim() : t.name;
-          const desc = typeof t === 'string' ? (t.split(':')[1] || '').trim() : (t.description || t.desc || '');
-          html += `
-            <div class="p-3 bg-[#0d0a08] border border-orange-950 rounded-xl space-y-1 shadow">
-              <strong class="text-amber-300 text-xs font-serif block">${name}</strong>
-              ${desc ? `<p class="text-stone-300 text-xs font-serif leading-relaxed whitespace-pre-line">${desc}</p>` : ''}
-            </div>
-          `;
-        });
-      } else {
-        html += `
-          <div class="p-3 bg-[#0d0a08] border border-orange-950/60 rounded-xl text-stone-400 text-xs font-serif">
-            Стандартные пассивные свойства расы ${c.race} (согласно кодексу D&D 5e).
-          </div>
-        `;
-      }
-      html += `</div>`;
-
-      // 2. Блок Архетипа (если персонаж выбрал подкласс на 3+ ур.)
-      if (c.subclass) {
-        let subData = currentSubclassesMap[c.subclass];
-        if (!subData) {
-          for (const subMap of Object.values(SUBCLASSES_FALLBACK)) {
-            if (subMap[c.subclass]) { subData = subMap[c.subclass]; break; }
-          }
-        }
-
-        html += `
-          <div class="space-y-2 pt-2">
-            <div class="flex items-center justify-between border-b border-purple-950/80 pb-1">
-              <div class="flex items-center gap-2">
-                <span class="text-sm">👑</span>
-                <h4 class="font-serif font-bold text-purple-300 text-sm">Специализация: ${c.subclass}</h4>
-              </div>
-              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-800 text-purple-200">${subData?.source || 'Архетип'}</span>
-            </div>
-        `;
-
-        if (subData) {
-          html += `
-            <div class="p-3 bg-[#130b18] border border-purple-950/80 rounded-xl space-y-2 shadow">
-              <p class="text-stone-300 text-xs font-serif italic">${subData.summary || ''}</p>
-              <div class="pt-1.5 border-t border-purple-950/60">
-                <strong class="text-amber-300 text-xs block mb-0.5 font-serif">Визитная карточка архетипа:</strong>
-                <p class="text-stone-300 text-xs font-serif leading-relaxed">${subData.key_feature || ''}</p>
-              </div>
-            </div>
-          `;
-        }
-        html += `</div>`;
-      }
-
-      // 3. Классовые умения
-      let classFeatures = c.features || c.class_features || [];
-
-      if (classFeatures.length === 0) {
-        try {
-          if (!window.ALL_CLASSES_CACHE) {
-            const res = await apiFetch('/compendium/classes');
-            if (res.ok) window.ALL_CLASSES_CACHE = await res.json();
-          }
-          const cls = (window.ALL_CLASSES_CACHE || []).find(
-            x => x.name.toLowerCase() === (c.class_name || '').toLowerCase() || x.id === (c.class_id || '')
-          );
-          if (cls) {
-            if (cls.features && Array.isArray(cls.features)) {
-              classFeatures = cls.features.filter(f => (f.level || 1) <= (c.level || 1));
-            } else if (cls.level1_features) {
-              classFeatures = cls.level1_features;
-            }
-          }
-        } catch (e) {
-          console.warn("Не удалось подтянуть умения класса из компендиума:", e);
-        }
-      }
-
-      html += `
-        <div class="space-y-2 pt-2">
-          <div class="flex items-center justify-between border-b border-orange-950/80 pb-1">
-            <div class="flex items-center gap-2">
-              <span class="text-sm">⚔️</span>
-              <h4 class="font-serif font-bold text-amber-200 text-sm">Классовые умения: ${c.class_name}</h4>
-            </div>
-            <span class="text-[10px] font-mono text-stone-400">До ${c.level || 1} уровня</span>
-          </div>
-      `;
-
-      if (classFeatures.length > 0) {
-        classFeatures.forEach(f => {
-          let name = f.name;
-          let desc = f.description || f.desc;
-          let lvl = f.level ? `${f.level} ур.` : '';
-
-          if (typeof f === 'string') {
-            const parts = f.split(':');
-            name = parts[0].trim();
-            desc = parts.slice(1).join(':').trim();
-          }
-
-          // Если это умение 3 уровня о выборе ордена, а орден уже выбран — отмечаем это
-          if (name.includes('Орден') || name.includes('Традиция') || name.includes('Архетип')) {
-            if (c.subclass) {
-              desc = `Вы посвящены в ${c.subclass}. Способности специализации активны и отражены выше.`;
-            }
-          }
-
-          html += `
-            <div class="p-3 bg-[#0d0a08] border border-orange-950 rounded-xl space-y-1 shadow">
-              <div class="flex justify-between items-start gap-2">
-                <strong class="text-amber-300 text-xs font-serif block">${name}</strong>
-                ${lvl ? `<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/60 border border-orange-900 text-amber-400 shrink-0">${lvl}</span>` : ''}
-              </div>
-              ${desc ? `<p class="text-stone-300 text-xs font-serif leading-relaxed whitespace-pre-line">${desc}</p>` : ''}
-            </div>
-          `;
-        });
-      } else {
-        html += `
-          <div class="p-3 bg-[#0d0a08] border border-orange-950/60 rounded-xl text-stone-400 text-xs font-serif">
-            Умения класса откроются по мере повышения уровня.
-          </div>
-        `;
-      }
-      html += `</div>`;
-
-      // 4. Черты и таланты
-      const feats = c.feats || [];
-      if (feats.length > 0) {
-        html += `
-          <div class="space-y-2 pt-2">
-            <div class="flex items-center gap-2 border-b border-orange-950/80 pb-1">
-              <span class="text-sm">✨</span>
-              <h4 class="font-serif font-bold text-amber-200 text-sm">Черты и таланты (Feats)</h4>
-            </div>
-        `;
-        feats.forEach(f => {
-          html += `
-            <div class="p-3 bg-[#0d0a08] border border-orange-950 rounded-xl space-y-1 shadow">
-              <strong class="text-amber-300 text-xs font-serif block">${f.name}</strong>
-              ${f.description ? `<p class="text-stone-300 text-xs font-serif leading-relaxed whitespace-pre-line">${f.description}</p>` : ''}
-            </div>
-          `;
-        });
-        html += `</div>`;
-      }
-
-      cont.innerHTML = html;
-    }
-
-    function rollCheck(title, mod) {
-      const d20 = Math.floor(Math.random() * 20) + 1;
-      const total = d20 + mod;
-      const toast = document.getElementById('diceToast');
-      const icon = document.getElementById('toastIcon');
-      const titleEl = document.getElementById('toastTitle');
-      const bodyEl = document.getElementById('toastBody');
-
-      if (d20 === 20) {
-        icon.textContent = "🔥";
-        titleEl.textContent = `КРИТИЧЕСКИЙ УСПЕХ (НАТ 20)!`;
-        bodyEl.textContent = `${title}: d20 (${d20}) ${formatMod(mod)} = ${total} (ТРИУМФ!)`;
-        toast.className = "fixed bottom-6 right-6 z-[99999] fox-card p-4 rounded-xl border-2 border-amber-400 bg-amber-950/95 text-amber-100 text-xs shadow-2xl flex items-center gap-3 animate-bounce";
-      } else if (d20 === 1) {
-        icon.textContent = "💀";
-        titleEl.textContent = `КРИТИЧЕСКИЙ ПРОВАЛ (1)!`;
-        bodyEl.textContent = `${title}: d20 (${d20}) ${formatMod(mod)} = ${total} (КАТАСТРОФА!)`;
-        toast.className = "fixed bottom-6 right-6 z-[99999] fox-card p-4 rounded-xl border-2 border-rose-600 bg-rose-950/95 text-rose-100 text-xs shadow-2xl flex items-center gap-3 animate-bounce";
-      } else {
-        icon.textContent = "🎲";
-        titleEl.textContent = title;
-        bodyEl.textContent = `d20 (${d20}) ${formatMod(mod)} = ${total}`;
-        toast.className = "fixed bottom-6 right-6 z-[99999] fox-card p-4 rounded-xl border border-amber-500 bg-stone-950/95 text-amber-200 text-xs shadow-2xl flex items-center gap-3 animate-bounce";
-      }
-
-      toast.classList.remove('hidden');
-      setTimeout(() => toast.classList.add('hidden'), 6000);
-    }
-
-    async function rollFormula(title, formula) {
-      try {
-        const res = await apiFetch(`/characters/${charId}/roll`, { method: 'POST', body: { formula: formula } });
-        const data = await res.json();
-        if (res.ok) {
-          const toast = document.getElementById('diceToast');
-          document.getElementById('toastIcon').textContent = "🎲";
-          document.getElementById('toastTitle').textContent = `${title} (${formula})`;
-          document.getElementById('toastBody').textContent = `${data.breakdown} = ${data.total}`;
-          toast.className = "fixed bottom-6 right-6 z-[99999] fox-card p-4 rounded-xl border border-amber-500 bg-stone-950/95 text-amber-200 text-xs shadow-2xl flex items-center gap-3 animate-bounce";
-          toast.classList.remove('hidden');
-          setTimeout(() => toast.classList.add('hidden'), 6000);
-        }
-      } catch {}
-    }
-
-    function rollInit() { rollCheck('Инициатива', calcMod(characterData.stats.dex)); }
-    function openSpellModal() {
-      populateAvailableSpellLevels();
-      document.getElementById('spellModal').classList.remove('hidden');
-    }
-    function closeSpellModal() { document.getElementById('spellModal').classList.add('hidden'); }
-
-    async function loadCompendiumSpellsList() {
-      if (COMPENDIUM_SPELLS.length === 0) {
-        try {
-          const res = await apiFetch('/compendium/spells');
-          if (res.ok) COMPENDIUM_SPELLS = await res.json();
-        } catch (e) {}
-      }
-    }
-
-    function populateAvailableSpellLevels() {
-      const lvlFilter = document.getElementById('spellAvailableLevelFilter');
-      if (!lvlFilter) return;
-      let options = ['<option value="0">Заговоры (0 круг)</option>'];
-      for (let lvl = 1; lvl <= 5; lvl++) {
-        options.push(`<option value="${lvl}">${lvl} круг заклинаний</option>`);
-      }
-      lvlFilter.innerHTML = options.join('');
-      loadCompendiumSpellsList().then(() => filterCompendiumSpellsByLevel());
-    }
-
-    function filterCompendiumSpellsByLevel() {
-      const lvlFilter = document.getElementById('spellAvailableLevelFilter');
-      const compSelect = document.getElementById('spellCompendiumSelect');
-      if (!lvlFilter || !compSelect) return;
-      const selectedLvl = parseInt(lvlFilter.value);
-      const matching = COMPENDIUM_SPELLS.filter(s => (s.level || 0) === selectedLvl);
-      compSelect.innerHTML = '<option value="">-- Выберите из базы D&D.su (' + matching.length + ') --</option>' +
-        matching.map(s => `<option value="${s.id || s.name}">${s.name} [${s.school}]</option>`).join('');
-    }
-
-    function applyCompendiumSpellToForm(spellId) {
-      if (!spellId) return;
-      const spell = COMPENDIUM_SPELLS.find(s => (s.id === spellId || s.name === spellId));
-      if (!spell) return;
-      document.getElementById('spellName').value = spell.name;
-      document.getElementById('spellLevel').value = spell.level || 0;
-      document.getElementById('spellSchool').value = spell.school || "Воплощение";
-      document.getElementById('spellDescription').value = spell.description || "";
-    }
-
-    async function handleCreateSpell(e) {
-      e.preventDefault();
-      const payload = {
-        name: document.getElementById('spellName').value,
-        level: parseInt(document.getElementById('spellLevel').value),
-        school: document.getElementById('spellSchool').value,
-        damage_dice: document.getElementById('spellDamageDice').value || null,
-        description: document.getElementById('spellDescription').value,
-        is_prepared: true
-      };
-      try {
-        const res = await apiFetch(`/characters/${charId}/spells`, { method: 'POST', body: payload });
-        if (res.ok) {
-          characterData = await res.json();
-          closeSpellModal();
-          e.target.reset();
-          renderSpellsList();
-        }
-      } catch {}
-    }
-
-    async function deleteSpell(name) {
-      if (!confirm(`Удалить «${name}»?`)) return;
-      try {
-        const res = await apiFetch(`/characters/${charId}/spells/${encodeURIComponent(name)}`, { method: 'DELETE' });
-        if (res.ok) {
-          characterData = await res.json();
-          renderSpellsList();
-        }
-      } catch {}
-    }
-
-    async function modifyHp(delta) {
-      let newHp = Math.max(0, Math.min(characterData.hp_max, characterData.hp_current + delta));
-      await apiFetch(`/characters/${charId}/hp`, { method: 'PATCH', body: { hp_current: newHp } });
-      characterData.hp_current = newHp;
-      renderSheet();
-    }
-
-    async function applyHpDelta() {
-      const val = parseInt(document.getElementById('hpDeltaInput').value);
-      if (!isNaN(val)) { modifyHp(val); document.getElementById('hpDeltaInput').value = ''; }
-    }
-
-    async function handleRest(type) {
-      if (!confirm(type === 'long' ? "Совершить длинный отдых?" : "Короткий отдых?")) return;
-      const res = await apiFetch(`/characters/${charId}/rest`, { method: 'POST', body: { rest_type: type } });
-      if (res.ok) {
-        characterData = await res.json();
-        if (type === 'short' || type === 'long') {
-          restoreBloodCurses();
-        }
-        renderSheet();
-      }
-    }
-
-    function saveCoins() {
-      const coins = {
-        pp: document.getElementById('coin_pp')?.value || 0,
-        gp: document.getElementById('coin_gp')?.value || 0,
-        ep: document.getElementById('coin_ep')?.value || 0,
-        sp: document.getElementById('coin_sp')?.value || 0,
-        cp: document.getElementById('coin_cp')?.value || 0
-      };
-      localStorage.setItem(`char_${charId}_coins`, JSON.stringify(coins));
-    }
-
-    function loadCoins() {
-      const raw = localStorage.getItem(`char_${charId}_coins`);
-      if (raw) {
-        try {
-          const c = JSON.parse(raw);
-          if (c.pp && document.getElementById('coin_pp')) document.getElementById('coin_pp').value = c.pp;
-          if (c.gp && document.getElementById('coin_gp')) document.getElementById('coin_gp').value = c.gp;
-          if (c.ep && document.getElementById('coin_ep')) document.getElementById('coin_ep').value = c.ep;
-          if (c.sp && document.getElementById('coin_sp')) document.getElementById('coin_sp').value = c.sp;
-          if (c.cp && document.getElementById('coin_cp')) document.getElementById('coin_cp').value = c.cp;
-        } catch(e) {}
-      }
-    }
-
-    async function saveBackstory() {
-      const text = document.getElementById('sheetBackstoryInput').value;
-      const btn = document.getElementById('btnSaveBackstory');
-      btn.textContent = "Сохраняем...";
-      try {
-        const res = await apiFetch(`/characters/${charId}/backstory`, { method: 'PATCH', body: { backstory: text } });
-        if (res.ok) {
-          characterData.backstory = text;
-          btn.textContent = "✓ Сохранено!";
-          setTimeout(() => { btn.textContent = "💾 Сохранить квенту"; }, 2000);
-        }
-      } catch { btn.textContent = "Ошибка!"; }
-    }
-
-    // ==========================================
-    // --- ЛОГИКА ПОВЫШЕНИЯ УРОВНЯ (LEVEL UP) ---
-    // ==========================================
-    let nextTargetLevel = 2;
-    let hitDieSides = 8;
-    let COMPENDIUM_FEATS = [];
-    let currentAsiChoiceMode = 'stats';
-    let currentSubclassesMap = {};
-
-    const SUBCLASSES_FALLBACK = {
-      "кровавый охотник": {
-        "Орден Призрачного клинка": {
-          source: "Mercer",
-          summary: "Старейший орден охотников, специализирующийся на истреблении нежити и ритуалах чистого эфира.",
-          key_feature: "Ритуал эфира: доп. урон излучением против нежити и призраков."
-        },
-        "Орден Мутанта": {
-          source: "Mercer",
-          summary: "Алхимики крови, меняющие биологию тела мутагенами ради силы за счёт побочных эффектов.",
-          key_feature: "Формулы мутагенов: временные мутации, повышающие характеристики и защиту."
-        },
-        "Орден Ликантропа": {
-          source: "Mercer",
-          summary: "Воины, обуздавшие проклятие оборотня и черпающие свирепую мощь зверя в бою.",
-          key_feature: "Звериная форма: бонус к КД, сопротивление урону и безоружные атаки когтями."
-        },
-        "Орден Профанической души": {
-          source: "Mercer",
-          summary: "Охотники, заключившие договор с потусторонними покровителями ради тёмных чар.",
-          key_feature: "Договорная магия: ячейки магии колдуна и усиление оружия мистической связью."
-        }
-      },
-      "монах": {
-        "Путь открытой ладони": {
-          source: "PHB",
-          summary: "Мастера безоружного боя, сбивающие врагов с ног и управляющие энергией их тел.",
-          key_feature: "Техника открытой ладони: контроль врагов при ударах шквалом (нокдаун, отталкивание)."
-        },
-        "Путь тени": {
-          source: "PHB",
-          summary: "Ниндзя и лазутчики, использующие тени для маскировки и мгновенной телепортации.",
-          key_feature: "Искусство тени: каст заклинаний тьмы за Ци и телепортация между тенями."
-        },
-        "Путь четырех стихий": {
-          source: "PHB",
-          summary: "Мастера обуздания огня, воды, земли и воздуха через концентрацию внутренней Ци.",
-          key_feature: "Стихийные техники: метание пламени, удар волной и каменные захваты."
-        },
-        "Путь пьяного мастера": {
-          source: "XGtE",
-          summary: "Непредсказуемые бойцы, превращающие шаткую походку в сокрушительный танец.",
-          key_feature: "Хмельная техника: бесплатный Отход при шквале ударов и быстрый подъем на ноги."
-        },
-        "Путь кэнсэя": {
-          source: "XGtE",
-          summary: "Виртуозы монашеского оружия, превратившие клинок и лук в продолжение своего духа.",
-          key_feature: "Оружие кэнсэя: мастерство владения клинком и доп. КД при рукопашном блоке."
-        }
-      },
-      "альтернативный воин": {
-        "Чемпион": {
-          source: "PHB",
-          summary: "Атлет и мастер сокрушительных ударов с повышенной вероятностью крита.",
-          key_feature: "Улучшенный крит: критический удар на 19 и 20 на кости d20."
-        },
-        "Мастер боевых искусств": {
-          source: "PHB",
-          summary: "Тактический гений поля боя, отдающий команды и применяющий боевые финты.",
-          key_feature: "Тактические маневры: кубы превосходства d8 для подсечек, парирования и атак."
-        },
-        "Рыцарь-мистик": {
-          source: "PHB",
-          summary: "Воин, сочетающий сталь и заклинания школ ограждения и воплощения.",
-          key_feature: "Связь с оружием и магия: призыв оружия в руку и боевые заклинания."
-        }
-      },
-      "воин": {
-        "Чемпион": { source: "PHB", summary: "Атлет с критами на 19-20.", key_feature: "Улучшенный крит: критический удар на 19 и 20 на кости d20." },
-        "Мастер боевых искусств": { source: "PHB", summary: "Тактический гений поля боя.", key_feature: "Тактические маневры: кубы превосходства d8." },
-        "Рыцарь-мистик": { source: "PHB", summary: "Воин с боевой магией.", key_feature: "Связь с оружием и магия школ ограждения и воплощения." }
-      },
-      "варвар": {
-        "Путь Берсерка": { source: "PHB", summary: "Воин неудержимой ярости.", key_feature: "Бешенство: доп. атака бонусным действием каждый ход." },
-        "Путь Тотемного воина": { source: "PHB", summary: "Варвар, черпающий живучесть духов зверей.", key_feature: "Тотем Медведя: сопротивление всем видам урона в ярости." }
-      },
-      "бард": {
-        "Коллегия Знаний": { source: "PHB", summary: "Эрудит, ослабляющий врагов критикой.", key_feature: "Острые слова: срез бросков врага костью вдохновения." },
-        "Коллегия Доблести": { source: "PHB", summary: "Боевой скальд, усиливающий отряд.", key_feature: "Боевое вдохновение: вдохновение к урону или КД союзника." },
-        "Коллегия Мечей": { source: "XGtE", summary: "Виртуозный артист клинка.", key_feature: "Маневры клинка: трата вдохновения на урон и защиту." }
-      },
-      "плут": {
-        "Вор": { source: "PHB", summary: "Мастер карманных краж и ловкости.", key_feature: "Быстрые руки: бонусным действием Ловкость рук или предмет." },
-        "Убийца": { source: "PHB", summary: "Охотник за головами.", key_feature: "Ликвидация: авто-крит по существам, застигнутым врасплох." },
-        "Мистический ловкач": { source: "PHB", summary: "Вор-иллюзионист.", key_feature: "Магическая рука: манипуляция предметами на расстоянии." }
-      }
-    };
-
-    async function loadSubclassesForLevelUp(className) {
-      const sel = document.getElementById('lvlSubclassSelect');
-      if (!sel) return;
-
-      currentSubclassesMap = {};
-      const normClass = (className || '').toLowerCase().trim();
-
-      try {
-        if (!window.ALL_CLASSES_CACHE) {
-          const res = await apiFetch('/compendium/classes');
-          if (res.ok) window.ALL_CLASSES_CACHE = await res.json();
-        }
-
-        const raw = window.ALL_CLASSES_CACHE;
-        if (raw && typeof raw === 'object' && raw.subclasses) {
-          for (const [sName, sData] of Object.entries(raw.subclasses)) {
-            if ((sData.class || '').toLowerCase().trim() === normClass) {
-              currentSubclassesMap[sName] = sData;
-            }
-          }
-        }
-      } catch (e) {}
-
-      if (Object.keys(currentSubclassesMap).length === 0) {
-        for (const [cKey, subMap] of Object.entries(SUBCLASSES_FALLBACK)) {
-          if (normClass.includes(cKey)) {
-            currentSubclassesMap = { ...subMap };
-            break;
-          }
-        }
-      }
-
-      const subNames = Object.keys(currentSubclassesMap);
-
-      sel.innerHTML = '<option value="">-- Выберите архетип --</option>' +
-        subNames.map(name => `<option value="${name}">👑 ${name}</option>`).join('') +
-        '<option value="custom">✍️ Свой авторский архетип...</option>';
-
-      onSubclassSelectChange();
-    }
-
-    function onSubclassSelectChange() {
-      const sel = document.getElementById('lvlSubclassSelect');
-      const preview = document.getElementById('lvlSubclassPreviewBox');
-      const customBlock = document.getElementById('lvlCustomSubclassInputBlock');
-      if (!sel || !preview) return;
-
-      const val = sel.value;
-
-      if (val === 'custom') {
-        if (customBlock) customBlock.classList.remove('hidden');
-        preview.classList.add('hidden');
-        return;
-      } else {
-        if (customBlock) customBlock.classList.add('hidden');
-      }
-
-      if (!val || !currentSubclassesMap[val]) {
-        preview.classList.add('hidden');
-        return;
-      }
-
-      const data = currentSubclassesMap[val];
-      preview.classList.remove('hidden');
-      document.getElementById('lvlSubclassPreviewTitle').textContent = val;
-      document.getElementById('lvlSubclassPreviewSource').textContent = data.source || '5e';
-      document.getElementById('lvlSubclassPreviewSummary').textContent = data.summary || 'Описание специализации.';
-      document.getElementById('lvlSubclassPreviewKeyFeature').textContent = data.key_feature || 'Уникальные приёмы архетипа.';
-    }
-
-    function switchAsiMode(mode) {
-      currentAsiChoiceMode = mode;
-      const btnStats = document.getElementById('btnModeStats');
-      const btnFeat = document.getElementById('btnModeFeat');
-      const bStats = document.getElementById('asiStatsSubBlock');
-      const bFeat = document.getElementById('asiFeatSubBlock');
-
-      if (mode === 'stats') {
-        btnStats.className = "py-1.5 rounded font-bold text-stone-950 bg-amber-400 transition-all";
-        btnFeat.className = "py-1.5 rounded font-bold text-stone-400 hover:text-amber-200 transition-all";
-        bStats.classList.remove('hidden');
-        bFeat.classList.add('hidden');
-      } else {
-        btnFeat.className = "py-1.5 rounded font-bold text-stone-950 bg-amber-400 transition-all";
-        btnStats.className = "py-1.5 rounded font-bold text-stone-400 hover:text-amber-200 transition-all";
-        bFeat.classList.remove('hidden');
-        bStats.classList.add('hidden');
-        loadFeatsForLevelUp();
-      }
-    }
-
-    function checkFeatPrerequisite(feat, character) {
-      if (!feat || !feat.prerequisite) return { ok: true, reason: "" };
-
-      const prereq = String(feat.prerequisite).trim();
-      if (!prereq || prereq.toLowerCase() === 'null') return { ok: true, reason: "" };
-
-      const stats = (character && character.stats) || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
-      const race = (character && character.race ? character.race : "").toLowerCase();
-      const profs = extractAllProficiencies(character);
-      const pLower = prereq.toLowerCase();
-
-      const statKeys = [
-        { key: 'str', names: ['сила', 'силы', 'str'] },
-        { key: 'dex', names: ['ловкость', 'ловкости', 'dex'] },
-        { key: 'con', names: ['телосложение', 'телосложения', 'con'] },
-        { key: 'int', names: ['интеллект', 'интеллекта', 'int'] },
-        { key: 'wis', names: ['мудрость', 'мудрости', 'wis'] },
-        { key: 'cha', names: ['харизма', 'харизмы', 'cha'] }
-      ];
-
-      for (const s of statKeys) {
-        for (const n of s.names) {
-          if (pLower.includes(n)) {
-            const numMatch = prereq.match(/\d+/);
-            if (numMatch) {
-              const reqVal = parseInt(numMatch[0]);
-              const curVal = stats[s.key] || 10;
-              if (curVal < reqVal) {
-                return { ok: false, reason: `Требуется ${n.toUpperCase()} ${reqVal}+ (у вас ${curVal})` };
-              }
-            }
-          }
-        }
-      }
-
-      if (pLower.includes('тяжел') && pLower.includes('доспех')) {
-        if (!profs.armor.some(a => a.toLowerCase().includes('тяжел'))) {
-          return { ok: false, reason: "Требуется владение тяжелыми доспехами" };
-        }
-      }
-      if (pLower.includes('средн') && pLower.includes('доспех')) {
-        if (!profs.armor.some(a => a.toLowerCase().includes('средн') || a.toLowerCase().includes('тяжел'))) {
-          return { ok: false, reason: "Требуется владение средними доспехами" };
-        }
-      }
-
-      if (pLower.includes('заклинател') || pLower.includes('накладывать') || pLower.includes('маги')) {
-        const hasSpells = (character.spells && character.spells.length > 0) || (character.spell_slots && Object.keys(character.spell_slots).length > 0);
-        if (!hasSpells) {
-          return { ok: false, reason: "Требуется способность накладывать заклинания" };
-        }
-      }
-
-      const races = ['эльф', 'дварф', 'гном', 'полуэльф', 'полуорк', 'тифлинг', 'драконорожденный', 'халфлинг'];
-      for (const r of races) {
-        if (pLower.includes(r) && !race.includes(r)) {
-          return { ok: false, reason: `Доступно только расе: ${r}` };
-        }
-      }
-
-      return { ok: true, reason: "" };
-    }
-
-    async function loadFeatsForLevelUp() {
-      const sel = document.getElementById('lvlFeatSelect');
-      if (!sel) return;
-
-      if (COMPENDIUM_FEATS.length === 0) {
-        try {
-          const res = await apiFetch('/compendium/feats');
-          if (res.ok) COMPENDIUM_FEATS = await res.json();
-        } catch (e) {}
-      }
-
-      if (COMPENDIUM_FEATS.length === 0) {
-        sel.innerHTML = '<option value="">В компендиуме нет доступных черт</option>';
-        return;
-      }
-
-      sel.innerHTML = '<option value="">-- Выберите черту --</option>' + COMPENDIUM_FEATS.map(f => {
-        const check = checkFeatPrerequisite(f, characterData);
-        const isLocked = !check.ok;
-        const lockIcon = isLocked ? '🔒 ' : '✨ ';
-        const disabledAttr = isLocked ? 'disabled class="text-stone-600 bg-stone-950"' : 'class="text-amber-200 bg-stone-900"';
-        const reasonHint = isLocked ? ` [${check.reason}]` : '';
-
-        return `<option value="${f.id || f.name}" ${disabledAttr}>${lockIcon}${f.name}${reasonHint}</option>`;
-      }).join('');
-    }
-
-    function openLevelUpModal() {
-      if (!characterData) return;
-      const curLevel = characterData.level || 1;
-      nextTargetLevel = curLevel + 1;
-
-      const curText = document.getElementById('lvlCurrentText');
-      const nextText = document.getElementById('lvlNextText');
-      if (curText) curText.textContent = curLevel;
-      if (nextText) nextText.textContent = nextTargetLevel;
-
-      const cName = (characterData.class_name || '').toLowerCase();
-
-      // Определение кости хитов
-      if (cName.includes('варвар')) hitDieSides = 12;
-      else if (cName.includes('воин') || cName.includes('охотник') || cName.includes('паладин') || cName.includes('следопыт')) hitDieSides = 10;
-      else if (cName.includes('волшебник') || cName.includes('чародей')) hitDieSides = 6;
-      else hitDieSides = 8;
-
-      const conMod = calcMod(characterData.stats?.con || 10);
-      const avgHpIncrease = Math.max(1, Math.floor(hitDieSides / 2) + 1 + conMod);
-
-      const formulaEl = document.getElementById('lvlHpFormula');
-      const hpInput = document.getElementById('lvlHpIncreaseInput');
-      if (formulaEl) formulaEl.textContent = `d${hitDieSides} + ${formatMod(conMod)}`;
-      if (hpInput) hpInput.value = avgHpIncrease;
-
-      // 1. Боевой стиль на 2 уровне
-      const styleBlock = document.getElementById('lvlFightingStyleBlock');
-      const isMartial = cName.includes('охотник') || cName.includes('воин') || cName.includes('паладин') || cName.includes('следопыт');
-      if (styleBlock) {
-        styleBlock.classList.toggle('hidden', !(nextTargetLevel === 2 && isMartial));
-      }
-
-      // 2. Архетип на 3 уровне
-      const subBlock = document.getElementById('lvlSubclassBlock');
-      if (subBlock) {
-        const showSub = (nextTargetLevel === 3);
-        subBlock.classList.toggle('hidden', !showSub);
-        if (showSub) {
-          loadSubclassesForLevelUp(characterData.class_name);
-        }
-      }
-
-      // 3. ASI или Черта на 4, 8, 12, 16, 19 ур.
-      const asiBlock = document.getElementById('lvlAsiBlock');
-      const isAsiLevel = [4, 8, 12, 16, 19].includes(nextTargetLevel);
-      if (asiBlock) {
-        asiBlock.classList.toggle('hidden', !isAsiLevel);
-        if (isAsiLevel) switchAsiMode('stats');
-      }
-
-      const unlockDesc = document.getElementById('lvlUnlockDesc');
-      if (unlockDesc) {
-        const newProf = getProficiencyBonus(nextTargetLevel);
-        const oldProf = getProficiencyBonus(curLevel);
-        let notes = [];
-        if (newProf > oldProf) notes.push(`Бонус мастерства вырастет до +${newProf}!`);
-        if (nextTargetLevel === 2 && isMartial) notes.push(`Открывается Боевой стиль.`);
-        if (nextTargetLevel === 3) notes.push(`Открывается Архетип (подкласс).`);
-        notes.push(`Новые умения отобразятся во вкладке «Особенности».`);
-        unlockDesc.textContent = notes.join(' ');
-      }
-
-      const modal = document.getElementById('levelUpModal');
-      if (modal) modal.classList.remove('hidden');
-    }
-
-    function closeLevelUpModal() {
-      const modal = document.getElementById('levelUpModal');
-      if (modal) modal.classList.add('hidden');
-    }
-
-    function rollHpLevelUp() {
-      const rolled = Math.floor(Math.random() * hitDieSides) + 1;
-      const conMod = calcMod(characterData.stats?.con || 10);
-      const total = Math.max(1, rolled + conMod);
-      const hpInput = document.getElementById('lvlHpIncreaseInput');
-      if (hpInput) hpInput.value = total;
-      alert(`Бросок d${hitDieSides}: (${rolled}) ${formatMod(conMod)} = +${total} к максимуму HP!`);
-    }
-
-    async function submitLevelUp(e) {
-      e.preventDefault();
-      if (!characterData) return;
-
-      const hpIncrease = parseInt(document.getElementById('lvlHpIncreaseInput')?.value) || 6;
-      const submitBtn = document.getElementById('btnSubmitLevelUp');
-      if (submitBtn) submitBtn.textContent = 'Сохраняем...';
-
-      const payload = {
-        hp_increase: hpIncrease
-      };
-
-      // 1. Боевой стиль
-      const styleBlock = document.getElementById('lvlFightingStyleBlock');
-      if (styleBlock && !styleBlock.classList.contains('hidden')) {
-        const selectedStyle = document.getElementById('lvlFightingStyleSelect').value;
-        const styleDescriptions = {
-          "Стрельба": "Вы получаете бонус +2 к броскам атаки дальнобойным оружием.",
-          "Оборона": "Пока вы носите доспех, вы получаете бонус +1 к Классу Доспеха.",
-          "Дуэлянт": "Когда вы держите рукопашное оружие в одной руке и не держите другого оружия, вы получаете бонус +2 к броскам урона этим оружием.",
-          "Сражение двумя оружиями": "Если вы сражаетесь двумя оружиями, вы можете добавить модификатор характеристики к урону от второй атаки.",
-          "Великое оружие": "Если на кости урона двуручным оружием выпало 1 или 2, вы можете перебросить кость."
-        };
-        payload.new_feat = {
-          name: `Боевой стиль: ${selectedStyle}`,
-          description: styleDescriptions[selectedStyle] || selectedStyle
-        };
-      }
-
-      // 2. Архетип на 3 уровне
-      const subBlock = document.getElementById('lvlSubclassBlock');
-      if (subBlock && !subBlock.classList.contains('hidden')) {
-        const selVal = document.getElementById('lvlSubclassSelect')?.value;
-        let finalSub = selVal;
-        if (selVal === 'custom') {
-          finalSub = document.getElementById('lvlCustomSubclassInput')?.value.trim();
-        }
-        if (finalSub) {
-          payload.chosen_subclass = finalSub;
-        }
-      }
-
-      // 3. ASI или Черта
-      const asiBlock = document.getElementById('lvlAsiBlock');
-      if (asiBlock && !asiBlock.classList.contains('hidden')) {
-        if (currentAsiChoiceMode === 'stats') {
-          const s1 = document.getElementById('lvlAsiStat1').value;
-          const s2 = document.getElementById('lvlAsiStat2').value;
-          const statMap = {};
-          if (s1) statMap[s1] = (statMap[s1] || 0) + 1;
-          if (s2) statMap[s2] = (statMap[s2] || 0) + 1;
-          if (Object.keys(statMap).length > 0) payload.stat_increases = statMap;
-        } else {
-          const featId = document.getElementById('lvlFeatSelect')?.value;
-          const chosenFeat = COMPENDIUM_FEATS.find(x => (x.id === featId || x.name === featId));
-          if (chosenFeat) {
-            let featName = chosenFeat.name;
-            const choiceSelect = document.getElementById('lvlFeatDynamicChoiceSelect');
-            const choiceBlock = document.getElementById('lvlFeatDynamicChoiceBlock');
-
-            if (choiceBlock && !choiceBlock.classList.contains('hidden') && choiceSelect) {
-              const pickedStat = choiceSelect.value;
-              const statDict = { str: 'Сила', dex: 'Ловкость', con: 'Телосложение', int: 'Интеллект', wis: 'Мудрость', cha: 'Харизма' };
-              featName = `${chosenFeat.name} (${statDict[pickedStat] || pickedStat.toUpperCase()})`;
-              payload.stat_increases = { [pickedStat]: 1 };
-            } else if (chosenFeat.stat_bonuses && typeof chosenFeat.stat_bonuses === 'object') {
-              const numBonuses = {};
-              for (const [k, v] of Object.entries(chosenFeat.stat_bonuses)) {
-                if (typeof v === 'number') numBonuses[k] = v;
-              }
-              if (Object.keys(numBonuses).length > 0) payload.stat_increases = numBonuses;
-            }
-
-            payload.new_feat = {
-              name: featName,
-              description: chosenFeat.description || ''
-            };
-          }
-        }
-      }
-
-      try {
-        const res = await apiFetch(`/characters/${charId}/level-up`, {
-          method: 'POST',
-          body: payload
-        });
-
-        if (res.ok) {
-          characterData = await res.json();
-          closeLevelUpModal();
-          renderSheet();
-          alert(`🎉 Поздравляем! Ваш персонаж достиг ${characterData.level} уровня!`);
-        } else {
-          const err = await res.json().catch(() => ({}));
-          alert(err.detail || 'Не удалось повысить уровень на сервере.');
-        }
-      } catch (err) {
-        alert('Сбой сети при повышении уровня: ' + err.message);
-      } finally {
-        if (submitBtn) submitBtn.textContent = 'Подтвердить уровень';
-      }
-    }
-
-    document.addEventListener('DOMContentLoaded', loadCharacterData);
 </script>
+<script type="module" src="{{ url_for('static', path='js/sheet/app.js') }}"></script>
 {% endblock %}

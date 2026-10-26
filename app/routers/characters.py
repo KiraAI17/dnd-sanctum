@@ -4,10 +4,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
+from fastapi import APIRouter, HTTPException, Depends, status
 
 from app.dependencies import CurrentUser, DbSession
 from app.models import Character, CharacterInventory, Item, UserRole
-from app.models.character import generate_default_spell_slots
+from app.models.character import generate_default_spell_slots, default_stats
 from app.schemas.character import (
     VisualThemeUpdateSchema,
     CharacterCreate,
@@ -22,6 +23,11 @@ from app.schemas.character import (
 )
 from app.schemas.dice import RollRequest, RollResponse
 from app.services.dice import roll_dice
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from fastapi import APIRouter, HTTPException, status
+from app.models.character import Character  # или откуда импортируется Character
+from app.dependencies import DbSession, CurrentUser  # укажи актуальный путь к файлу с типами
 
 router = APIRouter(prefix="/characters", tags=["Characters"])
 
@@ -57,6 +63,7 @@ def _verify_character_owner(character: Character, user: CurrentUser) -> None:
         detail="Только владелец персонажа может изменять эти данные!"
     )
 
+
 @router.post(
     "/",
     response_model=CharacterShortResponse,
@@ -64,9 +71,9 @@ def _verify_character_owner(character: Character, user: CurrentUser) -> None:
     summary="Создать нового персонажа",
 )
 async def create_character(
-    payload: CharacterCreate,
-    db: DbSession,
-    current_user: CurrentUser,
+        payload: CharacterCreate,
+        db: DbSession,
+        current_user: CurrentUser,
 ) -> CharacterShortResponse:
     character_data = payload.model_dump(exclude_unset=True)
     if "spell_slots" not in character_data or not character_data["spell_slots"]:
@@ -113,9 +120,9 @@ async def list_characters(
     summary="Получить детальную информацию о персонаже",
 )
 async def get_character(
-    character_id: int,
-    db: DbSession,
-    current_user: CurrentUser,
+        character_id: int,
+        db: DbSession,
+        current_user: CurrentUser,
 ) -> CharacterDetailResponse:
     stmt = (
         select(Character)
@@ -152,10 +159,10 @@ async def get_character(
     summary="Быстрое обновление здоровья (HP) персонажа в бою",
 )
 async def update_character_hp(
-    character_id: int,
-    payload: CharacterHPUpdate,
-    db: DbSession,
-    current_user: CurrentUser,
+        character_id: int,
+        payload: CharacterHPUpdate,
+        db: DbSession,
+        current_user: CurrentUser,
 ) -> CharacterShortResponse:
     stmt = select(Character).where(Character.id == character_id)
     result = await db.execute(stmt)
@@ -190,10 +197,10 @@ async def update_character_hp(
     summary="Выполнить бросок дайсов от лица персонажа",
 )
 async def roll_for_character(
-    character_id: int,
-    payload: RollRequest,
-    db: DbSession,
-    current_user: CurrentUser,
+        character_id: int,
+        payload: RollRequest,
+        db: DbSession,
+        current_user: CurrentUser,
 ) -> RollResponse:
     stmt = select(Character).where(Character.id == character_id)
     result = await db.execute(stmt)
@@ -224,10 +231,10 @@ async def roll_for_character(
 
 @router.post("/{character_id}/spells", summary="Добавить заклинание в книгу")
 async def add_spell(
-    character_id: int,
-    spell: SpellSchema,
-    db: DbSession,
-    current_user: CurrentUser,
+        character_id: int,
+        spell: SpellSchema,
+        db: DbSession,
+        current_user: CurrentUser,
 ):
     stmt = select(Character).where(Character.id == character_id)
     result = await db.execute(stmt)
@@ -259,10 +266,10 @@ async def add_spell(
 
 @router.delete("/{character_id}/spells/{spell_name}", summary="Удалить заклинание из книги")
 async def delete_spell(
-    character_id: int,
-    spell_name: str,
-    db: DbSession,
-    current_user: CurrentUser,
+        character_id: int,
+        spell_name: str,
+        db: DbSession,
+        current_user: CurrentUser,
 ):
     stmt = select(Character).where(Character.id == character_id)
     result = await db.execute(stmt)
@@ -283,10 +290,10 @@ async def delete_spell(
 
 @router.patch("/{character_id}/spells/{spell_name}/prepare", summary="Подготовить/снять заклинание")
 async def toggle_prepare_spell(
-    character_id: int,
-    spell_name: str,
-    db: DbSession,
-    current_user: CurrentUser,
+        character_id: int,
+        spell_name: str,
+        db: DbSession,
+        current_user: CurrentUser,
 ):
     stmt = select(Character).where(Character.id == character_id)
     result = await db.execute(stmt)
@@ -318,10 +325,10 @@ async def toggle_prepare_spell(
 
 @router.patch("/{character_id}/slots", summary="Обновить использованные ячейки заклинаний")
 async def update_spell_slots(
-    character_id: int,
-    payload: SlotUpdateSchema,
-    db: DbSession,
-    current_user: CurrentUser,
+        character_id: int,
+        payload: SlotUpdateSchema,
+        db: DbSession,
+        current_user: CurrentUser,
 ):
     stmt = select(Character).where(Character.id == character_id)
     result = await db.execute(stmt)
@@ -344,10 +351,10 @@ async def update_spell_slots(
 
 @router.post("/{character_id}/rest", summary="Совершить короткий или длинный отдых")
 async def rest_character(
-    character_id: int,
-    payload: RestRequestSchema,
-    db: DbSession,
-    current_user: CurrentUser,
+        character_id: int,
+        payload: RestRequestSchema,
+        db: DbSession,
+        current_user: CurrentUser,
 ):
     stmt = select(Character).where(Character.id == character_id)
     result = await db.execute(stmt)
@@ -372,33 +379,38 @@ async def rest_character(
         "spell_slots": character.spell_slots
     }
 
-@router.delete("/{character_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Удалить персонажа")
-async def delete_character(
-    character_id: int,
-    db: DbSession,
-    current_user: CurrentUser,
-) -> None:
-    stmt = select(Character).where(Character.id == character_id)
-    result = await db.execute(stmt)
-    character = result.scalar_one_or_none()
 
-    if character is None:
+@router.delete("/{char_id}", summary="Удалить персонажа или НИПа")
+async def delete_character(
+        char_id: int,
+        db: DbSession,
+        current_user: CurrentUser
+):
+    char = await db.get(Character, char_id)
+    if not char:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Персонаж с ID {character_id} не найден.",
+            detail="Персонаж не найден"
         )
 
-    _verify_character_owner(character, current_user)
-    await db.delete(character)
+    # Удалять может ИСКЛЮЧИТЕЛЬНО создатель / владелец
+    if char.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Вы не можете удалить чужого персонажа. Удаление разрешено только владельцу."
+        )
+
+    await db.delete(char)
     await db.commit()
+    return {"status": "ok", "message": "Персонаж успешно удалён"}
 
 
 @router.post("/{character_id}/level-up", response_model=CharacterDetailResponse, summary="Повысить уровень персонажа")
 async def level_up_character(
-    character_id: int,
-    payload: LevelUpRequest,
-    db: DbSession,
-    current_user: CurrentUser,
+        character_id: int,
+        payload: LevelUpRequest,
+        db: DbSession,
+        current_user: CurrentUser,
 ) -> CharacterDetailResponse:
     stmt = (
         select(Character)
@@ -450,10 +462,10 @@ async def level_up_character(
 
 @router.patch("/{character_id}/backstory", summary="Сохранить квенту и биографию")
 async def update_character_backstory(
-    character_id: int,
-    payload: BackstoryUpdateSchema,
-    db: DbSession,
-    current_user: CurrentUser,
+        character_id: int,
+        payload: BackstoryUpdateSchema,
+        db: DbSession,
+        current_user: CurrentUser,
 ):
     stmt = select(Character).where(Character.id == character_id)
     result = await db.execute(stmt)
@@ -469,10 +481,10 @@ async def update_character_backstory(
 
 @router.post("/{character_id}/equipment", summary="Добавить предмет в инвентарь")
 async def add_character_equipment(
-    character_id: int,
-    payload: EquipmentAddSchema,
-    db: DbSession,
-    current_user: CurrentUser,
+        character_id: int,
+        payload: EquipmentAddSchema,
+        db: DbSession,
+        current_user: CurrentUser,
 ):
     stmt = select(Character).where(Character.id == character_id)
     result = await db.execute(stmt)
@@ -491,10 +503,10 @@ async def add_character_equipment(
 
 @router.delete("/{character_id}/equipment/{item_idx}", summary="Удалить предмет из инвентаря")
 async def delete_character_equipment(
-    character_id: int,
-    item_idx: int,
-    db: DbSession,
-    current_user: CurrentUser,
+        character_id: int,
+        item_idx: int,
+        db: DbSession,
+        current_user: CurrentUser,
 ):
     stmt = select(Character).where(Character.id == character_id)
     result = await db.execute(stmt)
@@ -551,10 +563,10 @@ class DMRaceUpdateSchema(BaseModel):
 
 @router.patch("/{character_id}/race", summary="DM: Изменить расу персонажа и начислить бонусы")
 async def update_character_race_dm(
-    character_id: int,
-    payload: DMRaceUpdateSchema,
-    db: DbSession,
-    current_user: CurrentUser,
+        character_id: int,
+        payload: DMRaceUpdateSchema,
+        db: DbSession,
+        current_user: CurrentUser,
 ):
     if current_user.role != UserRole.DM:
         raise HTTPException(status_code=403, detail="Только Мастер (DM) может менять расу персонажа!")
