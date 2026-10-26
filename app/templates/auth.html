@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Вход | D&D 5e Sanctum{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto my-12 fox-card border border-amber-500/40 rounded-xl shadow-2xl overflow-hidden">
+  <div class="flex border-b border-orange-950/70 bg-[#120d09]">
+    <button id="tabLoginBtn" onclick="switchTab('login')" class="w-1/2 py-4 text-center font-serif font-bold text-amber-300 border-b-2 border-foxOrange-500 focus:outline-none transition-colors">
+      Вход
+    </button>
+    <button id="tabRegisterBtn" onclick="switchTab('register')" class="w-1/2 py-4 text-center font-serif font-bold text-stone-400 hover:text-stone-200 focus:outline-none transition-colors">
+      Регистрация
+    </button>
+  </div>
+
+  <div class="p-6 md:p-8">
+    <div id="authError" class="hidden mb-6 p-4 bg-orange-950/80 border border-foxOrange-700 text-orange-200 text-sm rounded-lg flex items-center space-x-2">
+      <span>⚠️</span>
+      <span id="authErrorMessage">Текст ошибки</span>
+    </div>
+
+    <!-- ВХОД -->
+    <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-5">
+      <div class="flex flex-col">
+        <label for="loginUsername" class="text-xs font-serif font-semibold text-amber-300/80 mb-2">Логин</label>
+        <input type="text" id="loginUsername" required autocomplete="username" class="bg-[#0e0a08] border border-orange-900/60 rounded-lg p-3 text-stone-100 focus:outline-none focus:border-amber-400">
+      </div>
+      <div class="flex flex-col">
+        <label for="loginPassword" class="text-xs font-serif font-semibold text-amber-300/80 mb-2">Пароль</label>
+        <input type="password" id="loginPassword" required autocomplete="current-password" class="bg-[#0e0a08] border border-orange-900/60 rounded-lg p-3 text-stone-100 focus:outline-none focus:border-amber-400">
+      </div>
+      <button type="submit" class="w-full bg-gradient-to-r from-foxOrange-600 to-amber-500 hover:from-foxOrange-500 hover:to-amber-400 text-stone-950 font-bold py-3 px-4 rounded-lg transition-all shadow-lg shadow-orange-950/40 mt-2 font-serif active:scale-95">
+        Войти →
+      </button>
+    </form>
+
+    <!-- РЕГИСТРАЦИЯ (Без выбора роли) -->
+    <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-5 hidden">
+      <div class="flex flex-col">
+        <label for="regUsername" class="text-xs font-serif font-semibold text-amber-300/80 mb-2">Логин</label>
+        <input type="text" id="regUsername" required autocomplete="username" class="bg-[#0e0a08] border border-orange-900/60 rounded-lg p-3 text-stone-100 focus:outline-none focus:border-amber-400">
+      </div>
+      <div class="flex flex-col">
+        <label for="regPassword" class="text-xs font-serif font-semibold text-amber-300/80 mb-2">Пароль</label>
+        <input type="password" id="regPassword" required autocomplete="new-password" class="bg-[#0e0a08] border border-orange-900/60 rounded-lg p-3 text-stone-100 focus:outline-none focus:border-amber-400">
+      </div>
+      <button type="submit" class="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-300 text-stone-950 font-bold py-3 px-4 rounded-lg transition-all shadow-lg shadow-amber-950/40 mt-2 font-serif active:scale-95">
+        Создать аккаунт
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function switchTab(mode) {
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const tabLoginBtn = document.getElementById('tabLoginBtn');
+    const tabRegisterBtn = document.getElementById('tabRegisterBtn');
+    document.getElementById('authError').classList.add('hidden');
+
+    if (mode === 'login') {
+      loginForm.classList.remove('hidden');
+      registerForm.classList.add('hidden');
+      tabLoginBtn.className = "w-1/2 py-4 text-center font-serif font-bold text-amber-300 border-b-2 border-foxOrange-500 focus:outline-none";
+      tabRegisterBtn.className = "w-1/2 py-4 text-center font-serif font-bold text-stone-400 hover:text-stone-200 focus:outline-none";
+    } else {
+      loginForm.classList.add('hidden');
+      registerForm.classList.remove('hidden');
+      tabLoginBtn.className = "w-1/2 py-4 text-center font-serif font-bold text-stone-400 hover:text-stone-200 focus:outline-none";
+      tabRegisterBtn.className = "w-1/2 py-4 text-center font-serif font-bold text-amber-300 border-b-2 border-foxOrange-500 focus:outline-none";
+    }
+  }
+
+  function showError(msg) {
+    const errorBlock = document.getElementById('authError');
+    document.getElementById('authErrorMessage').textContent = msg;
+    errorBlock.classList.remove('hidden');
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    document.getElementById('authError').classList.add('hidden');
+    const username = document.getElementById('loginUsername').value;
+    const password = document.getElementById('loginPassword').value;
+
+    const formData = new URLSearchParams();
+    formData.append('username', username);
+    formData.append('password', password);
+
+    try {
+      const res = await fetch('/auth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData
+      });
+      const data = await res.json();
+      if (res.ok) {
+        localStorage.setItem('token', data.access_token);
+        window.location.href = '/';
+      } else {
+        showError(data.detail || "Неверный логин или пароль.");
+      }
+    } catch {
+      showError("Не удалось связаться с сервером.");
+    }
+  }
+
+  async function handleRegister(e) {
+    e.preventDefault();
+    document.getElementById('authError').classList.add('hidden');
+    const username = document.getElementById('regUsername').value;
+    const password = document.getElementById('regPassword').value;
+
+    try {
+      const res = await fetch('/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const autoLogin = new URLSearchParams();
+        autoLogin.append('username', username);
+        autoLogin.append('password', password);
+        const tokenRes = await fetch('/auth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: autoLogin
+        });
+        if (tokenRes.ok) {
+          const tokenData = await tokenRes.json();
+          localStorage.setItem('token', tokenData.access_token);
+        }
+        window.location.href = '/';
+      } else {
+        showError(data.detail || "Логин уже занят или пароль слишком короткий.");
+      }
+    } catch {
+      showError("Ошибка соединения с сервером.");
+    }
+  }
+</script>
+{% endblock %}

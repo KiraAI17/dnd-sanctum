@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8 space-y-8">
+  <div class="flex flex-wrap justify-between items-center gap-4 border-b border-orange-950/80 pb-6">
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-serif font-bold text-amber-200 fox-embossed">Гильдия и Столы Приключений</h1>
+      <p class="text-xs sm:text-sm text-stone-400 font-serif mt-1">Создайте свой игровой стол как Мастер (DM) или присоединяйтесь к существующим кампаниям.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2.5">
+      <button type="button" onclick="openJoinByNameModal()" class="px-4 py-2.5 rounded-xl bg-stone-900 border border-amber-500/40 text-amber-300 font-serif font-bold text-xs shadow-md hover:bg-stone-800 transition-all flex items-center gap-2">
+        <span>🔑</span> Войти по названию и паролю
+      </button>
+      <button type="button" onclick="openCreatePartyModal()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-serif font-bold text-xs shadow-lg hover:brightness-110 active:scale-95 transition-all flex items-center gap-2">
+        <span>⚔️</span> Создать свой стол
+      </button>
+    </div>
+  </div>
+
+  <div class="flex gap-2 border-b border-orange-950/80 pb-2 font-serif text-xs">
+    <button type="button" id="tabBtnMyParties" onclick="switchPartiesTab('my')" class="px-4 py-2 rounded-lg font-bold bg-amber-400 text-stone-950 shadow-md transition-all">
+      Мои столы (<span id="myPartiesCount">0</span>)
+    </button>
+    <button type="button" id="tabBtnOpenParties" onclick="switchPartiesTab('all')" class="px-4 py-2 rounded-lg font-bold text-stone-400 hover:text-amber-200 transition-all">
+      Все кампании (<span id="allPartiesCount">0</span>)
+    </button>
+  </div>
+
+  <div id="partiesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div class="col-span-full text-center py-12 text-stone-500 italic font-serif">Загрузка кампаний...</div>
+  </div>
+</div>
+
+<div id="joinByNameModal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+  <div class="fox-card border border-amber-500/40 rounded-2xl max-w-md w-full shadow-2xl p-6 space-y-4 text-xs font-serif">
+    <div class="flex justify-between items-center border-b border-orange-950/80 pb-3">
+      <h3 class="text-sm font-bold text-amber-200 flex items-center gap-2">
+        <span>🔑</span> Вход в закрытый стол
+      </h3>
+      <button type="button" onclick="closeJoinByNameModal()" class="text-stone-400 hover:text-amber-300 text-2xl font-bold">&times;</button>
+    </div>
+
+    <p class="text-stone-400 text-[11px] leading-relaxed">
+      Если ваш Мастер создал закрытый стол, введите его точное название и пароль для присоединения к отряду.
+    </p>
+
+    <div class="space-y-3">
+      <div>
+        <label class="font-bold text-amber-300 block mb-1">Название стола *:</label>
+        <input type="text" id="joinByNamePartyInput" placeholder="Например: Проклятие Страда" class="w-full bg-[#0d0a08] border border-orange-900/60 rounded-lg p-2.5 text-stone-100 focus:border-amber-400 focus:outline-none">
+      </div>
+      <div>
+        <label class="font-bold text-amber-300 block mb-1">Пароль стола (если требуется):</label>
+        <input type="password" id="joinByNamePasswordInput" placeholder="Пароль от Мастера..." class="w-full bg-[#0d0a08] border border-orange-900/60 rounded-lg p-2.5 text-stone-100 focus:border-amber-400 focus:outline-none">
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-2 pt-2">
+      <button type="button" onclick="closeJoinByNameModal()" class="px-4 py-2 rounded-lg bg-stone-900 text-stone-400 hover:text-stone-200">Отмена</button>
+      <button type="button" onclick="submitJoinByName()" id="btnSubmitJoinByName" class="px-5 py-2 rounded-lg bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-bold hover:brightness-110">Присоединиться</button>
+    </div>
+  </div>
+</div>
+
+<div id="joinPrivateModal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+  <div class="fox-card border border-amber-500/40 rounded-2xl max-w-sm w-full shadow-2xl p-6 space-y-4 text-xs font-serif">
+    <div class="flex justify-between items-center border-b border-orange-950/80 pb-2">
+      <h3 class="text-sm font-bold text-amber-200">Вход в закрытый стол</h3>
+      <button type="button" onclick="closeJoinPrivateModal()" class="text-stone-400 hover:text-amber-300 text-2xl font-bold">&times;</button>
+    </div>
+    <p id="privatePartyNotice" class="text-stone-400 text-[11px]">Введите пароль стола, предоставленный вашим Мастером.</p>
+    <input type="password" id="joinPasswordInput" placeholder="Пароль стола..." class="w-full bg-[#0d0a08] border border-orange-900/60 rounded-lg p-2.5 text-stone-100">
+    <div class="flex justify-end gap-2 pt-2">
+      <button type="button" onclick="closeJoinPrivateModal()" class="px-3 py-1.5 rounded-lg bg-stone-900 text-stone-400">Отмена</button>
+      <button type="button" onclick="confirmJoinPrivate()" class="px-4 py-1.5 rounded-lg bg-amber-400 text-stone-950 font-bold hover:brightness-110">Войти</button>
+    </div>
+  </div>
+</div>
+
+<div id="createPartyModal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+  <div class="fox-card border border-amber-500/40 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden flex flex-col">
+    <div class="bg-[#140e0a] px-6 py-4 border-b border-orange-950/80 flex justify-between items-center">
+      <h3 class="text-sm font-bold font-serif text-amber-200 flex items-center gap-2">
+        <span>👑</span> Создание стола кампании (Вы — DM)
+      </h3>
+      <button type="button" onclick="closeCreatePartyModal()" class="text-stone-400 hover:text-amber-300 text-2xl font-bold">&times;</button>
+    </div>
+
+    <form onsubmit="submitCreateParty(event)" class="p-6 space-y-4 text-xs font-serif">
+      <div>
+        <label class="font-bold text-amber-300 block mb-1">Название кампании *:</label>
+        <input type="text" id="partyNameInput" required placeholder="Тени над Фандалином..." class="w-full bg-[#0d0a08] border border-orange-900/60 rounded-lg p-2.5 text-stone-100 focus:border-amber-400 focus:outline-none">
+      </div>
+
+      <div>
+        <label class="font-bold text-amber-300 block mb-1">Краткое описание сеттинга:</label>
+        <textarea id="partyDescInput" rows="3" placeholder="Мрачное фэнтези, авторский мир, старт с 1-го уровня..." class="w-full bg-[#0d0a08] border border-orange-900/60 rounded-lg p-2.5 text-stone-100 focus:border-amber-400 focus:outline-none"></textarea>
+      </div>
+
+      <div class="p-3 bg-[#0d0907] border border-orange-950 rounded-xl space-y-2">
+        <label class="flex items-center gap-2 cursor-pointer text-amber-200">
+          <input type="checkbox" id="partyPrivateCheck" onchange="togglePartyPasswordInput(this.checked)" class="rounded border-orange-900 text-foxOrange-600">
+          <span>Закрытый стол (вход только по паролю)</span>
+        </label>
+        <div id="partyPasswordBlock" class="hidden pt-2">
+          <label class="text-[11px] text-stone-400 block mb-1">Пароль для игроков:</label>
+          <input type="password" id="partyPasswordInput" placeholder="Секретное слово..." class="w-full bg-black/60 border border-stone-800 rounded p-2 text-stone-100">
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-end gap-2">
+        <button type="button" onclick="closeCreatePartyModal()" class="px-4 py-2 rounded-lg bg-stone-900 text-stone-300">Отмена</button>
+        <button type="submit" id="btnSubmitParty" class="px-5 py-2 rounded-lg bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-bold hover:brightness-110">Основать стол</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  let currentTab = 'my';
+  let myParties = [];
+  let allParties = [];
+  let pendingJoinPartyId = null;
+
+  async function loadParties() {
+    try {
+      const [myRes, allRes] = await Promise.all([
+        apiFetch('/parties/my'),
+        apiFetch('/parties/')
+      ]);
+
+      if (myRes.ok) myParties = await myRes.json();
+      if (allRes.ok) allParties = await allRes.json();
+
+      document.getElementById('myPartiesCount').textContent = myParties.length;
+      document.getElementById('allPartiesCount').textContent = allParties.length;
+
+      renderPartiesList();
+    } catch (e) {
+      console.error("Ошибка загрузки столов:", e);
+    }
+  }
+
+  function switchPartiesTab(tab) {
+    currentTab = tab;
+    const btnMy = document.getElementById('tabBtnMyParties');
+    const btnOpen = document.getElementById('tabBtnOpenParties');
+
+    if (tab === 'my') {
+      btnMy.className = "px-4 py-2 rounded-lg font-bold bg-amber-400 text-stone-950 shadow-md transition-all";
+      btnOpen.className = "px-4 py-2 rounded-lg font-bold text-stone-400 hover:text-amber-200 transition-all";
+    } else {
+      btnOpen.className = "px-4 py-2 rounded-lg font-bold bg-amber-400 text-stone-950 shadow-md transition-all";
+      btnMy.className = "px-4 py-2 rounded-lg font-bold text-stone-400 hover:text-amber-200 transition-all";
+    }
+    renderPartiesList();
+  }
+
+  function renderPartiesList() {
+    const grid = document.getElementById('partiesGrid');
+    const list = currentTab === 'my' ? myParties : allParties;
+
+    if (!list || list.length === 0) {
+      grid.innerHTML = `
+        <div class="col-span-full text-center py-12 text-stone-500 font-serif">
+          ${currentTab === 'my' ? 'Вы пока не состоите ни в одном столе. Создайте свой стол как DM или присоединитесь к закрытому по названию!' : 'Сейчас нет созданных кампаний.'}
+        </div>
+      `;
+      return;
+    }
+
+    grid.innerHTML = list.map(p => {
+      const isMember = myParties.some(m => m.id === p.id);
+      const lockBadge = p.is_private 
+        ? '<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950/40 border border-amber-800 text-amber-300 font-bold">🔒 Закрытый</span>'
+        : '<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/40 border border-emerald-800 text-emerald-300 font-bold">🌍 Открытый</span>';
+
+      const actionBtnText = isMember ? 'Войти в комнату стола →' : (p.is_private ? '🔑 Ввести пароль и войти' : 'Присоединиться к отряду →');
+
+      return `
+        <div class="fox-card p-5 rounded-2xl border border-orange-950/80 bg-[#120d09]/90 hover:border-amber-500/50 transition-all flex flex-col justify-between space-y-4 shadow-lg">
+          <div class="space-y-2">
+            <div class="flex justify-between items-start gap-2">
+              <h3 class="font-serif font-bold text-amber-200 text-base">${p.name}</h3>
+              ${lockBadge}
+            </div>
+            <p class="text-xs text-stone-400 font-serif line-clamp-3">${p.description || 'Описание кампании отсутствует.'}</p>
+          </div>
+
+          <div class="border-t border-orange-950/60 pt-3 flex justify-between items-center text-xs font-serif">
+            <div>
+              <span class="text-stone-500 block text-[10px]">Мастер стола (DM):</span>
+              <strong class="text-amber-300">👑 ${p.dm_username}</strong>
+            </div>
+            <div class="text-right">
+              <span class="text-stone-500 block text-[10px]">Участников:</span>
+              <strong class="text-stone-200 font-mono">${p.members_count}</strong>
+            </div>
+          </div>
+
+          <div class="pt-2">
+            <button type="button" onclick="handlePartyAction(${p.id}, ${p.is_private})" class="w-full py-2.5 rounded-xl bg-[#1c130d] border border-orange-900/60 hover:border-amber-400 text-amber-200 font-serif font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow">
+              <span>${actionBtnText}</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function handlePartyAction(partyId, isPrivate) {
+    const isMember = myParties.some(p => p.id === partyId);
+    if (isMember) {
+      window.location.href = `/party/${partyId}`;
+      return;
+    }
+
+    if (isPrivate) {
+      pendingJoinPartyId = partyId;
+      document.getElementById('joinPrivateModal').classList.remove('hidden');
+    } else {
+      joinOpenParty(partyId);
+    }
+  }
+
+  async function joinOpenParty(partyId) {
+    try {
+      const res = await apiFetch(`/parties/${partyId}/join`, { method: 'POST', body: {} });
+      if (res.ok) {
+        window.location.href = `/party/${partyId}`;
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Не удалось вступить в стол.");
+      }
+    } catch (e) {
+      alert("Ошибка сети: " + e.message);
+    }
+  }
+
+  async function confirmJoinPrivate() {
+    const pwd = document.getElementById('joinPasswordInput').value;
+    if (!pwd) { alert("Введите пароль!"); return; }
+    try {
+      const res = await apiFetch(`/parties/${pendingJoinPartyId}/join`, {
+        method: 'POST',
+        body: { password: pwd }
+      });
+      if (res.ok) {
+        window.location.href = `/party/${pendingJoinPartyId}`;
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Неверный пароль стола.");
+      }
+    } catch (e) {
+      alert("Ошибка: " + e.message);
+    }
+  }
+
+  function closeJoinPrivateModal() {
+    document.getElementById('joinPrivateModal').classList.add('hidden');
+    pendingJoinPartyId = null;
+  }
+
+  function openJoinByNameModal() {
+    document.getElementById('joinByNameModal').classList.remove('hidden');
+  }
+
+  function closeJoinByNameModal() {
+    document.getElementById('joinByNameModal').classList.add('hidden');
+  }
+
+  async function submitJoinByName() {
+    const name = document.getElementById('joinByNamePartyInput').value.trim();
+    const pwd = document.getElementById('joinByNamePasswordInput').value;
+    if (!name) { alert("Введите название стола!"); return; }
+
+    const btn = document.getElementById('btnSubmitJoinByName');
+    btn.disabled = true;
+    btn.textContent = "Поиск стола...";
+
+    try {
+      const res = await apiFetch('/parties/join-by-name', {
+        method: 'POST',
+        body: { name: name, password: pwd || null }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        window.location.href = `/party/${data.party_id}`;
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Не удалось присоединиться к столу.");
+      }
+    } catch (e) {
+      alert("Сбой сети: " + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Присоединиться";
+    }
+  }
+
+  function openCreatePartyModal() {
+    document.getElementById('createPartyModal').classList.remove('hidden');
+  }
+
+  function closeCreatePartyModal() {
+    document.getElementById('createPartyModal').classList.add('hidden');
+  }
+
+  function togglePartyPasswordInput(checked) {
+    document.getElementById('partyPasswordBlock').classList.toggle('hidden', !checked);
+  }
+
+  async function submitCreateParty(e) {
+    e.preventDefault();
+    const name = document.getElementById('partyNameInput').value.trim();
+    const desc = document.getElementById('partyDescInput').value.trim();
+    const isPrivate = document.getElementById('partyPrivateCheck').checked;
+    const pwd = document.getElementById('partyPasswordInput').value;
+
+    const payload = {
+      name: name,
+      description: desc || null,
+      is_private: isPrivate,
+      password: isPrivate ? pwd : null
+    };
+
+    try {
+      const res = await apiFetch('/parties/', { method: 'POST', body: payload });
+      if (res.ok) {
+        const party = await res.json();
+        window.location.href = `/party/${party.id}`;
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Ошибка при создании стола.");
+      }
+    } catch (err) {
+      alert("Сбой соединения: " + err.message);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', loadParties);
+</script>
+{% endblock %}

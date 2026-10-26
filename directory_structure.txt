@@ -1,0 +1,73 @@
+dnd-companion/
+├── app
+│   ├── core
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   └── security.py
+│   ├── data
+│   │   ├── backgrounds.json
+│   │   ├── classes.json
+│   │   ├── feats.json
+│   │   ├── progression.json
+│   │   ├── races.json
+│   │   ├── spells.json
+│   │   └── subclasses.json
+│   ├── models
+│   │   ├── __init__.py
+│   │   ├── character.py
+│   │   ├── item.py
+│   │   ├── modifier.py
+│   │   ├── party.py
+│   │   └── user.py
+│   ├── routers
+│   │   ├── __init__.py
+│   │   ├── auth.py
+│   │   ├── characters.py
+│   │   ├── compendium.py
+│   │   ├── pages.py
+│   │   └── parties.py
+│   ├── schemas
+│   │   ├── __init__.py
+│   │   ├── character.py
+│   │   ├── dice.py
+│   │   ├── party.py
+│   │   └── user.py
+│   ├── services
+│   │   ├── __init__.py
+│   │   ├── dice.py
+│   │   └── rules.py
+│   ├── static
+│   │   ├── audio
+│   │   │   ├── party_2_1792914058_vivaldi-vremena-goda-leto.mp3
+│   │   │   ├── party_2_1792914378_vivaldi-vremena-goda-leto.mp3
+│   │   │   ├── party_2_1792980051_dexter-meme.mp3
+│   │   │   ├── party_2_1792994921_what-a-good-boy.mp3
+│   │   │   ├── party_2_1792995109_tiki-tiki.mp3
+│   │   │   ├── party_2_1793001650_shutki_-_shutka_(SkySound.cc).mp3
+│   │   │   ├── party_2_1793001682_indian-song.mp3
+│   │   │   └── party_2_1793001728_krovostok_biografiya_bit_-_sal.mp3
+│   │   ├── css
+│   │   └── js
+│   │       └── wizard.js
+│   ├── templates
+│   │   ├── sheet
+│   │   │   ├── tabs
+│   │   │   └── wizard
+│   │   ├── auth.html
+│   │   ├── base.html
+│   │   ├── dashboard.html
+│   │   ├── parties.html
+│   │   ├── party_detail.html
+│   │   ├── sheet.html
+│   │   └── wizard.html
+│   ├── dependencies.py
+│   └── main.py
+├── tests
+│   ├── test_auth.py
+│   └── test_dice.py
+├── .env
+├── .gitignore
+├── dnd_campaign.db
+├── requirements.txt
+└── tree.py

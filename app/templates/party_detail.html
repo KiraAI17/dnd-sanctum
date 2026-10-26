@@ -1,0 +1,2167 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  :root {
+    --party-accent: #f59e0b;
+    --party-border: rgba(245, 158, 11, 0.4);
+    --party-card-bg: rgba(18, 13, 9, 0.95);
+    --party-glow: rgba(245, 158, 11, 0.25);
+    --party-text: #fef3c7;
+  }
+
+  .fox-card {
+    background: var(--party-card-bg) !important;
+    border-color: var(--party-border) !important;
+    box-shadow: 0 10px 30px var(--party-glow) !important;
+  }
+
+  .party-tab-btn.active-tab {
+    background: var(--party-accent) !important;
+    color: #0c0806 !important;
+    box-shadow: 0 4px 15px var(--party-glow) !important;
+  }
+
+  .party-theme-accent { color: var(--party-accent) !important; }
+  .party-theme-border { border-color: var(--party-border) !important; }
+
+  #partyTitle {
+    color: var(--party-text) !important;
+    text-shadow: 0 0 20px var(--party-glow);
+  }
+
+  #partyRoleBadge {
+    border-color: var(--party-border) !important;
+    color: var(--party-accent) !important;
+  }
+</style>
+
+<div class="max-w-6xl mx-auto px-4 py-8 space-y-6">
+  <!-- ШАПКА КАМПАНИИ С БАННЕРОМ СТОЛА -->
+  <div id="partyHeaderBanner" class="rounded-2xl border border-orange-950/80 bg-[#140e0a] relative bg-cover bg-center overflow-hidden shadow-2xl p-6 transition-all duration-300">
+    <div id="partyBannerOverlay" class="absolute inset-0 bg-gradient-to-t from-[#0e0907] via-[#0e0907]/75 to-transparent"></div>
+    <div class="relative z-10 flex flex-wrap justify-between items-center gap-4">
+      <div>
+        <div class="flex items-center gap-3">
+          <a href="/parties-lobby" class="text-xs font-serif text-stone-400 hover:text-amber-300 transition-colors">
+            &larr; Столы
+          </a>
+          <span class="text-stone-600">&bull;</span>
+          <a href="/" class="text-xs font-serif text-stone-400 hover:text-amber-300 transition-colors">
+            ⛺ Главное меню
+          </a>
+        </div>
+        <div class="flex items-center gap-3 mt-1.5">
+          <h1 id="partyTitle" class="text-2xl sm:text-3xl font-serif font-bold text-amber-200 drop-shadow">Загрузка кампании...</h1>
+          <span id="partyPrivacyBadge" class="text-[10px] font-mono px-2.5 py-0.5 rounded bg-black/60 border border-orange-950 text-stone-300"></span>
+          <span id="partyRoleBadge" class="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40"></span>
+        </div>
+        <p id="partyDesc" class="text-xs text-stone-300 font-serif mt-1 max-w-2xl drop-shadow"></p>
+      </div>
+
+      <!-- МИНИ-ПЛЕЕР В ШАПКЕ -->
+      <div id="miniAudioWidget" class="fox-card px-3.5 py-2 rounded-xl border border-orange-950 bg-[#160f0b]/90 backdrop-blur flex items-center gap-3 text-xs font-serif shadow-md">
+        <span class="text-amber-400 text-sm">🎵</span>
+        <div>
+          <span id="miniTrackTitle" class="font-bold text-amber-200 block text-[11px] max-w-[150px] truncate">Тишина</span>
+          <span id="miniTrackStatus" class="text-[9px] text-stone-400 font-mono">Пауза</span>
+        </div>
+        <button type="button" onclick="togglePartyAudioPlay()" id="btnMiniPlayToggle" class="w-7 h-7 rounded-lg bg-amber-400 text-stone-950 font-bold flex items-center justify-center hover:brightness-110">
+          ▶
+        </button>
+        <audio id="globalAudioPlayer" loop></audio>
+      </div>
+    </div>
+  </div>
+
+  <!-- ВСПЛЫВАЮЩИЙ РЕЗУЛЬТАТ БРОСКА -->
+  <div id="diceRollToast" class="hidden fox-card p-3 rounded-xl border border-amber-500/60 bg-gradient-to-r from-amber-950/90 to-stone-950/90 text-amber-200 font-serif text-xs flex justify-between items-center shadow-2xl animate-bounce">
+    <div class="flex items-center gap-2">
+      <span class="text-lg">🎲</span>
+      <span id="diceRollToastText" class="font-bold">Результат броска</span>
+    </div>
+    <button onclick="document.getElementById('diceRollToast').classList.add('hidden')" class="text-stone-400 hover:text-stone-200 font-bold px-1">&times;</button>
+  </div>
+
+  <!-- НАВИГАЦИЯ ВКЛАДОК СТОЛА -->
+  <div class="flex flex-wrap gap-2 border-b border-orange-950/80 pb-2 font-serif text-xs" id="partyTabsNav">
+    <button type="button" id="tabBtnPlayerHero" onclick="switchPartyTab('playerHero')" class="party-tab-btn active-tab px-3.5 py-2 rounded-lg font-bold bg-amber-400 text-stone-950 shadow-md">
+      🛡️ Мой персонаж
+    </button>
+    <button type="button" id="tabBtnSquad" onclick="switchPartyTab('squad')" class="party-tab-btn px-3.5 py-2 rounded-lg font-bold text-stone-400 hover:text-amber-200">
+      ⚔️ Отряд (<span id="squadCount">0</span>)
+    </button>
+    <button type="button" id="tabBtnChat" onclick="switchPartyTab('chat')" class="party-tab-btn px-3.5 py-2 rounded-lg font-bold text-stone-400 hover:text-amber-200">
+      💬 Чат и Логи кубов
+    </button>
+    <button type="button" id="tabBtnMap" onclick="switchPartyTab('map')" class="party-tab-btn px-3.5 py-2 rounded-lg font-bold text-stone-400 hover:text-amber-200">
+      🗺️ Тактическая карта
+    </button>
+    <button type="button" id="tabBtnNotes" onclick="switchPartyTab('notes')" class="party-tab-btn px-3.5 py-2 rounded-lg font-bold text-stone-400 hover:text-amber-200">
+      📝 Заметки и Сюжет
+    </button>
+    <button type="button" id="tabBtnAudio" onclick="switchPartyTab('audio')" class="party-tab-btn px-3.5 py-2 rounded-lg font-bold text-stone-400 hover:text-amber-200">
+      🎵 Плейлисты стола
+    </button>
+    <button type="button" id="tabBtnRaces" onclick="switchPartyTab('races')" class="party-tab-btn px-3.5 py-2 rounded-lg font-bold text-stone-400 hover:text-amber-200">
+      🏛️ Расы стола (<span id="partyRacesCount">0</span>)
+    </button>
+
+    <!-- СТРОГО ДЛЯ DM -->
+    <button type="button" id="tabBtnDmScreen" onclick="switchPartyTab('dmScreen')" class="party-tab-btn hidden px-3.5 py-2 rounded-lg font-bold text-stone-400 hover:text-amber-200">
+      👑 Экран Мастера (Отряд)
+    </button>
+    <button type="button" id="tabBtnDmNpcs" onclick="switchPartyTab('dmNpcs')" class="party-tab-btn hidden px-3.5 py-2 rounded-lg font-bold text-stone-400 hover:text-amber-200">
+      🎭 НИПы Мастера (<span id="dmNpcsCount">0</span>)
+    </button>
+    <button type="button" id="tabBtnSettings" onclick="switchPartyTab('settings')" class="party-tab-btn hidden px-3.5 py-2 rounded-lg font-bold text-stone-400 hover:text-amber-200">
+      ⚙️ Настройки стола
+    </button>
+  </div>
+
+  <!-- КОНТЕНТ ВКЛАДОК -->
+  <div class="space-y-6">
+
+    <!-- 1. МОЙ ПЕРСОНАЖ -->
+    <div id="tabContent_playerHero" class="party-tab-pane space-y-6">
+      <div id="attachedHeroBlock" class="hidden fox-card rounded-2xl border border-orange-950/80 bg-[#120d09]/95 overflow-hidden shadow-xl">
+        <div id="myHeroBannerBox" class="w-full h-32 sm:h-44 bg-[#1a100a] relative bg-cover bg-center flex items-end p-4">
+          <div class="absolute inset-0 bg-gradient-to-t from-[#120d09] via-[#120d09]/60 to-transparent"></div>
+          <div class="relative z-10 flex flex-wrap items-end justify-between w-full gap-4">
+            <div class="flex items-end gap-3.5">
+              <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 border-amber-500/50 bg-stone-900 shadow-2xl shrink-0 flex items-center justify-center">
+                <img id="myHeroAvatarImg" src="" class="w-full h-full object-cover hidden" alt="Аватар">
+                <span id="myHeroAvatarEmoji" class="text-3xl">⚔️</span>
+              </div>
+              <div class="space-y-0.5">
+                <span class="text-[10px] font-mono text-amber-400 font-bold uppercase tracking-wider block drop-shadow">Ваш герой за этим столом</span>
+                <h2 id="myHeroName" class="text-xl sm:text-2xl font-serif font-bold text-amber-200 drop-shadow">Имя Героя</h2>
+                <p id="myHeroSub" class="text-xs text-stone-300 font-serif drop-shadow"></p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <a id="btnOpenFullSheet" href="#" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-serif font-bold text-xs shadow-lg hover:brightness-110">
+                📜 Открыть лист &rarr;
+              </a>
+              <button type="button" onclick="showSelectCharacterDialog()" class="px-3 py-2 rounded-xl bg-stone-900/90 border border-stone-800 text-stone-300 hover:text-amber-200 text-xs font-serif shadow">
+                Сменить героя
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-6 pt-4 space-y-6">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="p-4 rounded-xl bg-[#0a0705] border border-orange-950/80 space-y-2">
+              <div class="flex justify-between items-center text-xs font-serif">
+                <span class="text-stone-400">Здоровье (HP):</span>
+                <strong id="myHeroHpText" class="font-mono text-foxOrange-400 text-base">0 / 0</strong>
+              </div>
+              <div class="flex justify-between items-center gap-1.5 pt-1">
+                <button onclick="adjustHeroHp(-5)" class="px-2 py-1 rounded bg-rose-950/50 border border-rose-900 text-rose-300 text-xs font-mono font-bold hover:bg-rose-900">-5</button>
+                <button onclick="adjustHeroHp(-1)" class="px-2 py-1 rounded bg-rose-950/50 border border-rose-900 text-rose-300 text-xs font-mono font-bold hover:bg-rose-900">-1</button>
+                <button onclick="adjustHeroHp(1)" class="px-2 py-1 rounded bg-emerald-950/50 border border-emerald-900 text-emerald-300 text-xs font-mono font-bold hover:bg-emerald-900">+1</button>
+                <button onclick="adjustHeroHp(5)" class="px-2 py-1 rounded bg-emerald-950/50 border border-emerald-900 text-emerald-300 text-xs font-mono font-bold hover:bg-emerald-900">+5</button>
+              </div>
+            </div>
+
+            <div class="p-4 rounded-xl bg-[#0a0705] border border-orange-950/80 flex items-center justify-between">
+              <div>
+                <span class="text-xs text-stone-400 font-serif block">Класс Доспеха (КД)</span>
+                <span class="text-[11px] text-stone-500 font-serif">Защита в бою</span>
+              </div>
+              <span id="myHeroAc" class="text-2xl font-mono font-bold text-amber-300">10</span>
+            </div>
+
+            <div class="p-4 rounded-xl bg-[#0a0705] border border-orange-950/80 flex items-center justify-between">
+              <div>
+                <span class="text-xs text-stone-400 font-serif block">Скорость</span>
+                <span class="text-[11px] text-stone-500 font-serif">Перемещение за ход</span>
+              </div>
+              <span id="myHeroSpeed" class="text-2xl font-mono font-bold text-stone-200">30 фт.</span>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-[#090604] border border-orange-950 space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="text-xs font-bold text-amber-300 font-serif block">Характеристики персонажа:</span>
+              <span class="text-[10px] text-stone-500 font-mono">Нажмите на характеристику для броска проверки (d20 + мод)</span>
+            </div>
+            <div id="myHeroStatsGrid" class="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center font-mono"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="noAttachedHeroBlock" class="fox-card p-8 rounded-2xl border border-dashed border-amber-500/40 bg-[#120d09]/80 text-center space-y-4">
+        <span class="text-4xl block">🛡️</span>
+        <h3 class="text-lg font-serif font-bold text-amber-200">Вы ещё не выбрали персонажа для этого стола</h3>
+        <p class="text-xs text-stone-400 font-serif max-w-md mx-auto">
+          Привяжите одного из ваших героев или создайте нового искателя приключений.
+        </p>
+
+        <div class="flex flex-wrap justify-center items-center gap-3 pt-2">
+          <div class="flex items-center gap-2">
+            <select id="userCharactersDropdown" class="bg-[#0a0705] border border-orange-900/60 rounded-xl px-3 py-2 text-xs text-stone-200 font-serif">
+              <option value="">Загрузка ваших персонажей...</option>
+            </select>
+            <button type="button" onclick="attachSelectedCharacter()" class="px-4 py-2 rounded-xl bg-amber-400 text-stone-950 font-serif font-bold text-xs hover:brightness-110">
+              Привязать к столу
+            </button>
+          </div>
+          <span class="text-stone-500 text-xs">или</span>
+          <a href="/wizard" id="btnCreateNewHeroForTable" class="px-4 py-2 rounded-xl bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-serif font-bold text-xs hover:brightness-110">
+            ⚔️ Создать нового героя
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. ОТРЯД -->
+    <div id="tabContent_squad" class="party-tab-pane hidden space-y-4">
+      <div class="flex justify-between items-center">
+        <h3 class="font-serif font-bold text-amber-200 text-base">Искатели приключений за столом</h3>
+        <span class="text-xs text-stone-400 font-serif">Состав вашей группы</span>
+      </div>
+      <div id="squadList" class="grid grid-cols-1 md:grid-cols-2 gap-3.5"></div>
+    </div>
+
+    <!-- 3. ЧАТ И ЛОГИ СЕССИИ -->
+    <div id="tabContent_chat" class="party-tab-pane hidden space-y-4">
+      <div id="pinnedMessagesContainer" class="hidden space-y-2"></div>
+
+      <div class="fox-card rounded-2xl border border-orange-950/80 bg-[#120d09]/95 overflow-hidden flex flex-col h-[520px] shadow-2xl">
+        <div class="p-3 bg-[#160f0b] border-b border-orange-950/80 flex justify-between items-center text-xs font-serif">
+          <span class="font-bold text-amber-200 flex items-center gap-2">
+            <span>💬</span> Летопись стола и Броски кубиков
+          </span>
+          <span class="text-[10px] text-stone-400">Обновление каждые 3 сек</span>
+        </div>
+
+        <div id="chatMessagesFeed" class="flex-1 p-4 overflow-y-auto space-y-3 font-serif text-xs"></div>
+
+        <form onsubmit="submitChatMessage(event)" class="p-3 bg-[#0c0806] border-t border-orange-950/80 space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] font-serif">
+            <div class="flex items-center gap-1.5">
+              <span class="text-stone-400">Кому:</span>
+              <select id="chatRecipientSelect" class="bg-[#140e0a] border border-orange-900/60 rounded px-2 py-1 text-stone-200">
+                <option value="">Всем за столом</option>
+              </select>
+            </div>
+            <label id="chatPinOption" class="hidden flex items-center gap-1.5 cursor-pointer text-amber-300">
+              <input type="checkbox" id="chatIsPinnedCheck" class="rounded border-orange-900 text-foxOrange-600">
+              <span>Закрепить объявление (DM)</span>
+            </label>
+          </div>
+
+          <div class="flex gap-2">
+            <input type="text" id="chatInputText" placeholder="Напишите реплику или действие..." class="flex-1 bg-[#140e0a] border border-orange-900/60 rounded-xl px-3 py-2 text-stone-100 text-xs font-serif focus:border-amber-400 focus:outline-none">
+            <button type="submit" class="px-5 py-2 rounded-xl bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-bold text-xs hover:brightness-110">
+              Отправить
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 4. ТАКТИЧЕСКАЯ КАРТА -->
+    <div id="tabContent_map" class="party-tab-pane hidden space-y-4">
+      <div class="flex flex-wrap justify-between items-center gap-3">
+        <div>
+          <h3 class="font-serif font-bold text-amber-200 text-base flex items-center gap-2">
+            <span>🗺️</span> Тактическая карта местности
+          </h3>
+          <p class="text-xs text-stone-400 font-serif">Перетаскивайте токены героев и монстров по сетке.</p>
+        </div>
+        <div id="dmMapControls" class="hidden flex items-center gap-2">
+          <input type="text" id="mapBackgroundInput" placeholder="URL изображения карты..." class="bg-[#0d0a08] border border-orange-900/60 rounded px-2.5 py-1 text-xs text-stone-100 w-64">
+          <button type="button" onclick="saveMapBackground()" class="px-3 py-1 rounded bg-amber-400 text-stone-950 text-xs font-bold font-serif hover:brightness-110">
+            Сменить карту
+          </button>
+          <button type="button" onclick="addMapToken()" class="px-3 py-1 rounded bg-stone-900 border border-stone-700 text-amber-300 text-xs font-bold font-serif hover:border-amber-400">
+            ＋ Токен
+          </button>
+        </div>
+      </div>
+
+      <div class="fox-card p-2 rounded-2xl border border-orange-950/80 bg-black/90 overflow-auto relative min-h-[480px] max-h-[650px] flex items-center justify-center" id="battleMapViewport">
+        <div id="battleMapCanvas" class="relative bg-stone-950 border border-stone-800 bg-cover bg-center transition-all" style="width: 800px; height: 600px; background-image: url('https://images.unsplash.com/photo-1524654458049-e36be0721fa2?auto=format&fit=crop&w=800&q=80');">
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. ЗАМЕТКИ И СЮЖЕТ -->
+    <div id="tabContent_notes" class="party-tab-pane hidden space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="fox-card p-5 rounded-2xl border border-orange-950/80 bg-[#120d09] space-y-3">
+          <div class="flex justify-between items-center border-b border-orange-950/60 pb-2">
+            <h4 class="font-serif font-bold text-amber-200 text-sm flex items-center gap-1.5">
+              <span>📓</span> Мои личные заметки
+            </h4>
+            <span class="text-[10px] text-stone-500 font-mono">Видны только вам</span>
+          </div>
+          <textarea id="playerNotesTextarea" rows="12" placeholder="Ваши личные улики, имена знакомых НИПов, секреты, квесты и цели..." class="w-full bg-[#0a0705] border border-orange-900/60 rounded-xl p-3 text-stone-200 text-xs font-serif focus:border-amber-400 focus:outline-none"></textarea>
+          <div class="flex justify-end">
+            <button type="button" onclick="savePlayerNotes()" class="px-4 py-1.5 rounded-lg bg-amber-400 text-stone-950 text-xs font-bold font-serif hover:brightness-110">
+              Сохранить заметки
+            </button>
+          </div>
+        </div>
+
+        <div class="fox-card p-5 rounded-2xl border border-orange-950/80 bg-[#120d09] space-y-3">
+          <div class="flex justify-between items-center border-b border-orange-950/60 pb-2">
+            <h4 class="font-serif font-bold text-amber-200 text-sm flex items-center gap-1.5">
+              <span>📜</span> Сюжет кампании и Тайны Мастера
+            </h4>
+            <span class="text-[10px] text-amber-400 font-mono font-bold" id="dmPlotBadge">Скрыто</span>
+          </div>
+          <div id="dmPlotContainer">
+            <textarea id="dmNotesTextarea" rows="12" placeholder="Сценарий энкаунтеров, ловушки, сюжетные повороты и тайны боссов..." class="w-full bg-[#0a0705] border border-orange-900/60 rounded-xl p-3 text-stone-200 text-xs font-serif focus:border-amber-400 focus:outline-none"></textarea>
+            <div class="flex justify-end pt-3" id="dmNotesSaveBtnRow">
+              <button type="button" onclick="saveDmNotes()" class="px-4 py-1.5 rounded-lg bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 text-xs font-bold font-serif hover:brightness-110">
+                Сохранить сюжет
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. ПЛЕЙЛИСТЫ СТОЛА -->
+    <div id="tabContent_audio" class="party-tab-pane hidden space-y-4">
+      <div class="fox-card p-6 rounded-2xl border border-orange-950/80 bg-[#120d09] space-y-4">
+        <div class="flex flex-wrap justify-between items-center gap-3 border-b border-orange-950/60 pb-3">
+          <div>
+            <h3 class="font-serif font-bold text-amber-200 text-base flex items-center gap-2">
+              <span>🎵</span> Атмосферный музыкальный плеер стола
+            </h3>
+            <p class="text-xs text-stone-400 font-serif">Мастер управляет воспроизведением, музыка звучит синхронно у всех участников.</p>
+          </div>
+          <div id="dmAudioControls" class="hidden flex items-center gap-2">
+            <button type="button" id="btnTogglePlayMode" onclick="togglePlayMode()" class="px-3 py-1.5 rounded-lg bg-stone-900 border border-stone-800 text-stone-300 text-xs font-serif hover:border-amber-400">
+              🔁 Зацикливание
+            </button>
+            <button type="button" onclick="stopAndResetPartyAudio()" class="px-3 py-1.5 rounded-lg bg-rose-950/40 border border-rose-900 text-rose-300 text-xs font-serif hover:bg-rose-900" title="Остановить и сбросить трек">
+              ⏹️ Сбросить звук
+            </button>
+            <button type="button" onclick="openAddTrackModal()" class="px-3.5 py-1.5 rounded-lg bg-amber-400 text-stone-950 font-bold text-xs font-serif hover:brightness-110">
+              ＋ Добавить трек
+            </button>
+          </div>
+        </div>
+
+        <div id="partyPlaylistContainer" class="space-y-2"></div>
+      </div>
+    </div>
+
+    <!-- 7. РАСЫ СТОЛА (🏛️) -->
+    <div id="tabContent_races" class="party-tab-pane hidden space-y-4">
+      <div class="flex justify-between items-center">
+        <div>
+          <h3 class="font-serif font-bold text-amber-200 text-base flex items-center gap-2">
+            <span>🏛️</span> Авторские расы и кодекс кампании
+          </h3>
+          <p class="text-xs text-stone-400 font-serif">Народы, созданные Мастером для этого стола.</p>
+        </div>
+        <button type="button" id="btnTabAddRace" onclick="openPartyRaceModal()" class="hidden px-3.5 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-serif font-bold hover:bg-amber-500/30">
+          ＋ Добавить расу
+        </button>
+      </div>
+      <div id="partyRacesGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3.5"></div>
+    </div>
+
+    <!-- 8. СТРОГО DM: ЭКРАН МАСТЕРА И ШИРМА С КУБАМИ -->
+    <div id="tabContent_dmScreen" class="party-tab-pane hidden space-y-6">
+      <div class="fox-card p-5 rounded-2xl border border-amber-500/40 bg-[#160f0b] space-y-3 shadow-xl">
+        <div class="flex items-center justify-between border-b border-orange-950/80 pb-2">
+          <span class="font-serif font-bold text-amber-200 text-sm flex items-center gap-2">
+            <span>🎲</span> Ширма Мастера: Бросок в закрытую
+          </span>
+          <span class="text-[10px] text-amber-400 font-mono font-bold">Результат видите только вы</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 text-xs font-mono">
+          <select id="dmSecretDiceSelect" class="bg-black/60 border border-orange-950 rounded-lg px-3 py-1.5 text-stone-200">
+            <option value="20">d20 (Проверка / Атака)</option>
+            <option value="100">d100 (Проценты / События)</option>
+            <option value="12">d12</option>
+            <option value="10">d10</option>
+            <option value="8">d8</option>
+            <option value="6">d6</option>
+            <option value="4">d4</option>
+          </select>
+          <input type="number" id="dmSecretModInput" value="0" placeholder="Мод." class="w-16 bg-black/60 border border-orange-950 rounded-lg px-2 py-1.5 text-stone-100 text-center" title="Модификатор">
+          <input type="text" id="dmSecretTitleInput" value="Тайная проверка" placeholder="Название проверки..." class="bg-black/60 border border-orange-950 rounded-lg px-3 py-1.5 text-stone-100 text-xs font-serif flex-1">
+          <button type="button" onclick="executeDmSecretRoll()" class="px-5 py-1.5 rounded-lg bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-bold hover:brightness-110 active:scale-95 transition-all">
+            Бросить за ширмой
+          </button>
+        </div>
+        <div id="dmSecretRollResult" class="hidden p-2.5 rounded-lg bg-black/80 border border-amber-500/50 font-mono text-xs text-amber-300 font-bold"></div>
+      </div>
+
+      <div class="space-y-3">
+        <h3 class="font-serif font-bold text-amber-200 text-base">Контроль здоровья отряда</h3>
+        <div id="dmPlayersList" class="space-y-3"></div>
+      </div>
+    </div>
+
+    <!-- 9. СТРОГО DM: НИПЫ И СЮЖЕТНЫЕ ГЕРОИ -->
+    <div id="tabContent_dmNpcs" class="party-tab-pane hidden space-y-4">
+      <div class="flex flex-wrap justify-between items-center gap-3 border-b border-orange-950/60 pb-3">
+        <div>
+          <h3 class="font-serif font-bold text-amber-200 text-base flex items-center gap-2">
+            <span>🎭</span> Сюжетные НИПы и Герои Мастера
+          </h3>
+          <p class="text-xs text-stone-400 font-serif">NPC, монстры и персонажи, управляемые DM за этим столом.</p>
+        </div>
+        <div class="flex gap-2">
+          <button type="button" onclick="openQuickNpcModal()" class="px-3.5 py-1.5 rounded-lg bg-amber-400 text-stone-950 text-xs font-serif font-bold hover:brightness-110">
+            ＋ Быстрый НИП
+          </button>
+          <a href="/wizard" id="btnDmCreateCustomHero" class="px-3.5 py-1.5 rounded-lg bg-stone-900 border border-stone-800 text-amber-300 text-xs font-serif font-bold hover:border-amber-400">
+            ⚔️ Создать полного героя (Шуша)
+          </a>
+        </div>
+      </div>
+
+      <!-- Фильтры групп НИПов -->
+      <div class="flex flex-wrap items-center gap-2 text-[11px] font-serif">
+        <span class="text-stone-500 font-mono text-[10px] mr-1">Группы:</span>
+        <button type="button" onclick="filterNpcGroup('all')" class="px-2.5 py-1 rounded-lg bg-stone-900 border border-stone-800 text-amber-200 hover:border-amber-400 transition-all">Все</button>
+        <button type="button" onclick="filterNpcGroup('враг')" class="px-2.5 py-1 rounded-lg bg-stone-900 border border-stone-800 text-rose-300 hover:border-rose-400 transition-all">⚔️ Враги / Монстры</button>
+        <button type="button" onclick="filterNpcGroup('союзник')" class="px-2.5 py-1 rounded-lg bg-stone-900 border border-stone-800 text-emerald-300 hover:border-emerald-400 transition-all">🛡️ Союзники</button>
+        <button type="button" onclick="filterNpcGroup('торговец')" class="px-2.5 py-1 rounded-lg bg-stone-900 border border-stone-800 text-amber-300 hover:border-amber-400 transition-all">🪙 Торговцы</button>
+      </div>
+
+      <div id="dmNpcsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5"></div>
+    </div>
+
+    <!-- 10. СТРОГО DM: НАСТРОЙКИ СТОЛА И ГЛУБОКАЯ КАСТОМИЗАЦИЯ -->
+    <div id="tabContent_settings" class="party-tab-pane hidden space-y-6">
+      <div class="fox-card p-6 rounded-2xl border border-orange-950/80 bg-[#120d09] max-w-2xl space-y-5 text-xs font-serif">
+        <div class="flex items-center justify-between border-b border-orange-950/60 pb-3">
+          <h3 class="text-sm font-bold text-amber-200 font-serif flex items-center gap-2">
+            <span>⚙️</span> Оформление и параметры кампании
+          </h3>
+          <span class="text-[10px] font-mono text-stone-500">Только для DM</span>
+        </div>
+
+        <form onsubmit="submitPartySettings(event)" class="space-y-4">
+          <div>
+            <label class="font-bold text-amber-300 block mb-1">Название кампании *:</label>
+            <input type="text" id="setPartyName" required class="w-full bg-[#0a0705] border border-orange-900/60 rounded-lg p-2 text-stone-100 focus:border-amber-400 focus:outline-none">
+          </div>
+
+          <div>
+            <label class="font-bold text-amber-300 block mb-1">Ссылка на баннер стола (Cover URL):</label>
+            <input type="url" id="setPartyBanner" placeholder="https://.../banner.jpg" class="w-full bg-[#0a0705] border border-orange-900/60 rounded-lg p-2 text-stone-100 font-mono focus:border-amber-400 focus:outline-none">
+          </div>
+
+          <div>
+            <label class="font-bold text-amber-300 block mb-1">Описание стола:</label>
+            <textarea id="setPartyDesc" rows="2" class="w-full bg-[#0a0705] border border-orange-900/60 rounded-lg p-2 text-stone-100 focus:border-amber-400 focus:outline-none"></textarea>
+          </div>
+
+          <!-- БЛОК ВЫБОРА И КАСТОМИЗАЦИИ ТЕМЫ -->
+          <div class="p-4 bg-[#0a0705] border border-orange-950/80 rounded-xl space-y-3.5">
+            <div class="flex justify-between items-center">
+              <span class="font-bold text-amber-300 block">Атмосферная тема комнаты стола:</span>
+              <span id="themePreviewLabel" class="text-[10px] font-mono font-bold text-amber-400">Янтарный огонь</span>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" id="partyThemePresets">
+              <button type="button" onclick="selectPartyPreset('ember')" class="preset-btn p-2 rounded-lg border border-amber-500/50 bg-[#160f0a] text-amber-200 text-left hover:brightness-125 transition-all flex items-center gap-2">
+                <span class="w-3.5 h-3.5 rounded-full bg-amber-500 shrink-0"></span>
+                <span>🔥 Огонь</span>
+              </button>
+              <button type="button" onclick="selectPartyPreset('shadow')" class="preset-btn p-2 rounded-lg border border-purple-900 bg-[#140a1c] text-purple-200 text-left hover:brightness-125 transition-all flex items-center gap-2">
+                <span class="w-3.5 h-3.5 rounded-full bg-purple-500 shrink-0"></span>
+                <span>🔮 Тени</span>
+              </button>
+              <button type="button" onclick="selectPartyPreset('forest')" class="preset-btn p-2 rounded-lg border border-emerald-900 bg-[#0a160e] text-emerald-200 text-left hover:brightness-125 transition-all flex items-center gap-2">
+                <span class="w-3.5 h-3.5 rounded-full bg-emerald-500 shrink-0"></span>
+                <span>🌲 Чаща</span>
+              </button>
+              <button type="button" onclick="selectPartyPreset('blood')" class="preset-btn p-2 rounded-lg border border-rose-900 bg-[#1a0a0d] text-rose-200 text-left hover:brightness-125 transition-all flex items-center gap-2">
+                <span class="w-3.5 h-3.5 rounded-full bg-rose-500 shrink-0"></span>
+                <span>🩸 Кровь</span>
+              </button>
+              <button type="button" onclick="selectPartyPreset('celestial')" class="preset-btn p-2 rounded-lg border border-cyan-900 bg-[#0a1418] text-cyan-200 text-left hover:brightness-125 transition-all flex items-center gap-2">
+                <span class="w-3.5 h-3.5 rounded-full bg-cyan-400 shrink-0"></span>
+                <span>✨ Небеса</span>
+              </button>
+              <button type="button" onclick="toggleCustomColorPickers()" class="preset-btn p-2 rounded-lg border border-stone-800 bg-[#141414] text-stone-300 text-left hover:border-amber-400 transition-all flex items-center gap-2">
+                <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-r from-amber-400 via-rose-500 to-purple-500 shrink-0"></span>
+                <span>🎨 Палитра</span>
+              </button>
+            </div>
+
+            <!-- ИНТЕРАКТИВНЫЕ КОЛОРПИКЕРЫ (СВОЯ ПАЛИТРА) -->
+            <div id="customColorsBlock" class="hidden pt-3 border-t border-orange-950/60 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div>
+                <label class="text-[10px] text-stone-400 block mb-1">Акцент:</label>
+                <input type="color" id="pickerAccent" onchange="onCustomColorChange()" class="w-full h-8 bg-transparent cursor-pointer rounded border border-stone-800">
+              </div>
+              <div>
+                <label class="text-[10px] text-stone-400 block mb-1">Рамки:</label>
+                <input type="color" id="pickerBorder" onchange="onCustomColorChange()" class="w-full h-8 bg-transparent cursor-pointer rounded border border-stone-800">
+              </div>
+              <div>
+                <label class="text-[10px] text-stone-400 block mb-1">Фон карточек:</label>
+                <input type="color" id="pickerCardBg" onchange="onCustomColorChange()" class="w-full h-8 bg-transparent cursor-pointer rounded border border-stone-800">
+              </div>
+              <div>
+                <label class="text-[10px] text-stone-400 block mb-1">Свечение:</label>
+                <input type="color" id="pickerGlow" onchange="onCustomColorChange()" class="w-full h-8 bg-transparent cursor-pointer rounded border border-stone-800">
+              </div>
+            </div>
+            <input type="hidden" id="setThemeSelect" value="ember">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="font-bold text-amber-300 block mb-1">Макс. число игроков:</label>
+              <input type="number" id="setMaxPlayers" min="2" max="20" class="w-full bg-[#0a0705] border border-orange-900/60 rounded-lg p-2 text-stone-100 font-mono">
+            </div>
+            <div class="flex items-center pt-5">
+              <label class="flex items-center gap-2 cursor-pointer text-amber-200">
+                <input type="checkbox" id="setIsPrivateCheck" onchange="document.getElementById('setPasswordRow').classList.toggle('hidden', !this.checked)" class="rounded border-orange-900 text-foxOrange-600">
+                <span>Закрытый стол (по паролю)</span>
+              </label>
+            </div>
+          </div>
+
+          <div id="setPasswordRow" class="hidden p-3 bg-[#0a0705] border border-orange-950 rounded-xl">
+            <label class="text-[11px] text-stone-400 block mb-1">Новый пароль стола (оставьте пустым, чтобы не менять):</label>
+            <input type="password" id="setPartyPassword" placeholder="Секретное слово..." class="w-full bg-black/60 border border-stone-800 rounded p-2 text-stone-100">
+          </div>
+
+          <div class="flex justify-end pt-2">
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-bold hover:brightness-110 shadow-lg active:scale-95 transition-all">
+              Сохранить оформление и настройки
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- МОДАЛКА: ДОБАВИТЬ ТРЕК В ПЛЕЙЛИСТ (DM) -->
+<div id="addTrackModal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+  <div class="fox-card border border-amber-500/40 rounded-2xl max-w-sm w-full shadow-2xl p-6 space-y-4 text-xs font-serif">
+    <div class="flex justify-between items-center border-b border-orange-950/80 pb-2">
+      <h3 class="text-sm font-bold text-amber-200">🎵 Добавить трек</h3>
+      <button onclick="closeAddTrackModal()" class="text-stone-400 hover:text-amber-300 text-2xl font-bold">&times;</button>
+    </div>
+
+    <!-- Загрузка реального MP3 -->
+    <div class="p-3 bg-[#0a0705] border border-orange-900/60 rounded-xl text-center space-y-2">
+      <label id="btnUploadMp3Label" class="cursor-pointer block px-3 py-2 rounded-lg bg-stone-900 border border-stone-800 text-amber-300 font-bold hover:border-amber-400 transition-all">
+        📁 Загрузить файл с устройства (MP3/OGG)
+        <input type="file" id="fileUploadInput" accept=".mp3,.ogg,.wav,.m4a" onchange="uploadMp3Track(event)" class="hidden">
+      </label>
+      <span class="text-[10px] text-stone-500 block">Файл сохранится на сервере кампании</span>
+    </div>
+
+    <div class="text-center text-stone-500 font-bold text-[10px]">&mdash; ИЛИ ПО ССЫЛКЕ &mdash;</div>
+
+    <div class="space-y-3">
+      <div>
+        <label class="font-bold text-amber-300 block mb-1">Название трека:</label>
+        <input type="text" id="newTrackTitle" placeholder="Битва с боссом..." class="w-full bg-[#0a0705] border border-orange-900/60 rounded p-2 text-stone-100">
+      </div>
+      <div>
+        <label class="font-bold text-amber-300 block mb-1">Прямая ссылка (URL):</label>
+        <input type="text" id="newTrackUrl" placeholder="https://.../audio.mp3" class="w-full bg-[#0a0705] border border-orange-900/60 rounded p-2 text-stone-100 font-mono">
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-2 pt-2 border-t border-orange-950/60">
+      <button type="button" onclick="closeAddTrackModal()" class="px-3 py-1.5 rounded-lg bg-stone-900 text-stone-400">Отмена</button>
+      <button type="button" onclick="submitAddTrack()" class="px-4 py-1.5 rounded-lg bg-amber-400 text-stone-950 font-bold hover:brightness-110">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<!-- МОДАЛКА: СОЗДАНИЕ БЫСТРОГО НИПА ДЛЯ DM -->
+<div id="quickNpcModal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+  <div class="fox-card border border-amber-500/40 rounded-2xl max-w-md w-full shadow-2xl p-6 space-y-4 text-xs font-serif">
+    <div class="flex justify-between items-center border-b border-orange-950/80 pb-2">
+      <h3 class="text-sm font-bold text-amber-200">🧙‍♂️ Создание быстрого НИПа</h3>
+      <button type="button" onclick="closeQuickNpcModal()" class="text-stone-400 hover:text-amber-300 text-2xl font-bold">&times;</button>
+    </div>
+
+    <form onsubmit="submitQuickNpc(event)" class="space-y-3">
+      <div>
+        <label class="font-bold text-amber-300 block mb-1">Имя НИПа *:</label>
+        <input type="text" id="npcNameInput" required placeholder="Староста деревни, Капитан стражи..." class="w-full bg-[#0d0a08] border border-orange-900/60 rounded-lg p-2 text-stone-100 focus:border-amber-400 focus:outline-none">
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="font-bold text-stone-300 block mb-1">Раса / Вид:</label>
+          <input type="text" id="npcRaceInput" value="Человек" class="w-full bg-[#0d0a08] border border-orange-900/60 rounded-lg p-2 text-stone-100">
+        </div>
+        <div>
+          <label class="font-bold text-stone-300 block mb-1">Роль / Класс:</label>
+          <input type="text" id="npcClassInput" value="НИП" class="w-full bg-[#0d0a08] border border-orange-900/60 rounded-lg p-2 text-stone-100">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="font-bold text-stone-300 block mb-1">Макс. Хиты (HP):</label>
+          <input type="number" id="npcHpInput" value="25" min="1" class="w-full bg-[#0d0a08] border border-orange-900/60 rounded-lg p-2 text-stone-100 font-mono">
+        </div>
+        <div>
+          <label class="font-bold text-stone-300 block mb-1">Класс Доспеха (КД):</label>
+          <input type="number" id="npcAcInput" value="13" min="1" class="w-full bg-[#0d0a08] border border-orange-900/60 rounded-lg p-2 text-stone-100 font-mono">
+        </div>
+      </div>
+
+      <div>
+        <label class="font-bold text-stone-300 block mb-1">Сюжетные заметки / Описание:</label>
+        <textarea id="npcNotesInput" rows="2" placeholder="Характер, секреты, снаряжение..." class="w-full bg-[#0d0a08] border border-orange-900/60 rounded-lg p-2 text-stone-100"></textarea>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-orange-950/60">
+        <button type="button" onclick="closeQuickNpcModal()" class="px-3 py-1.5 rounded-lg bg-stone-900 text-stone-400">Отмена</button>
+        <button type="submit" class="px-4 py-1.5 rounded-lg bg-amber-400 text-stone-950 font-bold hover:brightness-110">Создать НИПа</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- МОДАЛКА: ДОБАВЛЕНИЕ РАСЫ ДЛЯ СТОЛА (DM) -->
+<div id="partyRaceModal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+  <div class="fox-card border border-amber-500/40 rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div class="bg-[#140e0a] px-6 py-4 border-b border-orange-950/80 flex justify-between items-center">
+      <h3 class="text-sm font-bold font-serif text-amber-200 flex items-center gap-2">
+        <span>🏛️</span> Расы кампании
+      </h3>
+      <button type="button" onclick="closePartyRaceModal()" class="text-stone-400 hover:text-amber-300 text-2xl font-bold">&times;</button>
+    </div>
+
+    <div class="flex border-b border-orange-950/60 bg-[#0d0906] px-6 pt-3 gap-3 text-xs font-serif">
+      <button type="button" id="tabBtnCompendiumRaces" onclick="switchRaceModalTab('compendium')" class="pb-2.5 font-bold border-b-2 border-amber-400 text-amber-300 transition-all">
+        📚 Мои созданные расы
+      </button>
+      <button type="button" id="tabBtnNewRace" onclick="switchRaceModalTab('new')" class="pb-2.5 font-bold border-b-2 border-transparent text-stone-400 hover:text-amber-200 transition-all">
+        ✍️ Создать новую расу
+      </button>
+    </div>
+
+    <div id="modalTab_compendiumRaces" class="p-6 space-y-3 overflow-y-auto max-h-[65vh]">
+      <div id="compendiumRacesList" class="space-y-2.5">
+        <div class="text-center py-6 text-stone-500 text-xs font-serif">Загрузка рас из компендиума...</div>
+      </div>
+    </div>
+
+    <form id="modalTab_newRace" onsubmit="submitPartyRace(event)" class="hidden p-6 space-y-3.5 text-xs font-serif overflow-y-auto max-h-[65vh]">
+      <div>
+        <label class="font-bold text-amber-300 block mb-1">Название расы *:</label>
+        <input type="text" id="prNameInput" required placeholder="Лунная фея, Пещерный голиаф..." class="w-full bg-[#0d0a08] border border-orange-900/60 rounded-lg p-2 text-stone-100 focus:border-amber-400 focus:outline-none">
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="font-bold text-stone-300 block mb-1">Базовая скорость (фт):</label>
+          <input type="number" id="prSpeedInput" value="30" class="w-full bg-[#0d0a08] border border-orange-900/60 rounded-lg p-2 text-stone-100 font-mono">
+        </div>
+        <div class="flex items-center pt-5">
+          <label class="flex items-center gap-2 cursor-pointer text-amber-200">
+            <input type="checkbox" id="prDmOnlyCheck" class="rounded border-orange-900 text-foxOrange-600">
+            <span>Эксклюзив для DM стола</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <label class="font-bold text-amber-300 block mb-1">Описание расы:</label>
+        <textarea id="prDescInput" rows="2" placeholder="Особенности происхождения в сеттинге..." class="w-full bg-[#0d0a08] border border-orange-900/60 rounded-lg p-2 text-stone-100 focus:border-amber-400 focus:outline-none"></textarea>
+      </div>
+
+      <div class="p-3 bg-[#0d0907] border border-orange-950 rounded-xl space-y-2">
+        <span class="font-bold text-amber-300 block">Бонусы характеристик:</span>
+        <div class="grid grid-cols-6 gap-1.5 text-center font-mono">
+          <div><span class="text-[10px] text-amber-400">СИЛ</span><input type="number" id="prStat_str" value="0" class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs"></div>
+          <div><span class="text-[10px] text-amber-400">ЛОВ</span><input type="number" id="prStat_dex" value="0" class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs"></div>
+          <div><span class="text-[10px] text-amber-400">ТЕЛ</span><input type="number" id="prStat_con" value="0" class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs"></div>
+          <div><span class="text-[10px] text-amber-400">ИНТ</span><input type="number" id="prStat_int" value="0" class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs"></div>
+          <div><span class="text-[10px] text-amber-400">МУД</span><input type="number" id="prStat_wis" value="0" class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs"></div>
+          <div><span class="text-[10px] text-amber-400">ХАР</span><input type="number" id="prStat_cha" value="0" class="w-full bg-black/60 border border-stone-800 rounded text-center p-1 text-xs"></div>
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-end gap-2 border-t border-orange-950/60">
+        <button type="button" onclick="closePartyRaceModal()" class="px-4 py-2 rounded-lg bg-stone-900 text-stone-300">Отмена</button>
+        <button type="submit" class="px-5 py-2 rounded-lg bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-bold hover:brightness-110">Сохранить для стола</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function getRaceEmoji(race) {
+    if (!race) return '⚔️';
+    const r = String(race).toLowerCase();
+    if (r.includes('эльф')) return '🧝';
+    if (r.includes('дварф') || r.includes('гном')) return '🛡️';
+    if (r.includes('кицунэ') || r.includes('лис')) return '🦊';
+    if (r.includes('дракон')) return '🐲';
+    if (r.includes('тифлинг') || r.includes('демон')) return '😈';
+    if (r.includes('орк') || r.includes('гоблин')) return '🦾';
+    if (r.includes('волшебник') || r.includes('маг')) return '🧙';
+    if (r.includes('халфлинг') || r.includes('полурослик')) return '🍃';
+    return '👤';
+  }
+
+  const PARTY_THEMES = {
+    ember: {
+      name: "Янтарный огонь",
+      accent: "#f59e0b",
+      border: "rgba(245, 158, 11, 0.4)",
+      cardBg: "rgba(18, 13, 9, 0.95)",
+      glow: "rgba(245, 158, 11, 0.25)",
+      text: "#fef3c7"
+    },
+    shadow: {
+      name: "Тени и мистика",
+      accent: "#a855f7",
+      border: "rgba(168, 85, 247, 0.4)",
+      cardBg: "rgba(14, 9, 20, 0.95)",
+      glow: "rgba(168, 85, 247, 0.25)",
+      text: "#f3e8ff"
+    },
+    forest: {
+      name: "Лесная чаща",
+      accent: "#10b981",
+      border: "rgba(16, 185, 129, 0.4)",
+      cardBg: "rgba(9, 18, 13, 0.95)",
+      glow: "rgba(16, 185, 129, 0.25)",
+      text: "#d1fae5"
+    },
+    blood: {
+      name: "Кровавая луна",
+      accent: "#f43f5e",
+      border: "rgba(244, 63, 94, 0.4)",
+      cardBg: "rgba(22, 10, 12, 0.95)",
+      glow: "rgba(244, 63, 94, 0.25)",
+      text: "#ffe4e6"
+    },
+    celestial: {
+      name: "Небесное сияние",
+      accent: "#06b6d4",
+      border: "rgba(6, 182, 212, 0.4)",
+      cardBg: "rgba(8, 17, 24, 0.95)",
+      glow: "rgba(6, 182, 212, 0.25)",
+      text: "#cffafe"
+    }
+  };
+
+  let activeCustomColors = null;
+
+  function applyPartyTheme(themeName, customColors = null) {
+    let t = PARTY_THEMES[themeName] || PARTY_THEMES.ember;
+    if (themeName === 'custom' && customColors) {
+      t = {
+        name: "Своя палитра",
+        accent: customColors.accent || '#f59e0b',
+        border: customColors.border || 'rgba(245, 158, 11, 0.4)',
+        cardBg: customColors.cardBg || 'rgba(18, 13, 9, 0.95)',
+        glow: customColors.glow || 'rgba(245, 158, 11, 0.25)',
+        text: customColors.text || '#fef3c7'
+      };
+    }
+
+    const root = document.documentElement;
+    root.style.setProperty('--party-accent', t.accent);
+    root.style.setProperty('--party-border', t.border);
+    root.style.setProperty('--party-card-bg', t.cardBg);
+    root.style.setProperty('--party-glow', t.glow);
+    root.style.setProperty('--party-text', t.text || '#fef3c7');
+
+    const lbl = document.getElementById('themePreviewLabel');
+    if (lbl) lbl.textContent = t.name;
+
+    const activeBtn = document.querySelector('.party-tab-btn.active-tab');
+    if (activeBtn) {
+      activeBtn.style.backgroundColor = t.accent;
+      activeBtn.style.boxShadow = `0 4px 15px ${t.glow}`;
+    }
+  }
+
+  function selectPartyPreset(themeKey) {
+    document.getElementById('setThemeSelect').value = themeKey;
+    document.getElementById('customColorsBlock').classList.add('hidden');
+    activeCustomColors = null;
+    applyPartyTheme(themeKey);
+  }
+
+  function toggleCustomColorPickers() {
+    const block = document.getElementById('customColorsBlock');
+    block.classList.toggle('hidden');
+    document.getElementById('setThemeSelect').value = 'custom';
+
+    const style = getComputedStyle(document.documentElement);
+    document.getElementById('pickerAccent').value = style.getPropertyValue('--party-accent').trim() || '#f59e0b';
+    onCustomColorChange();
+  }
+
+  function onCustomColorChange() {
+    const accent = document.getElementById('pickerAccent').value;
+    const border = document.getElementById('pickerBorder').value;
+    const cardBg = document.getElementById('pickerCardBg').value;
+    const glow = document.getElementById('pickerGlow').value;
+
+    activeCustomColors = { accent, border, cardBg, glow };
+    applyPartyTheme('custom', activeCustomColors);
+  }
+
+  const partyId = window.location.pathname.split('/').pop();
+  let partyData = null;
+  let currentUserData = null;
+  let myCharactersList = [];
+  let currentActiveTab = 'playerHero';
+  let chatInterval = null;
+
+  async function initPartyDetail() {
+    try {
+      const [uRes, pRes, charsRes] = await Promise.all([
+        apiFetch('/auth/me'),
+        apiFetch(`/parties/${partyId}`),
+        apiFetch('/characters/')
+      ]);
+
+      if (uRes.ok) currentUserData = await uRes.json();
+      if (pRes.ok) partyData = await pRes.json();
+      if (charsRes.ok) myCharactersList = await charsRes.json();
+
+      if (!partyData) {
+        alert("Не удалось загрузить данные стола.");
+        window.location.href = '/parties-lobby';
+        return;
+      }
+
+      // 1. Тема и права
+      try {
+        const s = partyData.settings || {};
+        applyPartyTheme(s.theme || 'ember', s.custom_colors || null);
+        setupRoleView();
+        renderPartyHeader();
+      } catch (err) { console.error("Ошибка темы:", err); }
+
+      // 2. Персонаж, отряд, расы
+      try { renderMyHeroSection(); } catch (err) { console.error("Ошибка героя:", err); }
+      try { renderSquadList(); } catch (err) { console.error("Ошибка отряда:", err); }
+      try { renderRacesList(); } catch (err) { console.error("Ошибка рас:", err); }
+
+      // 3. Заметки
+      try {
+        const pNotes = document.getElementById('playerNotesTextarea');
+        if (pNotes) pNotes.value = partyData.my_notes || '';
+        const dmNotes = document.getElementById('dmNotesTextarea');
+        if (dmNotes && partyData.is_current_user_dm && partyData.dm_notes !== null) {
+          dmNotes.value = partyData.dm_notes || '';
+        }
+      } catch (err) { console.error("Ошибка заметок:", err); }
+
+      // 4. Карта
+      try { renderBattleMap(); } catch (err) { console.error("Ошибка карты:", err); }
+
+      // 5. Чат
+      try {
+        loadChatMessages();
+        populateChatRecipients();
+        if (chatInterval) clearInterval(chatInterval);
+        chatInterval = setInterval(loadChatMessages, 3000);
+      } catch (err) { console.error("Ошибка чата:", err); }
+
+      // 6. Экран DM и НИПы
+      if (partyData.is_current_user_dm) {
+        try { renderDmScreen(); } catch (err) { console.error("Ошибка DM экрана:", err); }
+        try { loadDmNpcs(); } catch (err) { console.error("Ошибка НИПов:", err); }
+        try { populateSettingsForm(); } catch (err) { console.error("Ошибка формы настроек:", err); }
+      }
+
+      // 7. Аудио синхронизация
+      try {
+        syncPartyAudio();
+        setInterval(syncPartyAudio, 3000);
+      } catch (err) { console.error("Ошибка аудио:", err); }
+
+    } catch (e) {
+      console.error("Глобальная ошибка инициализации стола:", e);
+    }
+  }
+
+  function setupRoleView() {
+    const isDm = partyData.is_current_user_dm;
+    document.getElementById('partyRoleBadge').textContent = isDm ? '👑 Вы — Мастер стола' : '👤 Вы — Игрок';
+
+    const dmElems = ['tabBtnDmScreen', 'tabBtnDmNpcs', 'tabBtnSettings', 'btnTabAddRace', 'chatPinOption', 'dmMapControls', 'dmAudioControls'];
+    dmElems.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle('hidden', !isDm);
+    });
+
+    if (!isDm) {
+      document.getElementById('dmNotesTextarea').readOnly = true;
+      document.getElementById('dmNotesTextarea').value = "Сюжетные тайны доступны только Мастеру стола.";
+      document.getElementById('dmNotesSaveBtnRow').classList.add('hidden');
+      document.getElementById('dmPlotBadge').textContent = "Закрыто Мастером";
+      switchPartyTab('playerHero');
+    } else {
+      switchPartyTab('dmScreen');
+    }
+  }
+
+  function renderPartyHeader() {
+    document.getElementById('partyTitle').textContent = partyData.name;
+    document.getElementById('partyDesc').textContent = partyData.description || 'Описание кампании отсутствует.';
+    document.getElementById('partyPrivacyBadge').textContent = partyData.is_private ? '🔒 Закрытая' : '🌍 Открытая';
+    document.getElementById('squadCount').textContent = (partyData.members || []).length;
+    document.getElementById('partyRacesCount').textContent = (partyData.custom_races || []).length;
+
+    const banner = (partyData.settings || {}).banner_url;
+    const bannerBox = document.getElementById('partyHeaderBanner');
+    if (bannerBox) {
+      if (banner && banner.trim()) {
+        bannerBox.style.backgroundImage = `url('${banner}')`;
+      } else {
+        bannerBox.style.backgroundImage = 'none';
+      }
+    }
+    const btnCreateChar = document.getElementById('btnCreateCharForParty');
+    if (btnCreateChar) btnCreateChar.href = `/wizard?party_id=${partyId}`;
+    if (document.getElementById('btnCreateNewHeroForTable')) document.getElementById('btnCreateNewHeroForTable').href = `/wizard?party_id=${partyId}`;
+    if (document.getElementById('btnDmCreateCustomHero')) document.getElementById('btnDmCreateCustomHero').href = `/wizard?party_id=${partyId}`;
+  }
+
+  function switchPartyTab(tab) {
+    if (!partyData.is_current_user_dm && ['dmScreen', 'dmNpcs', 'settings'].includes(tab)) {
+      tab = 'playerHero';
+    }
+
+    currentActiveTab = tab;
+    document.querySelectorAll('.party-tab-pane').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.party-tab-btn').forEach(btn => {
+      btn.className = "party-tab-btn px-3.5 py-2 rounded-lg font-bold text-stone-400 hover:text-amber-200 transition-all";
+      btn.classList.remove('active-tab');
+      btn.style.backgroundColor = '';
+      btn.style.boxShadow = '';
+      btn.style.color = '';
+    });
+
+    const activePane = document.getElementById(`tabContent_${tab}`);
+    if (activePane) activePane.classList.remove('hidden');
+
+    const activeBtn = document.getElementById(`tabBtn${tab.charAt(0).toUpperCase() + tab.slice(1)}`);
+    if (activeBtn) {
+      activeBtn.classList.add('active-tab');
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--party-accent') || '#f59e0b';
+      const glow = getComputedStyle(document.documentElement).getPropertyValue('--party-glow') || 'rgba(245,158,11,0.25)';
+      activeBtn.style.backgroundColor = accent;
+      activeBtn.style.color = '#0c0806';
+      activeBtn.style.boxShadow = `0 4px 15px ${glow}`;
+    }
+
+    if (tab === 'chat') scrollChatToBottom();
+  }
+
+  // --- 1. МОЙ ПЕРСОНАЖ ---
+  let myAttachedChar = null;
+
+  async function renderMyHeroSection() {
+    const attachedBlock = document.getElementById('attachedHeroBlock');
+    const noAttachedBlock = document.getElementById('noAttachedHeroBlock');
+    if (!attachedBlock || !noAttachedBlock) return;
+
+    if (!partyData || !partyData.my_character_id) {
+      attachedBlock.classList.add('hidden');
+      noAttachedBlock.classList.remove('hidden');
+      populateUserCharactersDropdown();
+      return;
+    }
+
+    try {
+      const res = await apiFetch(`/characters/${partyData.my_character_id}`);
+      if (res.ok) {
+        myAttachedChar = await res.json();
+        noAttachedBlock.classList.add('hidden');
+        attachedBlock.classList.remove('hidden');
+
+        const elName = document.getElementById('myHeroName');
+        const elSub = document.getElementById('myHeroSub');
+        const elHp = document.getElementById('myHeroHpText');
+        const elAc = document.getElementById('myHeroAc');
+        const elSpeed = document.getElementById('myHeroSpeed');
+        const elSheetBtn = document.getElementById('btnOpenFullSheet');
+
+        if (elName) elName.textContent = myAttachedChar.name;
+        if (elSub) elSub.textContent = `${myAttachedChar.race} • ${myAttachedChar.class_name} ${myAttachedChar.level} уровня • ${myAttachedChar.alignment || 'Нейтральный'}`;
+        if (elHp) elHp.textContent = `${myAttachedChar.hp_current || 0} / ${myAttachedChar.hp_max || 10}`;
+        if (elAc) elAc.textContent = myAttachedChar.armor_class || (10 + Math.floor(((myAttachedChar.stats?.dex || 10) - 10) / 2));
+        if (elSpeed) elSpeed.textContent = `${myAttachedChar.speed || 30} фт.`;
+        if (elSheetBtn) elSheetBtn.href = `/characters/${myAttachedChar.id}/sheet`;
+
+        const bannerBox = document.getElementById('myHeroBannerBox');
+        const avatarImg = document.getElementById('myHeroAvatarImg');
+        const avatarEmoji = document.getElementById('myHeroAvatarEmoji');
+
+        if (bannerBox) {
+          bannerBox.style.backgroundImage = (myAttachedChar.banner_url && myAttachedChar.banner_url.trim()) ? `url('${myAttachedChar.banner_url}')` : 'none';
+        }
+
+        const avatarSrc = (myAttachedChar.avatar_url && myAttachedChar.avatar_url.trim()) ? myAttachedChar.avatar_url : ((myAttachedChar.banner_url && myAttachedChar.banner_url.trim()) ? myAttachedChar.banner_url : '');
+        if (avatarImg && avatarEmoji) {
+          if (avatarSrc) {
+            avatarImg.src = avatarSrc;
+            avatarImg.classList.remove('hidden');
+            avatarEmoji.classList.add('hidden');
+          } else {
+            avatarImg.classList.add('hidden');
+            avatarEmoji.classList.remove('hidden');
+            avatarEmoji.textContent = getRaceEmoji(myAttachedChar.race);
+          }
+        }
+
+        const statsGrid = document.getElementById('myHeroStatsGrid');
+        if (statsGrid) {
+          const s = myAttachedChar.stats || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+          const statConfig = [
+            { key: 'str', label: 'СИЛА' },
+            { key: 'dex', label: 'ЛОВКОСТЬ' },
+            { key: 'con', label: 'ТЕЛОСЛОЖ.' },
+            { key: 'int', label: 'ИНТЕЛЛЕКТ' },
+            { key: 'wis', label: 'МУДРОСТЬ' },
+            { key: 'cha', label: 'ХАРИЗМА' }
+          ];
+
+          statsGrid.innerHTML = statConfig.map(cfg => {
+            const val = s[cfg.key] || 10;
+            const mod = Math.floor((val - 10) / 2);
+            const modStr = mod >= 0 ? `+${mod}` : `${mod}`;
+            return `
+              <div onclick="rollStatCheck('${cfg.label}', ${mod})" title="Бросить d20 ${modStr}" class="p-2.5 rounded-xl bg-black/60 border border-orange-950 hover:border-amber-400 hover:bg-amber-950/30 cursor-pointer active:scale-95 transition-all group">
+                <span class="text-[10px] text-amber-400/90 group-hover:text-amber-300 font-bold block">${cfg.label}</span>
+                <strong class="text-base text-stone-100 block my-0.5">${val}</strong>
+                <span class="text-[11px] font-bold text-amber-300 block bg-[#160f0b] rounded px-1 py-0.5 border border-orange-950/80">${modStr}</span>
+              </div>
+            `;
+          }).join('');
+        }
+      } else {
+        attachedBlock.classList.add('hidden');
+        noAttachedBlock.classList.remove('hidden');
+        populateUserCharactersDropdown();
+      }
+    } catch (e) {
+      attachedBlock.classList.add('hidden');
+      noAttachedBlock.classList.remove('hidden');
+      populateUserCharactersDropdown();
+    }
+  }
+
+  async function rollStatCheck(statName, mod) {
+    const heroName = myAttachedChar ? myAttachedChar.name : (currentUserData?.username || 'Герой');
+    try {
+      const res = await apiFetch(`/parties/${partyId}/roll-stat`, {
+        method: 'POST',
+        body: { stat_name: statName, stat_mod: mod, character_name: heroName }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const toast = document.getElementById('diceRollToast');
+        document.getElementById('diceRollToastText').textContent = data.content;
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 5000);
+        loadChatMessages();
+      }
+    } catch (e) {}
+  }
+
+  function populateUserCharactersDropdown() {
+    const sel = document.getElementById('userCharactersDropdown');
+    if (!sel) return;
+    if (!myCharactersList || myCharactersList.length === 0) {
+      sel.innerHTML = '<option value="">У вас нет созданных персонажей</option>';
+      return;
+    }
+    sel.innerHTML = myCharactersList.map(c => `
+      <option value="${c.id}">${c.name} (${c.race} ${c.class_name} ${c.level} ур.)</option>
+    `).join('');
+  }
+
+  async function attachSelectedCharacter() {
+    const sel = document.getElementById('userCharactersDropdown');
+    const charId = sel ? parseInt(sel.value) : null;
+    if (!charId) { alert("Выберите персонажа!"); return; }
+
+    try {
+      const res = await apiFetch(`/parties/${partyId}/attach-character`, {
+        method: 'POST',
+        body: { character_id: charId }
+      });
+      if (res.ok) {
+        partyData.my_character_id = charId;
+        renderMyHeroSection();
+        const updatedParty = await (await apiFetch(`/parties/${partyId}`)).json();
+        partyData = updatedParty;
+        renderSquadList();
+        loadChatMessages();
+      }
+    } catch (e) {}
+  }
+
+  function showSelectCharacterDialog() {
+    document.getElementById('attachedHeroBlock').classList.add('hidden');
+    document.getElementById('noAttachedHeroBlock').classList.remove('hidden');
+    populateUserCharactersDropdown();
+  }
+
+  async function adjustHeroHp(delta) {
+    if (!myAttachedChar) return;
+    const newHp = Math.max(0, Math.min(myAttachedChar.hp_max || 10, (myAttachedChar.hp_current || 0) + delta));
+    try {
+      const res = await apiFetch(`/parties/${partyId}/members/${myAttachedChar.id}/hp`, {
+        method: 'PATCH',
+        body: { hp_current: newHp }
+      });
+      if (res.ok) {
+        myAttachedChar.hp_current = newHp;
+        document.getElementById('myHeroHpText').textContent = `${newHp} / ${myAttachedChar.hp_max}`;
+      }
+    } catch (e) {}
+  }
+
+  // --- 2. ОТРЯД ---
+  function renderSquadList() {
+    const cont = document.getElementById('squadList');
+    if (!cont) return;
+
+    if (!partyData.members || partyData.members.length === 0) {
+      cont.innerHTML = '<div class="col-span-full text-center py-6 text-stone-500 font-serif">В отряде пока никого нет.</div>';
+      return;
+    }
+
+    cont.innerHTML = partyData.members.map(m => {
+      const isLeader = m.is_dm ? '<span class="text-[9px] font-mono font-bold text-amber-300 bg-amber-950/40 border border-amber-800 px-1.5 py-0.5 rounded">👑 МАСТЕР</span>' : '';
+      const charName = m.character_name ? `<a href="/characters/${m.character_id}/sheet" class="text-amber-200 font-serif font-bold text-sm hover:underline">${m.character_name}</a>` : '<span class="text-stone-500 text-xs italic">Персонаж не выбран</span>';
+      const charClass = m.character_class ? `<span class="text-[11px] text-stone-400 font-serif block">${m.character_race || ''} ${m.character_class}</span>` : '';
+      const hpBadge = m.character_hp ? `<span class="px-2 py-0.5 rounded bg-black/60 border border-orange-950 font-mono text-foxOrange-400 text-xs">${m.character_hp}</span>` : '';
+
+      const bannerStyle = m.banner_url ? `background-image: url('${m.banner_url}'); background-size: cover; background-position: center;` : '';
+      const avatarSrc = m.avatar_url && m.avatar_url.trim() ? m.avatar_url : (m.banner_url && m.banner_url.trim() ? m.banner_url : '');
+      const raceEmoji = getRaceEmoji(m.character_race);
+
+      return `
+        <div class="rounded-xl border border-orange-950/80 bg-[#120d09] overflow-hidden flex flex-col justify-between shadow relative group">
+          <div class="h-16 w-full relative bg-[#1a100a] flex items-end p-2" style="${bannerStyle}">
+            ${m.banner_url ? '<div class="absolute inset-0 bg-gradient-to-t from-[#120d09] via-[#120d09]/60 to-transparent"></div>' : ''}
+            <div class="relative z-10 flex items-center gap-2">
+              <div class="w-9 h-9 rounded-lg overflow-hidden border border-amber-500/40 bg-stone-900 shrink-0 shadow flex items-center justify-center text-sm">
+                ${avatarSrc ? `<img src="${avatarSrc}" class="w-full h-full object-cover">` : `<span>${raceEmoji}</span>`}
+              </div>
+              <div>
+                <strong class="text-stone-200 text-xs font-serif block">${m.username}</strong>
+                ${isLeader}
+              </div>
+            </div>
+          </div>
+          <div class="p-3.5 space-y-2 flex justify-between items-center">
+            <div>
+              <div>${charName}</div>
+              ${charClass}
+            </div>
+            <div class="flex items-center gap-2">
+              ${hpBadge}
+              ${m.character_id ? `<a href="/characters/${m.character_id}/sheet" class="px-2.5 py-1 rounded bg-[#1c130d] border border-orange-900/60 hover:border-amber-400 text-amber-300 text-xs font-serif">Лист</a>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // --- 3. ЧАТ СТОЛА ---
+  function populateChatRecipients() {
+    const sel = document.getElementById('chatRecipientSelect');
+    if (!sel || !partyData.members) return;
+    const currentUserId = currentUserData ? currentUserData.id : null;
+
+    sel.innerHTML = '<option value="">Всем за столом</option>';
+    partyData.members.forEach(m => {
+      if (m.user_id !== currentUserId) {
+        const roleLabel = m.is_dm ? '(👑 Мастер)' : (m.character_name ? `(${m.character_name})` : '');
+        sel.innerHTML += `<option value="${m.user_id}">Шёпот: ${m.username} ${roleLabel}</option>`;
+      }
+    });
+  }
+
+  async function loadChatMessages() {
+    try {
+      const res = await apiFetch(`/parties/${partyId}/messages`);
+      if (!res.ok) return;
+      const msgs = await res.json();
+      renderChatMessages(msgs);
+    } catch (e) {}
+  }
+
+  function renderChatMessages(msgs) {
+    const feed = document.getElementById('chatMessagesFeed');
+    const pinnedCont = document.getElementById('pinnedMessagesContainer');
+    if (!feed) return;
+
+    const pinned = msgs.filter(m => m.is_pinned);
+    if (pinned.length > 0) {
+      pinnedCont.classList.remove('hidden');
+      pinnedCont.innerHTML = pinned.map(p => `
+        <div class="p-3 rounded-xl bg-amber-950/40 border border-amber-500/50 flex justify-between items-center text-xs font-serif shadow-md">
+          <div class="flex items-center gap-2">
+            <span class="text-sm">📌</span>
+            <div><span class="font-bold text-amber-300">${p.sender_name}:</span> <span class="text-stone-200">${p.content}</span></div>
+          </div>
+          ${partyData.is_current_user_dm ? `<button onclick="togglePinMessage(${p.id})" class="text-stone-400 hover:text-amber-200 text-xs font-bold px-1.5 py-0.5 rounded bg-black/40 border border-orange-900">&times;</button>` : ''}
+        </div>
+      `).join('');
+    } else {
+      pinnedCont.classList.add('hidden');
+    }
+
+    if (msgs.length === 0) {
+      feed.innerHTML = '<div class="text-center py-12 text-stone-500 italic">Летопись стола пуста. Начните общение или бросьте кубик!</div>';
+      return;
+    }
+
+    feed.innerHTML = msgs.map(m => {
+      const timeStr = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      let borderClass = 'border-orange-950/60 bg-[#0d0907]';
+      let tagBadge = '';
+
+      if (m.message_type === 'roll') {
+        borderClass = 'border-amber-500/40 bg-gradient-to-r from-[#181109] to-[#120d09] shadow';
+        tagBadge = '<span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-foxOrange-600/30 text-foxOrange-300 border border-foxOrange-600/50 font-bold">КУБИКИ</span>';
+      } else if (m.message_type === 'secret_roll') {
+        borderClass = 'border-amber-600/60 bg-[#160f0a]';
+        tagBadge = '<span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-300 border border-amber-500/60 font-bold">ЗА ШИРМОЙ</span>';
+      } else if (m.message_type === 'whisper') {
+        borderClass = 'border-purple-900/60 bg-[#140b18]';
+        tagBadge = `<span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-purple-900/40 text-purple-300 border border-purple-800">ШЁПОТ</span>`;
+      } else if (m.message_type === 'system') {
+        borderClass = 'border-blue-900/60 bg-[#0a0f18] text-stone-300';
+        tagBadge = '<span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-blue-900/40 text-blue-300 border border-blue-800">ЛЕТОПИСЬ</span>';
+      }
+
+      return `
+        <div class="p-2.5 rounded-xl border ${borderClass} space-y-1">
+          <div class="flex justify-between items-center text-[10px] font-mono">
+            <div class="flex items-center gap-1.5">
+              <strong class="text-amber-300 font-serif text-xs">${m.sender_name}</strong>
+              ${tagBadge}
+            </div>
+            <span class="text-stone-500">${timeStr}</span>
+          </div>
+          <p class="text-stone-200 font-serif text-xs leading-relaxed break-words">${m.content}</p>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function scrollChatToBottom() {
+    const feed = document.getElementById('chatMessagesFeed');
+    if (feed) feed.scrollTop = feed.scrollHeight;
+  }
+
+  async function submitChatMessage(e) {
+    e.preventDefault();
+    const input = document.getElementById('chatInputText');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const sel = document.getElementById('chatRecipientSelect');
+    const whisperId = sel.value ? parseInt(sel.value) : null;
+    const pinCheck = document.getElementById('chatIsPinnedCheck');
+
+    try {
+      const res = await apiFetch(`/parties/${partyId}/messages`, {
+        method: 'POST',
+        body: { content: text, whisper_to_id: whisperId, is_pinned: pinCheck ? pinCheck.checked : false }
+      });
+      if (res.ok) {
+        input.value = '';
+        if (pinCheck) pinCheck.checked = false;
+        await loadChatMessages();
+        scrollChatToBottom();
+      }
+    } catch (e) {}
+  }
+
+  async function togglePinMessage(msgId) {
+    try {
+      const res = await apiFetch(`/parties/${partyId}/messages/${msgId}/pin`, { method: 'PATCH' });
+      if (res.ok) loadChatMessages();
+    } catch (e) {}
+  }
+
+  // --- 4. ТАКТИЧЕСКАЯ КАРТА ---
+  let mapData = null;
+
+  async function renderBattleMap() {
+    try {
+      const res = await apiFetch(`/parties/${partyId}/map`);
+      if (res.ok) {
+        mapData = await res.json();
+        const canvas = document.getElementById('battleMapCanvas');
+        if (mapData.image_url) {
+          canvas.style.backgroundImage = `url('${mapData.image_url}')`;
+          document.getElementById('mapBackgroundInput').value = mapData.image_url;
+        }
+
+        const tokens = mapData.tokens || [];
+        canvas.innerHTML = tokens.map(t => `
+          <div id="token_${t.id}" onmousedown="dragMapToken(event, '${t.id}')" class="absolute w-10 h-10 rounded-full border-2 border-amber-400 bg-stone-900/90 text-amber-200 font-bold text-xs flex items-center justify-center cursor-move shadow-xl select-none group" style="left: ${t.x}px; top: ${t.y}px;">
+            <span>${t.name.slice(0, 2)}</span>
+            <div class="absolute -top-5 left-1/2 -translate-x-1/2 bg-black/80 px-1.5 py-0.5 rounded text-[9px] font-serif text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+              ${t.name}
+            </div>
+          </div>
+        `).join('');
+      }
+    } catch (e) {}
+  }
+
+  async function saveMapBackground() {
+    const url = document.getElementById('mapBackgroundInput').value.trim();
+    if (!url) return;
+    try {
+      const res = await apiFetch(`/parties/${partyId}/map`, {
+        method: 'PATCH',
+        body: { image_url: url }
+      });
+      if (res.ok) renderBattleMap();
+    } catch (e) {}
+  }
+
+  async function addMapToken() {
+    const name = prompt("Имя токена (герой или монстр):", "Гоблин");
+    if (!name) return;
+    const tokens = mapData.tokens || [];
+    tokens.push({
+      id: "tok_" + Date.now(),
+      name: name,
+      x: 50 + (tokens.length * 30),
+      y: 50 + (tokens.length * 20),
+      color: "#f59e0b"
+    });
+    try {
+      await apiFetch(`/parties/${partyId}/map`, { method: 'PATCH', body: { tokens: tokens } });
+      renderBattleMap();
+    } catch (e) {}
+  }
+
+  function dragMapToken(e, tokenId) {
+    e.preventDefault();
+    const el = document.getElementById(`token_${tokenId}`);
+    const canvas = document.getElementById('battleMapCanvas');
+    const rect = canvas.getBoundingClientRect();
+
+    function onMouseMove(ev) {
+      let x = ev.clientX - rect.left - 20;
+      let y = ev.clientY - rect.top - 20;
+      x = Math.max(0, Math.min(canvas.clientWidth - 40, x));
+      y = Math.max(0, Math.min(canvas.clientHeight - 40, y));
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+    }
+
+    async function onMouseUp(ev) {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      const x = parseInt(el.style.left) || 0;
+      const y = parseInt(el.style.top) || 0;
+
+      const tokens = mapData.tokens || [];
+      const tok = tokens.find(t => t.id === tokenId);
+      if (tok) {
+        tok.x = x;
+        tok.y = y;
+        await apiFetch(`/parties/${partyId}/map`, { method: 'PATCH', body: { tokens: tokens } });
+      }
+    }
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }
+
+  // --- 5. ЗАМЕТКИ ---
+  async function savePlayerNotes() {
+    const text = document.getElementById('playerNotesTextarea').value;
+    try {
+      const res = await apiFetch(`/parties/${partyId}/my-notes`, {
+        method: 'PATCH',
+        body: { notes: text }
+      });
+      if (res.ok) alert("Личные заметки сохранены!");
+    } catch (e) {}
+  }
+
+  async function saveDmNotes() {
+    const text = document.getElementById('dmNotesTextarea').value;
+    try {
+      const res = await apiFetch(`/parties/${partyId}/dm-notes`, {
+        method: 'PATCH',
+        body: { notes: text }
+      });
+      if (res.ok) alert("Сюжет кампании обновлен!");
+    } catch (e) {}
+  }
+
+  // --- 6. МУЗЫКАЛЬНЫЙ СИНХРОННЫЙ ПЛЕЕР СТОЛА ---
+  let audioState = null;
+  let isAudioMutedByUser = false;
+  let playMode = 'loop';
+
+  async function syncPartyAudio() {
+    try {
+      const res = await apiFetch(`/parties/${partyId}/audio`);
+      if (!res.ok) return;
+      const remoteState = await res.json();
+      audioState = remoteState;
+
+      const player = document.getElementById('globalAudioPlayer');
+      const miniTitle = document.getElementById('miniTrackTitle');
+      const miniStatus = document.getElementById('miniTrackStatus');
+      const playBtn = document.getElementById('btnMiniPlayToggle');
+
+      if (!player) return;
+
+      if (miniTitle) miniTitle.textContent = remoteState.track_title || 'Тишина';
+      if (miniStatus) miniStatus.textContent = remoteState.is_playing ? (playMode === 'loop' ? '🔁 Зациклено' : '▶ Играет') : 'Пауза';
+      if (playBtn) playBtn.textContent = remoteState.is_playing ? '⏸' : '▶';
+
+      // Надежная проверка смены трека без ложных перезапусков
+      if (remoteState.current_track_url) {
+        const currentPath = new URL(player.src || 'http://dummy', window.location.origin).pathname;
+        const targetPath = new URL(remoteState.current_track_url, window.location.origin).pathname;
+
+        if (currentPath !== targetPath) {
+          player.src = remoteState.current_track_url;
+        }
+      }
+
+      player.loop = (playMode === 'loop');
+
+      // Управление воспроизведением без сброса таймлайна
+      if (remoteState.is_playing && !isAudioMutedByUser) {
+        if (player.paused) {
+          player.play().catch(() => {});
+        }
+      } else {
+        if (!player.paused) {
+          player.pause();
+        }
+      }
+
+      renderPlaylistItems();
+    } catch (e) {}
+  }
+
+  function renderPlaylistItems() {
+    const listCont = document.getElementById('partyPlaylistContainer');
+    if (!listCont || !audioState) return;
+    const pl = audioState.playlist || [];
+
+    if (pl.length === 0) {
+      listCont.innerHTML = '<div class="text-center py-6 text-stone-500 font-serif text-xs">Плейлист пока пуст.</div>';
+      return;
+    }
+
+    listCont.innerHTML = pl.map((t, idx) => `
+      <div class="p-3 rounded-xl border border-orange-950/80 bg-[#0a0705] flex justify-between items-center text-xs font-serif shadow">
+        <div class="flex items-center gap-2">
+          <span class="text-amber-400 font-mono">0${idx+1}.</span>
+          <strong class="text-stone-200">${t.title}</strong>
+        </div>
+        ${partyData && partyData.is_current_user_dm ? `
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="playTrackFromList('${t.url}', '${t.title}')" class="px-3 py-1 rounded bg-amber-400 text-stone-950 font-bold hover:brightness-110">
+              Включить ▶
+            </button>
+            <button type="button" onclick="deletePartyAudioTrack(${idx})" title="Удалить трек" class="p-1 text-stone-500 hover:text-rose-400 text-xs">
+              🗑️
+            </button>
+          </div>
+        ` : ''}
+      </div>
+    `).join('');
+  }
+
+  async function deletePartyAudioTrack(idx) {
+    if (!confirm("Удалить этот трек из плейлиста?")) return;
+    const pl = ((audioState && audioState.playlist) || []).filter((_, i) => i !== idx);
+    try {
+      const res = await apiFetch(`/parties/${partyId}/audio`, {
+        method: 'PATCH',
+        body: { playlist: pl }
+      });
+      if (res.ok) await syncPartyAudio();
+    } catch (e) {
+      alert("Ошибка удаления трека: " + e.message);
+    }
+  }
+
+  async function stopAndResetPartyAudio() {
+    try {
+      const res = await apiFetch(`/parties/${partyId}/audio`, {
+        method: 'PATCH',
+        body: { current_track_url: '', track_title: 'Тишина', is_playing: false }
+      });
+      if (res.ok) {
+        const player = document.getElementById('globalAudioPlayer');
+        if (player) {
+          player.pause();
+          player.src = '';
+        }
+        await syncPartyAudio();
+      }
+    } catch (e) {}
+  }
+
+  document.addEventListener('click', () => {
+    const p = document.getElementById('globalAudioPlayer');
+    if (p && audioState && audioState.is_playing && !isAudioMutedByUser) {
+      p.play().catch(() => {});
+    }
+  }, { once: true });
+
+  document.getElementById('globalAudioPlayer').addEventListener('ended', async () => {
+    if (playMode === 'queue' && partyData && partyData.is_current_user_dm) {
+      const pl = (audioState && audioState.playlist) || [];
+      if (pl.length <= 1) return;
+      const currentIdx = pl.findIndex(t => t.url === audioState.current_track_url);
+      const nextIdx = (currentIdx + 1) % pl.length;
+      const nextTrack = pl[nextIdx];
+      await playTrackFromList(nextTrack.url, nextTrack.title);
+    }
+  });
+
+  function togglePlayMode() {
+    playMode = (playMode === 'loop') ? 'queue' : 'loop';
+    const btn = document.getElementById('btnTogglePlayMode');
+    if (btn) btn.textContent = playMode === 'loop' ? '🔁 Зацикливание' : '📑 Очередь треков';
+    const player = document.getElementById('globalAudioPlayer');
+    if (player) player.loop = (playMode === 'loop');
+  }
+
+  async function togglePartyAudioPlay() {
+    if (!partyData.is_current_user_dm) {
+      isAudioMutedByUser = !isAudioMutedByUser;
+      const p = document.getElementById('globalAudioPlayer');
+      if (isAudioMutedByUser) p.pause(); else p.play().catch(() => {});
+      document.getElementById('btnMiniPlayToggle').textContent = isAudioMutedByUser ? '🔇' : '▶';
+      return;
+    }
+
+    const nextState = !audioState.is_playing;
+    try {
+      const res = await apiFetch(`/parties/${partyId}/audio`, {
+        method: 'PATCH',
+        body: { is_playing: nextState }
+      });
+      if (res.ok) syncPartyAudio();
+    } catch (e) {}
+  }
+
+  async function playTrackFromList(url, title) {
+    if (!partyData.is_current_user_dm) return;
+    try {
+      const res = await apiFetch(`/parties/${partyId}/audio`, {
+        method: 'PATCH',
+        body: { current_track_url: url, track_title: title, is_playing: true }
+      });
+      if (res.ok) syncPartyAudio();
+    } catch (e) {}
+  }
+
+  async function uploadMp3Track(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const btn = document.getElementById('btnUploadMp3Label');
+    if (btn) btn.textContent = '⏳ Загрузка на сервер...';
+
+    try {
+      const token = localStorage.getItem('token') || localStorage.getItem('access_token') || sessionStorage.getItem('token') || sessionStorage.getItem('access_token');
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token.replace(/^Bearer\s+/i, '')}`;
+
+      const res = await fetch(`/parties/${partyId}/audio/upload`, {
+        method: 'POST',
+        headers: headers,
+        credentials: 'include',
+        body: formData
+      });
+
+      if (res.ok) {
+        closeAddTrackModal();
+        await syncPartyAudio();
+        alert("Трек успешно загружен в плейлист кампании!");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Не удалось загрузить аудиофайл.");
+      }
+    } catch (e) {
+      alert("Ошибка отправки файла: " + e.message);
+    } finally {
+      if (btn) btn.textContent = '📁 Загрузить файл с устройства (MP3/OGG)';
+      const inp = document.getElementById('fileUploadInput');
+      if (inp) inp.value = '';
+    }
+  }
+
+  function openAddTrackModal() { document.getElementById('addTrackModal').classList.remove('hidden'); }
+  function closeAddTrackModal() { document.getElementById('addTrackModal').classList.add('hidden'); }
+
+  async function submitAddTrack() {
+    const title = document.getElementById('newTrackTitle').value.trim();
+    const url = document.getElementById('newTrackUrl').value.trim();
+    if (!title || !url) { alert("Укажите название и ссылку!"); return; }
+
+    const pl = (audioState && audioState.playlist) || [];
+    pl.push({ title: title, url: url });
+    try {
+      const res = await apiFetch(`/parties/${partyId}/audio`, {
+        method: 'PATCH',
+        body: { playlist: pl }
+      });
+      if (res.ok) {
+        closeAddTrackModal();
+        syncPartyAudio();
+      }
+    } catch (e) {}
+  }
+
+
+  // --- 7. РАСЫ СТОЛА ---
+  function renderRacesList() {
+    const grid = document.getElementById('partyRacesGrid');
+    if (!grid) return;
+    const races = partyData.custom_races || [];
+    document.getElementById('partyRacesCount').textContent = races.length;
+
+    if (races.length === 0) {
+      grid.innerHTML = '<div class="col-span-full text-center py-8 text-stone-500 font-serif">В этой кампании пока нет авторских рас.</div>';
+      return;
+    }
+
+    grid.innerHTML = races.map(r => {
+      const isDm = !!partyData.is_current_user_dm;
+      const deleteBtn = isDm ? `
+        <button type="button" onclick="deletePartyRace('${r.id}')" title="Удалить расу из стола" class="text-stone-500 hover:text-rose-400 p-1 text-xs transition-colors">
+          🗑️
+        </button>
+      ` : '';
+
+      return `
+        <div class="fox-card p-4 rounded-xl border border-orange-950/80 bg-[#120d09] space-y-2 shadow flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center">
+              <h4 class="font-serif font-bold text-amber-200 text-sm flex items-center gap-1.5">${r.name}</h4>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-mono text-stone-400">${r.speed || 30} фт.</span>
+                ${deleteBtn}
+              </div>
+            </div>
+            <p class="text-[11px] text-stone-400 font-serif line-clamp-3 mt-1">${r.description || 'Описание отсутствует.'}</p>
+          </div>
+          ${r.dm_only ? '<span class="text-[9px] font-mono text-amber-400">👑 Только для DM</span>' : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function deletePartyRace(raceId) {
+    if (!confirm("Удалить эту расу из стола?")) return;
+    try {
+      const res = await apiFetch(`/parties/${partyId}/races/${raceId}`, { method: 'DELETE' });
+      if (res.ok) {
+        partyData.custom_races = (partyData.custom_races || []).filter(r => r.id !== raceId);
+        renderRacesList();
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Не удалось удалить расу.");
+      }
+    } catch (e) {
+      alert("Сбой сети: " + e.message);
+    }
+  }
+
+  // --- 8. ЭКРАН МАСТЕРА И ШИРМА С КУБАМИ ---
+  function renderDmScreen() {
+    if (!partyData || !partyData.is_current_user_dm) return;
+    const cont = document.getElementById('dmPlayersList');
+    if (!cont) return;
+
+    const players = (partyData.members || []).filter(m => !m.is_dm);
+    if (players.length === 0) {
+      cont.innerHTML = '<div class="text-center py-8 text-stone-500 font-serif">За столом пока нет игроков с персонажами.</div>';
+      return;
+    }
+
+    cont.innerHTML = players.map(m => {
+      const curHp = m.character_hp_current || 0;
+      const maxHp = m.character_hp_max || 10;
+      const bannerStyle = m.banner_url ? `background-image: url('${m.banner_url}'); background-size: cover; background-position: center;` : '';
+      const avatarSrc = (m.avatar_url && m.avatar_url.trim()) ? m.avatar_url : ((m.banner_url && m.banner_url.trim()) ? m.banner_url : '');
+      const raceEmoji = getRaceEmoji(m.character_race);
+
+      return `
+        <div class="rounded-xl border border-orange-950/80 bg-[#140e0a] overflow-hidden shadow-lg flex flex-col justify-between">
+          <div class="h-16 w-full relative bg-[#1a100a] flex items-end p-2.5" style="${bannerStyle}">
+            ${m.banner_url ? '<div class="absolute inset-0 bg-gradient-to-t from-[#140e0a] via-[#140e0a]/60 to-transparent"></div>' : ''}
+            <div class="relative z-10 flex items-center gap-2.5">
+              <div class="w-10 h-10 rounded-lg overflow-hidden border border-amber-500/50 bg-stone-900 shrink-0 flex items-center justify-center text-sm shadow">
+                ${avatarSrc ? `<img src="${avatarSrc}" class="w-full h-full object-cover">` : `<span>${raceEmoji}</span>`}
+              </div>
+              <div>
+                <span class="text-stone-300 text-[11px] font-serif block drop-shadow">Игрок: <strong>${m.username}</strong></span>
+                ${m.character_name ? `<span class="text-amber-200 font-serif font-bold text-sm drop-shadow">«${m.character_name}»</span>` : '<span class="text-stone-500 italic text-xs">Без героя</span>'}
+              </div>
+            </div>
+          </div>
+
+          <div class="p-3.5 flex flex-wrap justify-between items-center gap-3">
+            <div class="text-stone-400 text-xs font-serif">
+              ${m.character_class || 'Класс не выбран'} • КД: <strong class="text-amber-300 font-mono">${m.character_ac || 10}</strong>
+            </div>
+
+            ${m.character_id ? `
+              <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1 font-mono text-xs">
+                  <button onclick="dmAdjustPlayerHp(${m.character_id}, -5)" class="px-2 py-0.5 rounded bg-rose-950/40 border border-rose-900 text-rose-300 hover:bg-rose-900">-5</button>
+                  <button onclick="dmAdjustPlayerHp(${m.character_id}, -1)" class="px-2 py-0.5 rounded bg-rose-950/40 border border-rose-900 text-rose-300 hover:bg-rose-900">-1</button>
+                  <span class="px-2.5 py-0.5 bg-black/60 rounded border border-orange-950 text-foxOrange-400 font-bold min-w-[70px] text-center" id="dmHpDisplay_${m.character_id}">${curHp} / ${maxHp} HP</span>
+                  <button onclick="dmAdjustPlayerHp(${m.character_id}, 1)" class="px-2 py-0.5 rounded bg-emerald-950/40 border border-emerald-900 text-emerald-300 hover:bg-emerald-900">+1</button>
+                  <button onclick="dmAdjustPlayerHp(${m.character_id}, 5)" class="px-2 py-0.5 rounded bg-emerald-950/40 border border-emerald-900 text-emerald-300 hover:bg-emerald-900">+5</button>
+                </div>
+                <a href="/characters/${m.character_id}/sheet" class="px-3 py-1 rounded bg-[#1c130d] border border-orange-900/60 hover:border-amber-400 text-amber-200 text-xs font-serif">
+                  Лист &rarr;
+                </a>
+              </div>
+            ` : '<span class="text-stone-500 text-xs italic">Персонаж не привязан</span>'}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function dmAdjustPlayerHp(charId, delta) {
+    const member = partyData.members.find(m => m.character_id === charId);
+    const curHp = member ? (member.character_hp_current || 0) : 10;
+    const maxHp = member ? (member.character_hp_max || 10) : 10;
+    const newHp = Math.max(0, Math.min(maxHp, curHp + delta));
+
+    try {
+      const res = await apiFetch(`/parties/${partyId}/members/${charId}/hp`, {
+        method: 'PATCH',
+        body: { hp_current: newHp }
+      });
+      if (res.ok) {
+        if (member) member.character_hp_current = newHp;
+        const el = document.getElementById(`dmHpDisplay_${charId}`);
+        if (el) el.textContent = `${newHp} / ${maxHp} HP`;
+      }
+    } catch (e) {}
+  }
+
+  async function executeDmSecretRoll() {
+    const dice = parseInt(document.getElementById('dmSecretDiceSelect').value) || 20;
+    const mod = parseInt(document.getElementById('dmSecretModInput').value) || 0;
+    const title = document.getElementById('dmSecretTitleInput').value.trim() || 'Тайная проверка';
+
+    try {
+      const res = await apiFetch(`/parties/${partyId}/secret-roll`, {
+        method: 'POST',
+        body: { dice_sides: dice, modifier: mod, title: title }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const resBox = document.getElementById('dmSecretRollResult');
+        resBox.textContent = `🎯 ${title}: ${data.result}`;
+        resBox.classList.remove('hidden');
+        loadChatMessages();
+      }
+    } catch (e) {}
+  }
+
+  // --- 9. НИПЫ МАСТЕРА ---
+  let dmNpcsList = [];
+  let selectedNpcGroup = 'all';
+
+  function filterNpcGroup(group) {
+    selectedNpcGroup = group;
+    renderNpcCards();
+  }
+
+  function renderNpcCards() {
+    const grid = document.getElementById('dmNpcsGrid');
+    if (!grid) return;
+
+    let list = dmNpcsList || [];
+    if (selectedNpcGroup !== 'all') {
+      list = list.filter(n => (n.class_name || '').toLowerCase().includes(selectedNpcGroup.toLowerCase()) ||
+                              (n.backstory || '').toLowerCase().includes(selectedNpcGroup.toLowerCase()));
+    }
+
+    if (list.length === 0) {
+      grid.innerHTML = '<div class="col-span-full text-center py-6 text-stone-500 font-serif">В этой группе пока нет НИПов.</div>';
+      return;
+    }
+
+    grid.innerHTML = list.map(n => `
+      <div class="fox-card p-4 rounded-xl border border-orange-950/80 bg-[#120d09] space-y-2 shadow flex flex-col justify-between">
+        <div>
+          <div class="flex justify-between items-start">
+            <h4 class="font-serif font-bold text-amber-200 text-sm">${n.name}</h4>
+            <div class="flex items-center gap-1.5">
+              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-stone-900 text-stone-400 border border-stone-800">${n.class_name || 'НИП'}</span>
+              <button type="button" onclick="deleteNpc(${n.id})" title="Удалить НИПа" class="text-stone-500 hover:text-rose-400 p-1 text-xs">
+                🗑️
+              </button>
+            </div>
+          </div>
+          <span class="text-[11px] text-stone-400 font-serif block">${n.race}</span>
+          <p class="text-[11px] text-stone-400 font-serif line-clamp-2 mt-1">${n.backstory || ''}</p>
+        </div>
+
+        <div class="pt-2 border-t border-orange-950/60 flex justify-between items-center">
+          <span class="font-mono text-foxOrange-400 font-bold text-xs">${n.hp_current}/${n.hp_max} HP</span>
+          <a href="/characters/${n.id}/sheet" class="px-2.5 py-1 rounded bg-[#1c130d] border border-orange-900 text-amber-200 text-xs font-serif hover:border-amber-400">Лист</a>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function loadDmNpcs() {
+    try {
+      const res = await apiFetch(`/parties/${partyId}/npcs`);
+      if (res.ok) {
+        dmNpcsList = await res.json();
+        const cnt = document.getElementById('dmNpcsCount');
+        if (cnt) cnt.textContent = dmNpcsList.length;
+
+        const grid = document.getElementById('dmNpcsGrid');
+        if (!grid) return;
+
+        if (dmNpcsList.length === 0) {
+          grid.innerHTML = '<div class="col-span-full text-center py-6 text-stone-500 font-serif text-xs">НИПы ещё не созданы.</div>';
+          return;
+        }
+
+        grid.innerHTML = dmNpcsList.map(n => `
+          <div class="fox-card p-4 rounded-xl border border-orange-950/80 bg-[#120d09] space-y-2 shadow flex flex-col justify-between">
+            <div>
+              <div class="flex justify-between items-start">
+                <h4 class="font-serif font-bold text-amber-200 text-sm">${n.name}</h4>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-stone-900 text-stone-400 border border-stone-800">НИП</span>
+                  <button type="button" onclick="deleteNpc(${n.id})" title="Удалить НИПа" class="text-stone-500 hover:text-rose-400 p-1 text-xs transition-colors">
+                    🗑️
+                  </button>
+                </div>
+              </div>
+              <span class="text-[11px] text-stone-400 font-serif block">${n.race} • ${n.class_name}</span>
+              ${n.notes || n.backstory ? `<p class="text-[11px] text-stone-400 font-serif line-clamp-2 mt-1">${n.notes || n.backstory}</p>` : ''}
+            </div>
+
+            <div class="pt-2 border-t border-orange-950/60 flex justify-between items-center">
+              <span class="font-mono text-foxOrange-400 font-bold text-xs">${n.hp_current || n.hp_max}/${n.hp_max} HP</span>
+              <a href="/characters/${n.id}/sheet" class="px-2.5 py-1 rounded bg-[#1c130d] border border-orange-900 text-amber-200 text-xs font-serif hover:border-amber-400">Лист &rarr;</a>
+            </div>
+          </div>
+        `).join('');
+      }
+    } catch (e) {
+      console.error("Ошибка загрузки НИПов:", e);
+    }
+  }
+
+  async function deleteNpc(npcId) {
+    if (!confirm("Вы уверены, что хотите удалить этого НИПа?")) return;
+    try {
+      // Пробуем удалить через базовый эндпоинт персонажей (так как НИП — это Character с флагом is_npc)
+      let res = await apiFetch(`/characters/${npcId}`, { method: 'DELETE' });
+
+      // Если роут удаления в твоем проекте привязан к столу, пробуем альтернативный путь:
+      if (!res.ok && res.status === 404) {
+        res = await apiFetch(`/parties/${partyId}/npcs/${npcId}`, { method: 'DELETE' });
+      }
+
+      if (res.ok || res.status === 204) {
+        dmNpcsList = (dmNpcsList || []).filter(n => n.id !== npcId);
+        const cnt = document.getElementById('dmNpcsCount');
+        if (cnt) cnt.textContent = dmNpcsList.length;
+        loadDmNpcs();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Не удалось удалить НИПа.");
+      }
+    } catch (e) {
+      alert("Сбой сети при удалении: " + e.message);
+    }
+  }
+
+
+  function openQuickNpcModal() { document.getElementById('quickNpcModal').classList.remove('hidden'); }
+  function closeQuickNpcModal() { document.getElementById('quickNpcModal').classList.add('hidden'); }
+
+  async function submitQuickNpc(e) {
+    e.preventDefault();
+    const name = document.getElementById('npcNameInput').value.trim();
+    const race = document.getElementById('npcRaceInput').value.trim();
+    const cClass = document.getElementById('npcClassInput').value.trim();
+    const hp = parseInt(document.getElementById('npcHpInput').value) || 20;
+    const ac = parseInt(document.getElementById('npcAcInput').value) || 12;
+    const notes = document.getElementById('npcNotesInput').value.trim();
+
+    try {
+      const res = await apiFetch(`/parties/${partyId}/npc`, {
+        method: 'POST',
+        body: { name, race, class_name: cClass, hp_max: hp, armor_class: ac, notes }
+      });
+      if (res.ok) {
+        closeQuickNpcModal();
+        loadDmNpcs();
+      }
+    } catch (e) {}
+  }
+
+  // --- 10. НАСТРОЙКИ СТОЛА ---
+  function populateSettingsForm() {
+    if (!partyData) return;
+    const s = partyData.settings || {};
+    const elName = document.getElementById('setPartyName');
+    const elDesc = document.getElementById('setPartyDesc');
+    const elBanner = document.getElementById('setPartyBanner');
+    const elMax = document.getElementById('setMaxPlayers');
+    const elTheme = document.getElementById('setThemeSelect');
+    const elPriv = document.getElementById('setIsPrivateCheck');
+    const elPwdRow = document.getElementById('setPasswordRow');
+
+    if (elName) elName.value = partyData.name || '';
+    if (elDesc) elDesc.value = partyData.description || '';
+    if (elBanner) elBanner.value = s.banner_url || '';
+    if (elMax) elMax.value = s.max_players || 6;
+    if (elTheme) elTheme.value = s.theme || 'ember';
+    if (elPriv) elPriv.checked = !!partyData.is_private;
+    if (elPwdRow) elPwdRow.classList.toggle('hidden', !partyData.is_private);
+
+    if (s.theme === 'custom' && s.custom_colors) {
+      activeCustomColors = s.custom_colors;
+      document.getElementById('customColorsBlock').classList.remove('hidden');
+      if (s.custom_colors.accent) document.getElementById('pickerAccent').value = s.custom_colors.accent;
+      if (s.custom_colors.border) document.getElementById('pickerBorder').value = s.custom_colors.border;
+      if (s.custom_colors.cardBg) document.getElementById('pickerCardBg').value = s.custom_colors.cardBg;
+      if (s.custom_colors.glow) document.getElementById('pickerGlow').value = s.custom_colors.glow;
+    }
+  }
+
+  async function submitPartySettings(e) {
+    e.preventDefault();
+    const name = document.getElementById('setPartyName')?.value.trim() || '';
+    const desc = document.getElementById('setPartyDesc')?.value.trim() || '';
+    const banner = document.getElementById('setPartyBanner')?.value.trim() || '';
+    const maxP = parseInt(document.getElementById('setMaxPlayers')?.value) || 6;
+    const theme = document.getElementById('setThemeSelect')?.value || 'ember';
+    const isPriv = document.getElementById('setIsPrivateCheck')?.checked || false;
+    const pwd = document.getElementById('setPartyPassword')?.value;
+
+    const payload = {
+      name,
+      description: desc,
+      banner_url: banner,
+      max_players: maxP,
+      theme,
+      is_private: isPriv,
+      password: pwd || null,
+      custom_colors: activeCustomColors
+    };
+
+    try {
+      const res = await apiFetch(`/parties/${partyId}/settings`, {
+        method: 'PATCH',
+        body: payload
+      });
+      if (res.ok) {
+        alert("Оформление и настройки стола успешно сохранены!");
+        window.location.reload();
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Ошибка сохранения настроек");
+      }
+    } catch (e) {
+      alert("Сбой сети: " + e.message);
+    }
+  }
+
+  let compendiumRacesCache = [];
+
+  function switchRaceModalTab(tab) {
+    const tabComp = document.getElementById('modalTab_compendiumRaces');
+    const tabNew = document.getElementById('modalTab_newRace');
+    const btnComp = document.getElementById('tabBtnCompendiumRaces');
+    const btnNew = document.getElementById('tabBtnNewRace');
+
+    if (tab === 'compendium') {
+      tabComp.classList.remove('hidden');
+      tabNew.classList.add('hidden');
+      btnComp.className = 'pb-2.5 font-bold border-b-2 border-amber-400 text-amber-300 transition-all';
+      btnNew.className = 'pb-2.5 font-bold border-b-2 border-transparent text-stone-400 hover:text-amber-200 transition-all';
+      loadCompendiumRacesForModal();
+    } else {
+      tabComp.classList.add('hidden');
+      tabNew.classList.remove('hidden');
+      btnNew.className = 'pb-2.5 font-bold border-b-2 border-amber-400 text-amber-300 transition-all';
+      btnComp.className = 'pb-2.5 font-bold border-b-2 border-transparent text-stone-400 hover:text-amber-200 transition-all';
+    }
+  }
+
+  async function openPartyRaceModal() {
+    document.getElementById('partyRaceModal').classList.remove('hidden');
+    switchRaceModalTab('compendium');
+  }
+
+  function closePartyRaceModal() {
+    document.getElementById('partyRaceModal').classList.add('hidden');
+  }
+
+  async function loadCompendiumRacesForModal() {
+    const listCont = document.getElementById('compendiumRacesList');
+    if (!listCont) return;
+
+    try {
+      listCont.innerHTML = '<div class="text-center py-6 text-stone-500 text-xs font-serif">Загрузка рас из компендиума...</div>';
+      const res = await apiFetch('/compendium/races?is_dm=true');
+      if (!res.ok) {
+        listCont.innerHTML = '<div class="text-center py-6 text-rose-400 text-xs font-serif">Ошибка загрузки рас из компендиума.</div>';
+        return;
+      }
+
+      const allRaces = await res.json();
+      compendiumRacesCache = allRaces;
+
+      const existingNames = new Set((partyData.custom_races || []).map(r => r.name.toLowerCase()));
+
+      if (allRaces.length === 0) {
+        listCont.innerHTML = '<div class="text-center py-6 text-stone-500 text-xs font-serif">В компендиуме пока нет доступных рас.</div>';
+        return;
+      }
+
+      listCont.innerHTML = allRaces.map((r, idx) => {
+        const isAlreadyAdded = existingNames.has(r.name.toLowerCase());
+        const tag = r.is_custom
+          ? '<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-800 text-purple-300 font-bold">Авторская</span>'
+          : '<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-stone-900 border border-stone-800 text-stone-400">Базовая</span>';
+
+        return `
+          <div class="p-3 rounded-xl border border-orange-950/70 bg-[#120d09] flex flex-wrap justify-between items-center gap-3 shadow hover:border-amber-500/40 transition-all">
+            <div class="space-y-0.5 max-w-sm">
+              <div class="flex items-center gap-2">
+                <strong class="text-amber-200 font-serif text-xs">${r.name}</strong>
+                ${tag}
+                <span class="text-[10px] font-mono text-stone-400">${r.speed || 30} фт.</span>
+              </div>
+              <p class="text-[11px] text-stone-400 font-serif line-clamp-2">${r.description || 'Описание отсутствует.'}</p>
+            </div>
+            <div>
+              ${isAlreadyAdded ? `
+                <span class="text-[11px] font-serif text-emerald-400 flex items-center gap-1 font-bold">
+                  ✓ В столе
+                </span>
+              ` : `
+                <button type="button" onclick="attachRaceFromCompendium(${idx})" class="px-3 py-1.5 rounded-lg bg-amber-400 text-stone-950 font-bold text-xs font-serif hover:brightness-110 active:scale-95 transition-all">
+                  ＋ Добавить к столу
+                </button>
+              `}
+            </div>
+          </div>
+        `;
+      }).join('');
+    } catch (e) {
+      listCont.innerHTML = `<div class="text-center py-6 text-rose-400 text-xs font-serif">Ошибка: ${e.message}</div>`;
+    }
+  }
+
+  async function attachRaceFromCompendium(idx) {
+    const race = compendiumRacesCache[idx];
+    if (!race) return;
+
+    try {
+      const res = await apiFetch(`/parties/${partyId}/races`, {
+        method: 'POST',
+        body: {
+          name: race.name,
+          speed: race.speed || 30,
+          description: race.description || '',
+          ability_bonuses: race.ability_bonuses || {},
+          traits: race.traits || [],
+          dm_only: !!race.dm_only
+        }
+      });
+      if (res.ok) {
+        const newRace = await res.json();
+        partyData.custom_races = partyData.custom_races || [];
+        partyData.custom_races.push(newRace);
+        renderRacesList();
+        loadCompendiumRacesForModal();
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Не удалось добавить расу.");
+      }
+    } catch (e) {
+      alert("Сбой сети: " + e.message);
+    }
+  }
+
+  async function submitPartyRace(e) {
+    e.preventDefault();
+    const name = document.getElementById('prNameInput').value.trim();
+    const speed = parseInt(document.getElementById('prSpeedInput').value) || 30;
+    const desc = document.getElementById('prDescInput').value.trim();
+    const dmOnly = document.getElementById('prDmOnlyCheck').checked;
+
+    const bonuses = {
+      str: parseInt(document.getElementById('prStat_str')?.value) || 0,
+      dex: parseInt(document.getElementById('prStat_dex')?.value) || 0,
+      con: parseInt(document.getElementById('prStat_con')?.value) || 0,
+      int: parseInt(document.getElementById('prStat_int')?.value) || 0,
+      wis: parseInt(document.getElementById('prStat_wis')?.value) || 0,
+      cha: parseInt(document.getElementById('prStat_cha')?.value) || 0,
+    };
+
+    try {
+      const res = await apiFetch(`/parties/${partyId}/races`, {
+        method: 'POST',
+        body: { name, speed, description: desc, traits: [], dm_only: dmOnly, ability_bonuses: bonuses }
+      });
+      if (res.ok) {
+        closePartyRaceModal();
+        const updated = await (await apiFetch(`/parties/${partyId}`)).json();
+        partyData = updated;
+        renderRacesList();
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Не удалось создать расу.");
+      }
+    } catch (e) {
+      alert("Сбой сети: " + e.message);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', initPartyDetail);
+</script>
+{% endblock %}
