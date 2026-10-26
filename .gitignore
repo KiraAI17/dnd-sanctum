@@ -1,7 +1,7 @@
 __pycache__/
 *.pyc
-.pytest_cache/
-venv/
 .env
-.DS_Store
-*.sqlite3
+venv/
+.venv/
+app/static/audio/*
+!app/static/audio/.gitkeep
