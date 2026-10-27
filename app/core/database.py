@@ -10,18 +10,30 @@ from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import settings
 
+db_url = settings.DATABASE_URL
+
+# Настройки для разных типов баз данных
+connect_args = {}
+
+if "sqlite" in db_url:
+    connect_args["check_same_thread"] = False
+elif "postgresql" in db_url:
+    # Требуется для безопасного подключения к Neon PostgreSQL
+    connect_args["ssl"] = True
+
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    db_url,
     echo=False,
-    connect_args={"check_same_thread": False},
+    connect_args=connect_args,
 )
 
-
-@event.listens_for(engine.sync_engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record) -> None:
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.close()
+# Включаем внешние ключи только для SQLite
+if "sqlite" in db_url:
+    @event.listens_for(engine.sync_engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 
 AsyncSessionLocal = async_sessionmaker(
@@ -39,3 +51,4 @@ class Base(AsyncAttrs, DeclarativeBase):
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         yield session
+
