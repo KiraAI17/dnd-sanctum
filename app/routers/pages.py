@@ -45,3 +45,31 @@ async def get_wizard_page(request: Request):
         name="wizard.html",
         context={"page_title": "Мастер создания героя"},
     )
+
+import json
+from fastapi import Request
+from fastapi.responses import HTMLResponse
+
+from pathlib import Path
+
+# app/routers/pages.py -> parent (app) -> data -> spells.json
+SPELLS_FILE = Path(__file__).resolve().parent.parent / "data" / "spells.json"
+if not SPELLS_FILE.exists():
+    SPELLS_FILE = Path(__file__).resolve().parent.parent / "app" / "data" / "spells.json"
+
+
+@router.get("/spells", response_class=HTMLResponse)
+async def spells_grimoire_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="spells_grimoire.html",
+        context={}
+    )
+
+
+@router.get("/compendium/spells-list")
+async def get_all_spells():
+    if SPELLS_FILE.exists():
+        with open(SPELLS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []

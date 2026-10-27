@@ -931,3 +931,96 @@ async def upload_party_token_image(
 
     file_url = f"/static/tokens/{clean_filename}"
     return {"status": "ok", "image_url": file_url}
+
+
+# --- COMBAT / INITIATIVE TRACKER ENDPOINTS ---
+
+from fastapi import Body
+
+# Глобальное хранилище состояния боёв для комнат столов (в памяти сервера)
+ACTIVE_COMBATS: dict[int, dict] = {}
+
+
+@router.get("/{party_id}/combat", summary="Получить состояние текущего боя")
+async def get_party_combat_state(party_id: int):
+    combat = ACTIVE_COMBATS.get(party_id, {
+        "is_active": False,
+        "round": 1,
+        "current_turn_index": 0,
+        "combatants": []
+    })
+    return combat
+
+
+@router.patch("/{party_id}/combat", summary="Обновить состояние боя (DM)")
+async def update_party_combat_state(
+        party_id: int,
+        payload: dict = Body(...),
+        db: DbSession = None,
+        current_user: CurrentUser = None
+):
+    party_res = await db.execute(select(Party).where(Party.id == party_id))
+    party = party_res.scalar_one_or_none()
+    if not party:
+        raise HTTPException(status_code=404, detail="Стол не найден")
+
+    # Получаем или создаем состояние боя
+    current_combat = ACTIVE_COMBATS.get(party_id, {
+        "is_active": False,
+        "round": 1,
+        "current_turn_index": 0,
+        "combatants": []
+    })
+
+    current_combat.update(payload)
+    ACTIVE_COMBATS[party_id] = current_combat
+
+    # Рассылаем обновление всем игрокам через WebSocket
+    try:
+        from app.core.connection_manager import party_manager
+        await party_manager.broadcast_to_party(party_id, {
+            "type": "combat_update",
+            "combat_state": current_combat
+        })
+    except Exception as ws_err:
+        print(f"[WS Warning] Не удалось разослать combat_update: {ws_err}")
+
+    return current_combat
+
+
+@router.post("/{party_id}/combat/roll-initiative", summary="Записать инициативу игрока или монстра")
+async def record_initiative(
+        party_id: int,
+        payload: dict = Body(...),
+        db: DbSession = None,
+        current_user: CurrentUser = None
+):
+    combat = ACTIVE_COMBATS.get(party_id, {
+        "is_active": False,
+        "round": 1,
+        "current_turn_index": 0,
+        "combatants": []
+    })
+
+    token_id = payload.get("token_id")
+    init_val = int(payload.get("initiative", 10))
+
+    for c in combat.get("combatants", []):
+        if c.get("id") == token_id or c.get("token_id") == token_id:
+            c["initiative"] = init_val
+            break
+
+    # Сортируем участников: наибольшая инициатива первой
+    combat["combatants"].sort(key=lambda x: x.get("initiative", 0), reverse=True)
+    ACTIVE_COMBATS[party_id] = combat
+
+    try:
+        from app.core.connection_manager import party_manager
+        await party_manager.broadcast_to_party(party_id, {
+            "type": "combat_update",
+            "combat_state": combat
+        })
+    except Exception:
+        pass
+
+    return combat

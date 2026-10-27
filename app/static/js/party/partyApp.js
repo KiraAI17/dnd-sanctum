@@ -563,6 +563,9 @@ async function initPartyDetail() {
     if (pRes.ok) partyData = await pRes.json();
     if (charsRes.ok) myCharactersList = await charsRes.json();
 
+    // Инициализируем боевой движок
+    if (typeof initCombatState === 'function') initCombatState();
+
     if (!partyData) {
       alert("Не удалось загрузить данные стола.");
       window.location.href = '/parties-lobby';

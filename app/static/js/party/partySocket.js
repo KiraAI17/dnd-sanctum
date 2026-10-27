@@ -19,6 +19,11 @@ function initPartyWebSocket() {
         }
       }
 
+      if (data.type === 'combat_update') {
+        combatState = data.combat_state;
+        if (typeof renderCombatUI === 'function') renderCombatUI();
+      }
+
       // 2. Обновление HP
       if (data.type === 'hp_update') {
         const conf = getHpBarConfig(data.hp_current, data.hp_max);

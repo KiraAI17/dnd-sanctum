@@ -1,4 +1,6 @@
-let mapData = null;
+window.mapData = null;
+var mapData = null;
+
 let currentGridSize = 50;
 
 // Инициализация линейки-стрелочки расстояний
@@ -20,67 +22,93 @@ async function renderBattleMap() {
     const gridInput = document.getElementById('mapGridCustomInput');
     if (gridInput) gridInput.value = currentGridSize;
 
-    // 1. Отрисовка фона карты
     if (mapData.image_url && mapData.image_url.trim()) {
       canvas.style.backgroundImage = `url('${mapData.image_url}')`;
     }
 
-    // 2. Отрисовка тактической сетки
+    // В renderBattleMap():
     if (overlay) {
       overlay.style.backgroundSize = `${currentGridSize}px ${currentGridSize}px`;
+      overlay.style.backgroundImage = `
+        linear-gradient(to right, rgba(255, 255, 255, 0.22) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.22) 1px, transparent 1px)
+      `;
     }
 
-    // 3. Обновление атласа карт (пресетов)
     renderMapPresetsDropdown();
 
-    // 4. Отрисовка токенов с проверкой прав
     const tokens = mapData.tokens || [];
-    const isDm = partyData && partyData.is_current_user_dm;
+    const isDm = partyData ? !!partyData.is_current_user_dm : false;
     const myCharId = partyData ? partyData.my_character_id : null;
+
+    // Чей сейчас ход в бою?
+    const currentCombatant = (combatState && combatState.is_active && combatState.combatants)
+      ? combatState.combatants[combatState.current_turn_index]
+      : null;
 
     tokensLayer.innerHTML = tokens.map(t => {
       const sizeMult = t.size || 1;
-      const pixelSize = currentGridSize * sizeMult - 6;
+      const pixelSize = Math.max(24, currentGridSize * sizeMult - 6);
 
-      // Проверка прав: DM может двигать всех; игрок — только СВОЮ фишку
+      // Проверка прав: DM двигает всё, игрок — только своего персонажа
       const canControl = isDm || (t.character_id && t.character_id === myCharId);
 
       // Рамка стороны существа
       let borderColor = 'border-amber-400';
-      if (t.type === 'enemy') borderColor = 'border-rose-500 shadow-rose-950/60';
-      else if (t.type === 'ally') borderColor = 'border-emerald-400 shadow-emerald-950/60';
-      else if (t.type === 'neutral') borderColor = 'border-amber-300 shadow-amber-950/60';
+      if (t.type === 'enemy') borderColor = 'border-rose-500 shadow-rose-950/80';
+      else if (t.type === 'ally') borderColor = 'border-emerald-400 shadow-emerald-950/80';
+      else if (t.type === 'neutral') borderColor = 'border-amber-300 shadow-amber-950/80';
 
-      // Полоска здоровья над токеном
+      // Если сейчас ход этого существа — золотой пульсирующий ореол
+      const isTurn = currentCombatant && (currentCombatant.token_id === t.id || currentCombatant.id === t.id);
+      const turnRing = isTurn ? 'ring-4 ring-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.8)] scale-105' : '';
+
+      // Полоска здоровья
       const curHp = t.hp_current !== undefined ? t.hp_current : (t.hp_max || 10);
       const maxHp = t.hp_max || 10;
       const pct = Math.max(0, Math.min(100, Math.round((curHp / maxHp) * 100)));
       const hpColor = pct <= 25 ? 'bg-rose-600' : (pct <= 50 ? 'bg-amber-500' : 'bg-emerald-500');
 
       const avatarSrc = t.avatar_url && t.avatar_url.trim() ? t.avatar_url : '';
-      const cursorClass = canControl ? 'cursor-grab active:cursor-grabbing' : 'cursor-default opacity-90';
+      const cursorClass = canControl ? 'cursor-grab active:cursor-grabbing' : 'cursor-default';
+
+      // Значки состояний
+      const conditionsBadge = (t.conditions || []).map(icon => `
+        <span class="text-xs drop-shadow bg-black/80 rounded px-0.5 border border-stone-800">${icon}</span>
+      `).join('');
 
       return `
         <div id="token_${t.id}"
-             ${canControl ? `onmousedown="dragMapToken(event, '${t.id}')"` : ''}
-             class="absolute rounded-full border-2 ${borderColor} bg-stone-900 shadow-2xl flex items-center justify-center select-none group transition-shadow ${cursorClass}"
-             style="width: ${pixelSize}px; height: ${pixelSize}px; left: ${t.x}px; top: ${t.y}px; z-index: ${sizeMult * 10};">
+             ${canControl ? `onmousedown="dragMapToken(event, '${t.id}')"` : `onclick="selectTargetToken('${t.id}')"`}
+             ondblclick="openTokenHud(event, '${t.id}')"
+             class="absolute rounded-full border-2 ${borderColor} ${turnRing} bg-stone-900 shadow-2xl flex items-center justify-center select-none group transition-all ${cursorClass}"
+             style="width: ${pixelSize}px; height: ${pixelSize}px; left: ${t.x || 0}px; top: ${t.y || 0}px; z-index: ${isTurn ? 50 : sizeMult * 10};">
 
           ${avatarSrc ? `
             <img src="${avatarSrc}" class="w-full h-full object-cover rounded-full pointer-events-none">
           ` : `
-            <span class="font-bold text-stone-100 font-serif text-xs pointer-events-none">${t.name.slice(0, 2)}</span>
+            <span class="font-bold text-stone-100 font-serif text-xs pointer-events-none">${(t.name || 'Токен').slice(0, 2)}</span>
           `}
 
           <!-- Полоска HP -->
-          <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-4/5 h-1.5 bg-black/80 rounded-full overflow-hidden border border-black pointer-events-none">
+          <div class="absolute -top-2.5 left-1/2 -translate-x-1/2 w-4/5 h-1.5 bg-black/80 rounded-full overflow-hidden border border-black pointer-events-none">
             <div class="h-full ${hpColor} transition-all duration-300" style="width: ${pct}%;"></div>
+          </div>
+
+          <!-- Бейджи состояний -->
+          <div class="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-0.5 pointer-events-none z-30 whitespace-nowrap">
+            ${conditionsBadge}
           </div>
 
           <!-- Тултип -->
           <div class="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-black/90 px-2 py-0.5 rounded text-[10px] font-mono text-amber-200 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-orange-950 z-50">
             ${t.name} (${curHp}/${maxHp} HP)${!canControl ? ' 🔒' : ''}
           </div>
+
+          <!-- Кнопка HUD для управления -->
+          <button type="button" onclick="openTokenHud(event, '${t.id}')" title="Урон и состояния" class="absolute -bottom-1 -left-1 w-4 h-4 rounded-full bg-stone-950 border border-amber-500 text-amber-300 text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-amber-950 transition-all z-50">
+            ⚙️
+          </button>
 
           <!-- Кнопка удаления для Мастера -->
           ${isDm ? `
@@ -98,9 +126,10 @@ async function renderBattleMap() {
   }
 }
 
+
 // --- ПЕРЕТАСКИВАНИЕ С ПРИЛИПАНИЕМ К СЕТКЕ ---
 function dragMapToken(e, tokenId) {
-  if (e.button !== 0) return; // Только левая кнопка мыши
+  if (e.button !== 0) return;
   if (e.target.tagName.toLowerCase() === 'button') return;
   e.preventDefault();
 
@@ -110,8 +139,14 @@ function dragMapToken(e, tokenId) {
 
   const rect = canvas.getBoundingClientRect();
   const tokenSize = el.offsetWidth;
+  const startX = e.clientX;
+  const startY = e.clientY;
+  let hasMoved = false;
 
   function onMouseMove(ev) {
+    if (Math.abs(ev.clientX - startX) > 4 || Math.abs(ev.clientY - startY) > 4) {
+      hasMoved = true;
+    }
     let x = ev.clientX - rect.left - tokenSize / 2;
     let y = ev.clientY - rect.top - tokenSize / 2;
     x = Math.max(0, Math.min(canvas.clientWidth - tokenSize, x));
@@ -124,7 +159,14 @@ function dragMapToken(e, tokenId) {
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
 
-    // Прилипание к ближайшей клетке сетки
+    // ЕСЛИ НЕ ДВИГАЛИ МЫШЬЮ — ЭТО ВЫБОР ЦЕЛИ!
+    if (!hasMoved) {
+      if (typeof selectTargetToken === 'function') {
+        selectTargetToken(tokenId);
+      }
+      return;
+    }
+
     let rawX = parseInt(el.style.left) || 0;
     let rawY = parseInt(el.style.top) || 0;
 
@@ -146,6 +188,7 @@ function dragMapToken(e, tokenId) {
   document.addEventListener('mousemove', onMouseMove);
   document.addEventListener('mouseup', onMouseUp);
 }
+
 
 // --- ЛИНЕЙКА-СТРЕЛОЧКА РАССТОЯНИЯ (RULER) ---
 function initRulerEvents() {
@@ -208,6 +251,10 @@ function initRulerEvents() {
 // --- СЕТКА И ЗАГРУЗКА КАРТ ---
 async function changeMapGridSize(newSize) {
   currentGridSize = Math.max(20, Math.min(150, parseInt(newSize) || 50));
+  const overlay = document.getElementById('battleMapGridOverlay');
+  if (overlay) {
+    overlay.style.backgroundSize = `${currentGridSize}px ${currentGridSize}px`;
+  }
   try {
     await apiFetch(`/parties/${partyId}/map`, {
       method: 'PATCH',
@@ -216,6 +263,7 @@ async function changeMapGridSize(newSize) {
     renderBattleMap();
   } catch (e) {}
 }
+
 
 async function uploadMapImageFile(event) {
   const file = event.target.files[0];
@@ -487,4 +535,16 @@ async function deleteMapToken(tokenId) {
     await apiFetch(`/parties/${partyId}/map`, { method: 'PATCH', body: { tokens: tokens } });
     renderBattleMap();
   } catch (e) {}
+}
+
+let isDarkGrid = false;
+function toggleGridContrast() {
+  const overlay = document.getElementById('battleMapGridOverlay');
+  if (!overlay) return;
+  isDarkGrid = !isDarkGrid;
+  const color = isDarkGrid ? 'rgba(0, 0, 0, 0.45)' : 'rgba(255, 255, 255, 0.25)';
+  overlay.style.backgroundImage = `
+    linear-gradient(to right, ${color} 1px, transparent 1px),
+    linear-gradient(to bottom, ${color} 1px, transparent 1px)
+  `;
 }

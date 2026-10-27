@@ -1,155 +1,170 @@
 <!DOCTYPE html>
 <html lang="ru" class="h-full bg-[#0c0a09] text-stone-200">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}D&D 5e • Sanctum{% endblock %}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}D&D 5e • Sanctum{% endblock %}</title>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet">
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            serif: ['Cinzel', 'Georgia', 'serif'],
-            sans: ['Inter', 'system-ui', 'sans-serif'],
-          },
-          colors: {
-            foxCharcoal: '#0c0a09',
-            foxStone: '#171412',
-            foxCard: '#1f1a17',
-            foxOrange: {
-              400: '#fb923c',
-              500: '#f97316',
-              600: '#ea580c',
-              700: '#c2410c',
-            },
-            foxAmber: {
-              300: '#fde68a',
-              400: '#fcd34d',
-              500: '#f59e0b',
-              600: '#d97706',
-            },
-            foxEmber: {
-              800: '#9a3412',
-              900: '#7c2d12',
-              950: '#431407',
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+          theme: {
+            extend: {
+              fontFamily: {
+                serif: ['Cinzel', 'Georgia', 'serif'],
+                sans: ['Inter', 'system-ui', 'sans-serif'],
+              },
+              colors: {
+                foxCharcoal: '#0c0a09',
+                foxStone: '#171412',
+                foxCard: '#1f1a17',
+                foxOrange: {
+                  400: '#fb923c',
+                  500: '#f97316',
+                  600: '#ea580c',
+                  700: '#c2410c',
+                },
+                foxAmber: {
+                  300: '#fde68a',
+                  400: '#fcd34d',
+                  500: '#f59e0b',
+                  600: '#d97706',
+                },
+                foxEmber: {
+                  800: '#9a3412',
+                  900: '#7c2d12',
+                  950: '#431407',
+                }
+              }
             }
           }
         }
-      }
-    }
-  </script>
+    </script>
 
-  <style>
-    body {
-      background-color: #0c0a09;
-      background-image: 
-        radial-gradient(circle at 50% 0%, rgba(234, 88, 12, 0.15) 0%, transparent 55%),
-        radial-gradient(circle at 85% 85%, rgba(245, 158, 11, 0.08) 0%, transparent 50%),
-        linear-gradient(to bottom, #0c0a09 0%, #14100d 100%);
-      background-attachment: fixed;
-    }
+    <style>
+        body {
+          background-color: #0c0a09;
+          background-image:
+            radial-gradient(circle at 50% 0%, rgba(234, 88, 12, 0.15) 0%, transparent 55%),
+            radial-gradient(circle at 85% 85%, rgba(245, 158, 11, 0.08) 0%, transparent 50%),
+            linear-gradient(to bottom, #0c0a09 0%, #14100d 100%);
+          background-attachment: fixed;
+        }
 
-    .fox-embossed {
-      background: linear-gradient(180deg, #fef08a 0%, #f59e0b 50%, #ea580c 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.85));
-    }
+        .fox-embossed {
+          background: linear-gradient(180deg, #fef08a 0%, #f59e0b 50%, #ea580c 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.85));
+        }
 
-    .fox-card {
-      background: linear-gradient(160deg, rgba(32, 26, 22, 0.94) 0%, rgba(18, 14, 12, 0.98) 100%);
-      border: 1px solid rgba(245, 158, 11, 0.28);
-      box-shadow: 0 16px 36px -10px rgba(0,0,0,0.85), inset 0 1px 0 rgba(254, 215, 170, 0.08);
-    }
-    .fox-card:hover {
-      border-color: rgba(249, 115, 22, 0.65);
-      box-shadow: 0 20px 42px -10px rgba(0,0,0,0.92), 0 0 20px rgba(234, 88, 12, 0.20);
-    }
+        .fox-card {
+          background: linear-gradient(160deg, rgba(32, 26, 22, 0.94) 0%, rgba(18, 14, 12, 0.98) 100%);
+          border: 1px solid rgba(245, 158, 11, 0.28);
+          box-shadow: 0 16px 36px -10px rgba(0,0,0,0.85), inset 0 1px 0 rgba(254, 215, 170, 0.08);
+        }
+        .fox-card:hover {
+          border-color: rgba(249, 115, 22, 0.65);
+          box-shadow: 0 20px 42px -10px rgba(0,0,0,0.92), 0 0 20px rgba(234, 88, 12, 0.20);
+        }
 
-    .fox-tray {
-      background: radial-gradient(circle at center, #2e1208 0%, #1a0a04 75%, #0f0502 100%);
-      border: 2px solid rgba(245, 158, 11, 0.40);
-      box-shadow: inset 0 8px 24px rgba(0,0,0,0.92), 0 12px 28px rgba(0,0,0,0.8);
-    }
+        .fox-tray {
+          background: radial-gradient(circle at center, #2e1208 0%, #1a0a04 75%, #0f0502 100%);
+          border: 2px solid rgba(245, 158, 11, 0.40);
+          box-shadow: inset 0 8px 24px rgba(0,0,0,0.92), 0 12px 28px rgba(0,0,0,0.8);
+        }
 
-    .shield-badge {
-      clip-path: polygon(50% 0%, 100% 18%, 100% 65%, 50% 100%, 0% 65%, 0% 18%);
-    }
+        .shield-badge {
+          clip-path: polygon(50% 0%, 100% 18%, 100% 65%, 50% 100%, 0% 65%, 0% 18%);
+        }
 
-    @keyframes diceShake {
-      0% { transform: scale(1) rotate(0deg); }
-      20% { transform: scale(1.1) rotate(-10deg); }
-      40% { transform: scale(1.12) rotate(10deg); }
-      60% { transform: scale(1.05) rotate(-5deg); }
-      80% { transform: scale(1.02) rotate(4deg); }
-      100% { transform: scale(1) rotate(0deg); }
-    }
-    .shake {
-      animation: diceShake 0.35s ease-in-out;
-    }
+        @keyframes diceShake {
+          0% { transform: scale(1) rotate(0deg); }
+          20% { transform: scale(1.1) rotate(-10deg); }
+          40% { transform: scale(1.12) rotate(10deg); }
+          60% { transform: scale(1.05) rotate(-5deg); }
+          80% { transform: scale(1.02) rotate(4deg); }
+          100% { transform: scale(1) rotate(0deg); }
+        }
+        .shake {
+          animation: diceShake 0.35s ease-in-out;
+        }
 
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #0c0a09; }
-    ::-webkit-scrollbar-thumb { background: #4a2810; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #ea580c; }
-  </style>
-  {% block extra_head %}{% endblock %}
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0c0a09; }
+        ::-webkit-scrollbar-thumb { background: #4a2810; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #ea580c; }
+    </style>
+    {% block extra_head %}{% endblock %}
 </head>
 <body class="flex flex-col min-h-screen text-stone-200 antialiased selection:bg-foxOrange-600 selection:text-white">
-  <header class="sticky top-0 z-40 bg-[#0c0a09]/92 backdrop-blur-md border-b border-orange-950/70 shadow-2xl px-4 py-3">
-    <div class="max-w-7xl mx-auto flex items-center justify-between">
-      <a href="/" class="flex items-center space-x-3 group">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 via-foxOrange-600/30 to-black border border-amber-500/40 flex items-center justify-center shadow-lg group-hover:border-foxOrange-400 group-hover:scale-105 transition-all">
-          <svg class="w-6 h-6 text-foxOrange-400 filter drop-shadow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 4l3.5 6L12 7l4.5 3L20 4l-2 13-6 4-6-4L4 4z"/>
-            <path d="M9 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM15 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
-            <path d="M12 17v1"/>
-          </svg>
-        </div>
-        <div>
-          <span class="text-xl md:text-2xl font-black tracking-wider fox-embossed font-serif">SANCTUM D&D 5E</span>
-          <span class="text-[10px] uppercase tracking-[0.25em] text-amber-400/80 block -mt-1 font-serif">Лисий Привал</span>
-        </div>
-      </a>
+<header class="sticky top-0 z-40 bg-[#0c0a09]/92 backdrop-blur-md border-b border-orange-950/70 shadow-2xl px-4 py-3">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        <!-- Логотип -->
+        <a href="/" class="flex items-center space-x-3 group shrink-0">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 via-foxOrange-600/30 to-black border border-amber-500/40 flex items-center justify-center shadow-lg group-hover:border-foxOrange-400 group-hover:scale-105 transition-all">
+                <svg class="w-6 h-6 text-foxOrange-400 filter drop-shadow" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 4l3.5 6L12 7l4.5 3L20 4l-2 13-6 4-6-4L4 4z"/>
+                    <path d="M9 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM15 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
+                    <path d="M12 17v1"/>
+                </svg>
+            </div>
+            <div>
+                <span class="text-xl md:text-2xl font-black tracking-wider fox-embossed font-serif">SANCTUM D&D 5E</span>
+                <span class="text-[10px] uppercase tracking-[0.25em] text-amber-400/80 block -mt-1 font-serif">Лисий Привал</span>
+            </div>
+        </a>
 
-      <div class="flex items-center space-x-3">
-        <!-- Блок авторизованного пользователя -->
-        <div id="userInfo" class="hidden items-center space-x-3">
-          <div class="flex items-center gap-2.5 bg-[#171412]/90 border border-orange-900/50 rounded-full py-1.5 px-4 shadow-inner">
-            <div class="w-2 h-2 rounded-full bg-foxOrange-500 animate-pulse"></div>
-            <span id="userUsername" class="font-semibold text-xs sm:text-sm text-amber-100">...</span>
-            <span id="userRoleBadge" class="text-[10px] font-serif uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/40">...</span>
-          </div>
-          <button onclick="logout()" class="bg-[#171412] hover:bg-foxOrange-700 text-stone-300 hover:text-amber-100 font-serif text-xs uppercase tracking-wider py-1.5 px-3 rounded-lg border border-stone-700/80 hover:border-amber-500/50 transition-all shadow-md">
-            Выйти
-          </button>
-        </div>
+        <!-- Навигация справа -->
+        <div class="flex items-center space-x-3">
+            <!-- Постоянная кнопка Гримуара -->
+            <a href="/spells"
+               class="px-3 py-1.5 rounded-lg border border-amber-500/40 bg-[#171412] hover:bg-amber-950/40 hover:border-amber-400 text-amber-200 hover:text-amber-100 text-xs font-serif font-bold transition-all flex items-center gap-1.5 shadow-md active:scale-95">
+                <span>✨</span>
+                <span>Гримуар</span>
+            </a>
 
-        <!-- Блок гостя (если токена нет) -->
-        <div id="guestInfo" class="flex items-center">
-          <a href="/auth" class="bg-gradient-to-r from-foxOrange-600 to-amber-500 hover:from-foxOrange-500 hover:to-amber-400 text-stone-950 font-serif font-bold text-xs uppercase tracking-wider py-1.5 px-3.5 rounded-lg shadow-md transition-all active:scale-95">
-            Войти / Регистрация
-          </a>
+            <!-- Блок авторизованного пользователя -->
+            <div id="userInfo" class="hidden items-center space-x-3">
+                <div class="flex items-center gap-2.5 bg-[#171412]/90 border border-orange-900/50 rounded-full py-1.5 px-3 sm:px-4 shadow-inner">
+                    <div class="w-2 h-2 rounded-full bg-foxOrange-500 animate-pulse"></div>
+                    <span id="userUsername" class="font-semibold text-xs sm:text-sm text-amber-100">...</span>
+                    <span id="userRoleBadge"
+                          class="text-[10px] font-serif uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/40">...</span>
+                </div>
+                <button onclick="logout()"
+                        class="bg-[#171412] hover:bg-foxOrange-700 text-stone-300 hover:text-amber-100 font-serif text-xs uppercase tracking-wider py-1.5 px-3 rounded-lg border border-stone-700/80 hover:border-amber-500/50 transition-all shadow-md">
+                    Выйти
+                </button>
+            </div>
+
+            <!-- Блок гостя (если токена нет) -->
+            <div id="guestInfo" class="flex items-center">
+                <a href="/auth"
+                   class="bg-gradient-to-r from-foxOrange-600 to-amber-500 hover:from-foxOrange-500 hover:to-amber-400 text-stone-950 font-serif font-bold text-xs uppercase tracking-wider py-1.5 px-3.5 rounded-lg shadow-md transition-all active:scale-95">
+                    Войти / Регистрация
+                </a>
+            </div>
         </div>
-      </div>
     </div>
-  </header>
+</header>
 
-  <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6">
+
+<main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6">
     {% block content %}{% endblock %}
-  </main>
+</main>
 
-  <footer class="border-t border-orange-950/40 bg-[#080706]/90 py-4 text-center text-xs text-stone-500">
+<footer class="border-t border-orange-950/40 bg-[#080706]/90 py-4 text-center text-xs text-stone-500">
     <span class="font-serif tracking-wider text-amber-500/60">D&D 5E COMPANION SYSTEM</span> • Лисий Привал
-  </footer>
+</footer>
 
-  <script>
+<script>
     async function apiFetch(url, options = {}) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3500); // мгновенный таймаут
@@ -232,7 +247,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', checkAuthAndPopulateHeader);
-  </script>
-  {% block scripts %}{% endblock %}
+</script>
+{% block scripts %}{% endblock %}
 </body>
 </html>
