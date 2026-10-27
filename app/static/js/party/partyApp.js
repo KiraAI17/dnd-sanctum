@@ -1,0 +1,537 @@
+const partyId = window.location.pathname.split('/').pop();
+let partyData = null;
+let currentUserData = null;
+let myCharactersList = [];
+let currentActiveTab = 'playerHero';
+let myAttachedChar = null;
+let activeCustomColors = null;
+
+const PARTY_THEMES = {
+  ember: { name: "Янтарный огонь", accent: "#f59e0b", border: "rgba(245, 158, 11, 0.4)", cardBg: "rgba(18, 13, 9, 0.95)", glow: "rgba(245, 158, 11, 0.25)", text: "#fef3c7" },
+  shadow: { name: "Тени и мистика", accent: "#a855f7", border: "rgba(168, 85, 247, 0.4)", cardBg: "rgba(14, 9, 20, 0.95)", glow: "rgba(168, 85, 247, 0.25)", text: "#f3e8ff" },
+  forest: { name: "Лесная чаща", accent: "#10b981", border: "rgba(16, 185, 129, 0.4)", cardBg: "rgba(9, 18, 13, 0.95)", glow: "rgba(16, 185, 129, 0.25)", text: "#d1fae5" },
+  blood: { name: "Кровавая луна", accent: "#f43f5e", border: "rgba(244, 63, 94, 0.4)", cardBg: "rgba(22, 10, 12, 0.95)", glow: "rgba(244, 63, 94, 0.25)", text: "#ffe4e6" },
+  celestial: { name: "Небесное сияние", accent: "#06b6d4", border: "rgba(6, 182, 212, 0.4)", cardBg: "rgba(8, 17, 24, 0.95)", glow: "rgba(6, 182, 212, 0.25)", text: "#cffafe" }
+};
+
+function getRaceEmoji(race) {
+  if (!race) return '⚔️';
+  const r = String(race).toLowerCase();
+  if (r.includes('эльф')) return '🧝';
+  if (r.includes('дварф') || r.includes('гном')) return '🛡️';
+  if (r.includes('кицунэ') || r.includes('лис')) return '🦊';
+  if (r.includes('дракон')) return '🐲';
+  if (r.includes('тифлинг') || r.includes('демон')) return '😈';
+  if (r.includes('орк') || r.includes('гоблин')) return '🦾';
+  if (r.includes('волшебник') || r.includes('маг')) return '🧙';
+  if (r.includes('халфлинг') || r.includes('полурослик')) return '🍃';
+  if (r.includes('ящер') || r.includes('lizard')) return '🐊';
+  if (r.includes('чейнджлинг')) return '🎭';
+  return '👤';
+}
+
+function applyPartyTheme(themeName, customColors = null) {
+  let t = PARTY_THEMES[themeName] || PARTY_THEMES.ember;
+  if (themeName === 'custom' && customColors) {
+    t = {
+      name: "Своя палитра",
+      accent: customColors.accent || '#f59e0b',
+      border: customColors.border || 'rgba(245, 158, 11, 0.4)',
+      cardBg: customColors.cardBg || 'rgba(18, 13, 9, 0.95)',
+      glow: customColors.glow || 'rgba(245, 158, 11, 0.25)',
+      text: customColors.text || '#fef3c7'
+    };
+  }
+
+  const root = document.documentElement;
+  root.style.setProperty('--party-accent', t.accent);
+  root.style.setProperty('--party-border', t.border);
+  root.style.setProperty('--party-card-bg', t.cardBg);
+  root.style.setProperty('--party-glow', t.glow);
+  root.style.setProperty('--party-text', t.text || '#fef3c7');
+
+  const lbl = document.getElementById('themePreviewLabel');
+  if (lbl) lbl.textContent = t.name;
+
+  const activeBtn = document.querySelector('.party-tab-btn.active-tab');
+  if (activeBtn) {
+    activeBtn.style.backgroundColor = t.accent;
+    activeBtn.style.boxShadow = `0 4px 15px ${t.glow}`;
+  }
+}
+
+function selectPartyPreset(themeKey) {
+  document.getElementById('setThemeSelect').value = themeKey;
+  document.getElementById('customColorsBlock').classList.add('hidden');
+  activeCustomColors = null;
+  applyPartyTheme(themeKey);
+}
+
+function toggleCustomColorPickers() {
+  const block = document.getElementById('customColorsBlock');
+  block.classList.toggle('hidden');
+  document.getElementById('setThemeSelect').value = 'custom';
+
+  const style = getComputedStyle(document.documentElement);
+  document.getElementById('pickerAccent').value = style.getPropertyValue('--party-accent').trim() || '#f59e0b';
+  onCustomColorChange();
+}
+
+function onCustomColorChange() {
+  const accent = document.getElementById('pickerAccent').value;
+  const border = document.getElementById('pickerBorder').value;
+  const cardBg = document.getElementById('pickerCardBg').value;
+  const glow = document.getElementById('pickerGlow').value;
+
+  activeCustomColors = { accent, border, cardBg, glow };
+  applyPartyTheme('custom', activeCustomColors);
+}
+
+function setupRoleView() {
+  const isDm = partyData.is_current_user_dm;
+  document.getElementById('partyRoleBadge').textContent = isDm ? '👑 Вы — Мастер стола' : '👤 Вы — Игрок';
+
+  const dmElems = ['tabBtnDmScreen', 'tabBtnDmNpcs', 'tabBtnSettings', 'btnTabAddRace', 'chatPinOption', 'dmMapControls', 'dmAudioControls'];
+  dmElems.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden', !isDm);
+  });
+
+  if (!isDm) {
+    document.getElementById('dmNotesTextarea').readOnly = true;
+    document.getElementById('dmNotesTextarea').value = "Сюжетные тайны доступны только Мастеру стола.";
+    document.getElementById('dmNotesSaveBtnRow').classList.add('hidden');
+    document.getElementById('dmPlotBadge').textContent = "Закрыто Мастером";
+    switchPartyTab('playerHero');
+  } else {
+    switchPartyTab('dmScreen');
+  }
+}
+
+function renderPartyHeader() {
+  document.getElementById('partyTitle').textContent = partyData.name;
+  document.getElementById('partyDesc').textContent = partyData.description || 'Описание кампании отсутствует.';
+  document.getElementById('partyPrivacyBadge').textContent = partyData.is_private ? '🔒 Закрытая' : '🌍 Открытая';
+  document.getElementById('squadCount').textContent = (partyData.members || []).length;
+  document.getElementById('partyRacesCount').textContent = (partyData.custom_races || []).length;
+
+  const banner = (partyData.settings || {}).banner_url;
+  const bannerBox = document.getElementById('partyHeaderBanner');
+  if (bannerBox) {
+    bannerBox.style.backgroundImage = (banner && banner.trim()) ? `url('${banner}')` : 'none';
+  }
+  if (document.getElementById('btnCreateNewHeroForTable')) document.getElementById('btnCreateNewHeroForTable').href = `/wizard?party_id=${partyId}`;
+  if (document.getElementById('btnDmCreateCustomHero')) document.getElementById('btnDmCreateCustomHero').href = `/wizard?party_id=${partyId}`;
+}
+
+function switchPartyTab(tab) {
+  if (!partyData.is_current_user_dm && ['dmScreen', 'dmNpcs', 'settings'].includes(tab)) {
+    tab = 'playerHero';
+  }
+
+  currentActiveTab = tab;
+  document.querySelectorAll('.party-tab-pane').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.party-tab-btn').forEach(btn => {
+    btn.className = "party-tab-btn px-3.5 py-2 rounded-lg font-bold text-stone-400 hover:text-amber-200 transition-all";
+    btn.classList.remove('active-tab');
+    btn.style.backgroundColor = '';
+    btn.style.boxShadow = '';
+    btn.style.color = '';
+  });
+
+  const activePane = document.getElementById(`tabContent_${tab}`);
+  if (activePane) activePane.classList.remove('hidden');
+
+  const activeBtn = document.getElementById(`tabBtn${tab.charAt(0).toUpperCase() + tab.slice(1)}`);
+  if (activeBtn) {
+    activeBtn.classList.add('active-tab');
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--party-accent') || '#f59e0b';
+    const glow = getComputedStyle(document.documentElement).getPropertyValue('--party-glow') || 'rgba(245,158,11,0.25)';
+    activeBtn.style.backgroundColor = accent;
+    activeBtn.style.color = '#0c0806';
+    activeBtn.style.boxShadow = `0 4px 15px ${glow}`;
+  }
+
+  if (tab === 'chat') scrollChatToBottom();
+}
+
+async function renderMyHeroSection() {
+  const attachedBlock = document.getElementById('attachedHeroBlock');
+  const noAttachedBlock = document.getElementById('noAttachedHeroBlock');
+  if (!attachedBlock || !noAttachedBlock) return;
+
+  if (!partyData || !partyData.my_character_id) {
+    attachedBlock.classList.add('hidden');
+    noAttachedBlock.classList.remove('hidden');
+    populateUserCharactersDropdown();
+    return;
+  }
+
+  try {
+    const res = await apiFetch(`/characters/${partyData.my_character_id}`);
+    if (res.ok) {
+      myAttachedChar = await res.json();
+      noAttachedBlock.classList.add('hidden');
+      attachedBlock.classList.remove('hidden');
+
+      const elName = document.getElementById('myHeroName');
+      const elSub = document.getElementById('myHeroSub');
+      const elHp = document.getElementById('myHeroHpText');
+      const elAc = document.getElementById('myHeroAc');
+      const elSpeed = document.getElementById('myHeroSpeed');
+      const elSheetBtn = document.getElementById('btnOpenFullSheet');
+
+      if (elName) elName.textContent = myAttachedChar.name;
+      if (elSub) elSub.textContent = `${myAttachedChar.race} • ${myAttachedChar.class_name} ${myAttachedChar.level} уровня • ${myAttachedChar.alignment || 'Нейтральный'}`;
+      if (elHp) elHp.textContent = `${myAttachedChar.hp_current || 0} / ${myAttachedChar.hp_max || 10}`;
+      if (elAc) elAc.textContent = myAttachedChar.armor_class || (10 + Math.floor(((myAttachedChar.stats?.dex || 10) - 10) / 2));
+      if (elSpeed) elSpeed.textContent = `${myAttachedChar.speed || 30} фт.`;
+      if (elSheetBtn) elSheetBtn.href = `/characters/${myAttachedChar.id}/sheet`;
+
+      const bannerBox = document.getElementById('myHeroBannerBox');
+      const avatarImg = document.getElementById('myHeroAvatarImg');
+      const avatarEmoji = document.getElementById('myHeroAvatarEmoji');
+
+      if (bannerBox) {
+        bannerBox.style.backgroundImage = (myAttachedChar.banner_url && myAttachedChar.banner_url.trim()) ? `url('${myAttachedChar.banner_url}')` : 'none';
+      }
+
+      const avatarSrc = (myAttachedChar.avatar_url && myAttachedChar.avatar_url.trim()) ? myAttachedChar.avatar_url : ((myAttachedChar.banner_url && myAttachedChar.banner_url.trim()) ? myAttachedChar.banner_url : '');
+      if (avatarImg && avatarEmoji) {
+        if (avatarSrc) {
+          avatarImg.src = avatarSrc;
+          avatarImg.classList.remove('hidden');
+          avatarEmoji.classList.add('hidden');
+        } else {
+          avatarImg.classList.add('hidden');
+          avatarEmoji.classList.remove('hidden');
+          avatarEmoji.textContent = getRaceEmoji(myAttachedChar.race);
+        }
+      }
+
+      const statsGrid = document.getElementById('myHeroStatsGrid');
+      if (statsGrid) {
+        const s = myAttachedChar.stats || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+        const statConfig = [
+          { key: 'str', label: 'СИЛА' },
+          { key: 'dex', label: 'ЛОВКОСТЬ' },
+          { key: 'con', label: 'ТЕЛОСЛОЖ.' },
+          { key: 'int', label: 'ИНТЕЛЛЕКТ' },
+          { key: 'wis', label: 'МУДРОСТЬ' },
+          { key: 'cha', label: 'ХАРИЗМА' }
+        ];
+
+        statsGrid.innerHTML = statConfig.map(cfg => {
+          const val = s[cfg.key] || 10;
+          const mod = Math.floor((val - 10) / 2);
+          const modStr = mod >= 0 ? `+${mod}` : `${mod}`;
+          return `
+            <div onclick="rollStatCheck('${cfg.label}', ${mod})" title="Бросить d20 ${modStr}" class="p-2.5 rounded-xl bg-black/60 border border-orange-950 hover:border-amber-400 hover:bg-amber-950/30 cursor-pointer active:scale-95 transition-all group">
+              <span class="text-[10px] text-amber-400/90 group-hover:text-amber-300 font-bold block">${cfg.label}</span>
+              <strong class="text-base text-stone-100 block my-0.5">${val}</strong>
+              <span class="text-[11px] font-bold text-amber-300 block bg-[#160f0b] rounded px-1 py-0.5 border border-orange-950/80">${modStr}</span>
+            </div>
+          `;
+        }).join('');
+      }
+    } else {
+      attachedBlock.classList.add('hidden');
+      noAttachedBlock.classList.remove('hidden');
+      populateUserCharactersDropdown();
+    }
+  } catch (e) {
+    attachedBlock.classList.add('hidden');
+    noAttachedBlock.classList.remove('hidden');
+    populateUserCharactersDropdown();
+  }
+}
+
+async function rollStatCheck(statName, mod) {
+  const heroName = myAttachedChar ? myAttachedChar.name : (currentUserData?.username || 'Герой');
+  try {
+    const res = await apiFetch(`/parties/${partyId}/roll-stat`, {
+      method: 'POST',
+      body: { stat_name: statName, stat_mod: mod, character_name: heroName }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const toast = document.getElementById('diceRollToast');
+      document.getElementById('diceRollToastText').textContent = data.content;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 5000);
+      loadChatMessages();
+    }
+  } catch (e) {}
+}
+
+function populateUserCharactersDropdown() {
+  const sel = document.getElementById('userCharactersDropdown');
+  if (!sel) return;
+  if (!myCharactersList || myCharactersList.length === 0) {
+    sel.innerHTML = '<option value="">У вас нет созданных персонажей</option>';
+    return;
+  }
+  sel.innerHTML = myCharactersList.map(c => `
+    <option value="${c.id}">${c.name} (${c.race} ${c.class_name} ${c.level} ур.)</option>
+  `).join('');
+}
+
+async function attachSelectedCharacter() {
+  const sel = document.getElementById('userCharactersDropdown');
+  const charId = sel ? parseInt(sel.value) : null;
+  if (!charId) { alert("Выберите персонажа!"); return; }
+
+  try {
+    const res = await apiFetch(`/parties/${partyId}/attach-character`, {
+      method: 'POST',
+      body: { character_id: charId }
+    });
+    if (res.ok) {
+      partyData.my_character_id = charId;
+      renderMyHeroSection();
+      const updatedParty = await (await apiFetch(`/parties/${partyId}`)).json();
+      partyData = updatedParty;
+      renderSquadList();
+      loadChatMessages();
+    }
+  } catch (e) {}
+}
+
+function showSelectCharacterDialog() {
+  document.getElementById('attachedHeroBlock').classList.add('hidden');
+  document.getElementById('noAttachedHeroBlock').classList.remove('hidden');
+  populateUserCharactersDropdown();
+}
+
+async function adjustHeroHp(delta) {
+  if (!myAttachedChar) return;
+  const newHp = Math.max(0, Math.min(myAttachedChar.hp_max || 10, (myAttachedChar.hp_current || 0) + delta));
+  try {
+    const res = await apiFetch(`/parties/${partyId}/members/${myAttachedChar.id}/hp`, {
+      method: 'PATCH',
+      body: { hp_current: newHp }
+    });
+    if (res.ok) {
+      myAttachedChar.hp_current = newHp;
+      document.getElementById('myHeroHpText').textContent = `${newHp} / ${myAttachedChar.hp_max}`;
+    }
+  } catch (e) {}
+}
+
+function renderSquadList() {
+  const cont = document.getElementById('squadList');
+  if (!cont) return;
+
+  if (!partyData.members || partyData.members.length === 0) {
+    cont.innerHTML = '<div class="col-span-full text-center py-6 text-stone-500 font-serif">В отряде пока никого нет.</div>';
+    return;
+  }
+
+  cont.innerHTML = partyData.members.map(m => {
+    const isLeader = m.is_dm ? '<span class="text-[9px] font-mono font-bold text-amber-300 bg-amber-950/40 border border-amber-800 px-1.5 py-0.5 rounded">👑 МАСТЕР</span>' : '';
+    const charName = m.character_name ? `<a href="/characters/${m.character_id}/sheet" class="text-amber-200 font-serif font-bold text-sm hover:underline">${m.character_name}</a>` : '<span class="text-stone-500 text-xs italic">Персонаж не выбран</span>';
+
+    let squadRace = m.character_race || '';
+    if ((squadRace).toLowerCase().includes('чейнджлинг')) {
+      let vc = m.visual_custom || {};
+      if (typeof vc === 'string') {
+        try { vc = JSON.parse(vc); } catch(e) {}
+      }
+      if (vc && vc.disguise_active && vc.disguise_race) {
+        squadRace = vc.disguise_race;
+      }
+    }
+
+    const charClass = m.character_class ? `<span class="text-[11px] text-stone-400 font-serif block">${squadRace} • ${m.character_class}</span>` : '';
+    const hpBadge = m.character_hp ? `<span class="px-2 py-0.5 rounded bg-black/60 border border-orange-950 font-mono text-foxOrange-400 text-xs">${m.character_hp}</span>` : '';
+
+    const bannerStyle = m.banner_url ? `background-image: url('${m.banner_url}'); background-size: cover; background-position: center;` : '';
+    const avatarSrc = m.avatar_url && m.avatar_url.trim() ? m.avatar_url : (m.banner_url && m.banner_url.trim() ? m.banner_url : '');
+    const raceEmoji = getRaceEmoji(squadRace);
+
+    return `
+      <div class="rounded-xl border border-orange-950/80 bg-[#120d09] overflow-hidden flex flex-col justify-between shadow relative group">
+        <div class="h-16 w-full relative bg-[#1a100a] flex items-end p-2" style="${bannerStyle}">
+          ${m.banner_url ? '<div class="absolute inset-0 bg-gradient-to-t from-[#120d09] via-[#120d09]/60 to-transparent"></div>' : ''}
+          <div class="relative z-10 flex items-center gap-2">
+            <div class="w-9 h-9 rounded-lg overflow-hidden border border-amber-500/40 bg-stone-900 shrink-0 shadow flex items-center justify-center text-sm">
+              ${avatarSrc ? `<img src="${avatarSrc}" class="w-full h-full object-cover">` : `<span>${raceEmoji}</span>`}
+            </div>
+            <div>
+              <strong class="text-stone-200 text-xs font-serif block">${m.username}</strong>
+              ${isLeader}
+            </div>
+          </div>
+        </div>
+        <div class="p-3.5 space-y-2 flex justify-between items-center">
+          <div>
+            <div>${charName}</div>
+            ${charClass}
+          </div>
+          <div class="flex items-center gap-2">
+            ${hpBadge}
+            ${m.character_id ? `<a href="/characters/${m.character_id}/sheet" class="px-2.5 py-1 rounded bg-[#1c130d] border border-orange-900/60 hover:border-amber-400 text-amber-300 text-xs font-serif">Лист</a>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function savePlayerNotes() {
+  const text = document.getElementById('playerNotesTextarea').value;
+  try {
+    const res = await apiFetch(`/parties/${partyId}/my-notes`, {
+      method: 'PATCH',
+      body: { notes: text }
+    });
+    if (res.ok) alert("Личные заметки сохранены!");
+  } catch (e) {}
+}
+
+async function saveDmNotes() {
+  const text = document.getElementById('dmNotesTextarea').value;
+  try {
+    const res = await apiFetch(`/parties/${partyId}/dm-notes`, {
+      method: 'PATCH',
+      body: { notes: text }
+    });
+    if (res.ok) alert("Сюжет кампании обновлен!");
+  } catch (e) {}
+}
+
+function populateSettingsForm() {
+  if (!partyData) return;
+  const s = partyData.settings || {};
+  const elName = document.getElementById('setPartyName');
+  const elDesc = document.getElementById('setPartyDesc');
+  const elBanner = document.getElementById('setPartyBanner');
+  const elMax = document.getElementById('setMaxPlayers');
+  const elTheme = document.getElementById('setThemeSelect');
+  const elPriv = document.getElementById('setIsPrivateCheck');
+  const elPwdRow = document.getElementById('setPasswordRow');
+
+  if (elName) elName.value = partyData.name || '';
+  if (elDesc) elDesc.value = partyData.description || '';
+  if (elBanner) elBanner.value = s.banner_url || '';
+  if (elMax) elMax.value = s.max_players || 6;
+  if (elTheme) elTheme.value = s.theme || 'ember';
+  if (elPriv) elPriv.checked = !!partyData.is_private;
+  if (elPwdRow) elPwdRow.classList.toggle('hidden', !partyData.is_private);
+
+  if (s.theme === 'custom' && s.custom_colors) {
+    activeCustomColors = s.custom_colors;
+    document.getElementById('customColorsBlock').classList.remove('hidden');
+    if (s.custom_colors.accent) document.getElementById('pickerAccent').value = s.custom_colors.accent;
+    if (s.custom_colors.border) document.getElementById('pickerBorder').value = s.custom_colors.border;
+    if (s.custom_colors.cardBg) document.getElementById('pickerCardBg').value = s.custom_colors.cardBg;
+    if (s.custom_colors.glow) document.getElementById('pickerGlow').value = s.custom_colors.glow;
+  }
+}
+
+async function submitPartySettings(e) {
+  e.preventDefault();
+  const name = document.getElementById('setPartyName')?.value.trim() || '';
+  const desc = document.getElementById('setPartyDesc')?.value.trim() || '';
+  const banner = document.getElementById('setPartyBanner')?.value.trim() || '';
+  const maxP = parseInt(document.getElementById('setMaxPlayers')?.value) || 6;
+  const theme = document.getElementById('setThemeSelect')?.value || 'ember';
+  const isPriv = document.getElementById('setIsPrivateCheck')?.checked || false;
+  const pwd = document.getElementById('setPartyPassword')?.value;
+
+  const payload = {
+    name,
+    description: desc,
+    banner_url: banner,
+    max_players: maxP,
+    theme,
+    is_private: isPriv,
+    password: pwd || null,
+    custom_colors: activeCustomColors
+  };
+
+  try {
+    const res = await apiFetch(`/parties/${partyId}/settings`, {
+      method: 'PATCH',
+      body: payload
+    });
+    if (res.ok) {
+      alert("Оформление и настройки стола успешно сохранены!");
+      window.location.reload();
+    } else {
+      const err = await res.json();
+      alert(err.detail || "Ошибка сохранения настроек");
+    }
+  } catch (e) {
+    alert("Сбой сети: " + e.message);
+  }
+}
+
+async function initPartyDetail() {
+  try {
+    const [uRes, pRes, charsRes] = await Promise.all([
+      apiFetch('/auth/me'),
+      apiFetch(`/parties/${partyId}`),
+      apiFetch('/characters/')
+    ]);
+
+    if (uRes.ok) currentUserData = await uRes.json();
+    if (pRes.ok) partyData = await pRes.json();
+    if (charsRes.ok) myCharactersList = await charsRes.json();
+
+    if (!partyData) {
+      alert("Не удалось загрузить данные стола.");
+      window.location.href = '/parties-lobby';
+      return;
+    }
+
+    try {
+      const s = partyData.settings || {};
+      applyPartyTheme(s.theme || 'ember', s.custom_colors || null);
+      setupRoleView();
+      renderPartyHeader();
+    } catch (err) { console.error("Ошибка темы:", err); }
+
+    try { renderMyHeroSection(); } catch (err) { console.error("Ошибка героя:", err); }
+    try { renderSquadList(); } catch (err) { console.error("Ошибка отряда:", err); }
+    try { renderRacesList(); } catch (err) { console.error("Ошибка рас:", err); }
+
+    try {
+      const pNotes = document.getElementById('playerNotesTextarea');
+      if (pNotes) pNotes.value = partyData.my_notes || '';
+      const dmNotes = document.getElementById('dmNotesTextarea');
+      if (dmNotes && partyData.is_current_user_dm && partyData.dm_notes !== null) {
+        dmNotes.value = partyData.dm_notes || '';
+      }
+    } catch (err) { console.error("Ошибка заметок:", err); }
+
+    try { renderBattleMap(); } catch (err) { console.error("Ошибка карты:", err); }
+
+    try {
+      loadChatMessages();
+      populateChatRecipients();
+      if (chatInterval) clearInterval(chatInterval);
+      chatInterval = setInterval(loadChatMessages, 3000);
+    } catch (err) { console.error("Ошибка чата:", err); }
+
+    if (partyData.is_current_user_dm) {
+      try { renderDmScreen(); } catch (err) { console.error("Ошибка DM экрана:", err); }
+      try { loadDmNpcs(); } catch (err) { console.error("Ошибка НИПов:", err); }
+      try { populateSettingsForm(); } catch (err) { console.error("Ошибка формы настроек:", err); }
+    }
+
+    try {
+      syncPartyAudio();
+      setInterval(syncPartyAudio, 3000);
+    } catch (err) { console.error("Ошибка аудио:", err); }
+
+    try {
+      initPartyWebSocket();
+    } catch (err) { console.error("Ошибка вебсокета:", err); }
+
+  } catch (e) {
+    console.error("Глобальная ошибка инициализации стола:", e);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', initPartyDetail);

@@ -1,4 +1,4 @@
-#app_routers_parties
+# app_routers_parties
 import datetime
 import shutil
 import json
@@ -9,6 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy import select, or_, and_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
+from fastapi import WebSocket, WebSocketDisconnect
+from app.core.connection_manager import party_manager
 
 from app.core.security import get_password_hash, verify_password
 from app.dependencies import CurrentUser, DbSession
@@ -76,9 +78,12 @@ async def create_party(payload: PartyCreateSchema, db: DbSession, current_user: 
             "is_playing": False,
             "volume": 70,
             "playlist": [
-                {"title": "Таверна у тракта", "url": "https://assets.mixkit.co/music/preview/mixkit-tavern-loop-11.mp3"},
-                {"title": "Боевой марш подземелья", "url": "https://assets.mixkit.co/music/preview/mixkit-game-level-music-689.mp3"},
-                {"title": "Таинственный лес", "url": "https://assets.mixkit.co/music/preview/mixkit-medieval-fantasy-527.mp3"}
+                {"title": "Таверна у тракта",
+                 "url": "https://assets.mixkit.co/music/preview/mixkit-tavern-loop-11.mp3"},
+                {"title": "Боевой марш подземелья",
+                 "url": "https://assets.mixkit.co/music/preview/mixkit-game-level-music-689.mp3"},
+                {"title": "Таинственный лес",
+                 "url": "https://assets.mixkit.co/music/preview/mixkit-medieval-fantasy-527.mp3"}
             ]
         },
         custom_races=[]
@@ -202,7 +207,8 @@ async def join_party_by_name(payload: PartyJoinByNameSchema, db: DbSession, curr
             await db.commit()
         return {"status": "already_member", "party_id": party.id}
 
-    new_mem = PartyMember(party_id=party.id, user_id=current_user.id, character_id=payload.character_id, player_notes="")
+    new_mem = PartyMember(party_id=party.id, user_id=current_user.id, character_id=payload.character_id,
+                          player_notes="")
     db.add(new_mem)
     await db.commit()
     return {"status": "joined", "party_id": party.id}
@@ -236,15 +242,18 @@ async def join_party(party_id: int, payload: PartyJoinSchema, db: DbSession, cur
             await db.commit()
         return {"status": "already_member", "party_id": party_id}
 
-    new_mem = PartyMember(party_id=party_id, user_id=current_user.id, character_id=payload.character_id, player_notes="")
+    new_mem = PartyMember(party_id=party_id, user_id=current_user.id, character_id=payload.character_id,
+                          player_notes="")
     db.add(new_mem)
     await db.commit()
     return {"status": "joined", "party_id": party_id}
 
 
 @router.post("/{party_id}/attach-character", summary="Привязать персонажа к столу")
-async def attach_character_to_party(party_id: int, payload: AttachCharacterSchema, db: DbSession, current_user: CurrentUser):
-    char_res = await db.execute(select(Character).where(Character.id == payload.character_id, Character.user_id == current_user.id))
+async def attach_character_to_party(party_id: int, payload: AttachCharacterSchema, db: DbSession,
+                                    current_user: CurrentUser):
+    char_res = await db.execute(
+        select(Character).where(Character.id == payload.character_id, Character.user_id == current_user.id))
     char = char_res.scalar_one_or_none()
     if not char:
         raise HTTPException(status_code=404, detail="Персонаж не найден.")
@@ -254,7 +263,8 @@ async def attach_character_to_party(party_id: int, payload: AttachCharacterSchem
     )
     mem = mem_res.scalar_one_or_none()
     if not mem:
-        mem = PartyMember(party_id=party_id, user_id=current_user.id, character_id=payload.character_id, player_notes="")
+        mem = PartyMember(party_id=party_id, user_id=current_user.id, character_id=payload.character_id,
+                          player_notes="")
         db.add(mem)
     else:
         mem.character_id = payload.character_id
@@ -264,7 +274,8 @@ async def attach_character_to_party(party_id: int, payload: AttachCharacterSchem
 
 
 @router.patch("/{party_id}/members/{character_id}/hp", summary="Изменение HP")
-async def update_party_member_hp(party_id: int, character_id: int, payload: dict, db: DbSession, current_user: CurrentUser):
+async def update_party_member_hp(party_id: int, character_id: int, payload: dict, db: DbSession,
+                                 current_user: CurrentUser):
     party_res = await db.execute(select(Party).where(Party.id == party_id))
     party = party_res.scalar_one_or_none()
     if not party:
@@ -283,6 +294,14 @@ async def update_party_member_hp(party_id: int, character_id: int, payload: dict
         char.hp_current = max(0, min(char.hp_max or 10, int(new_hp)))
         await db.commit()
         await db.refresh(char)
+
+        # РАССЫЛАЕМ ВСЕМ В КОМНАТЕ НОВОЕ ХП:
+        await party_manager.broadcast(party_id, {
+            "type": "hp_update",
+            "character_id": character_id,
+            "hp_current": char.hp_current,
+            "hp_max": char.hp_max
+        })
 
     return {"status": "ok", "hp_current": char.hp_current, "hp_max": char.hp_max}
 
@@ -394,6 +413,17 @@ async def change_party_theme(party_id: int, payload: dict, db: DbSession, curren
     party.settings = cur_settings
     flag_modified(party, "settings")
     await db.commit()
+
+    party.settings = cur_settings
+    flag_modified(party, "settings")
+    await db.commit()
+
+    # РАССЫЛАЕМ ВСЕМ СМЕНУ ТЕМЫ:
+    await party_manager.broadcast(party_id, {
+        "type": "theme_update",
+        "theme": theme,
+        "custom_colors": cur_settings.get("custom_colors")
+    })
     return {"status": "ok", "theme": theme}
 
 
@@ -421,12 +451,19 @@ async def update_party_settings(party_id: int, payload: UpdateSettingsSchema, db
     party.settings = cur_settings
     flag_modified(party, "settings")
     await db.commit()
+    await party_manager.broadcast(party_id, {
+        "type": "theme_update",
+        "theme": cur_settings.get("theme", "ember"),
+        "custom_colors": cur_settings.get("custom_colors")
+    })
+
     return {"status": "ok", "settings": party.settings}
 
 
 @router.patch("/{party_id}/my-notes", summary="Игрок: Заметки")
 async def update_player_notes(party_id: int, payload: NotesUpdateSchema, db: DbSession, current_user: CurrentUser):
-    mem_res = await db.execute(select(PartyMember).where(PartyMember.party_id == party_id, PartyMember.user_id == current_user.id))
+    mem_res = await db.execute(
+        select(PartyMember).where(PartyMember.party_id == party_id, PartyMember.user_id == current_user.id))
     mem = mem_res.scalar_one_or_none()
     if not mem: raise HTTPException(status_code=404, detail="Не участник.")
     mem.player_notes = payload.notes
@@ -467,6 +504,13 @@ async def update_party_map(party_id: int, payload: MapUpdateSchema, db: DbSessio
     party.map_data = cur_map
     flag_modified(party, "map_data")
     await db.commit()
+
+    # РАССЫЛАЕМ ОБНОВЛЕНИЕ КАРТЫ И ТОКЕНОВ ПО ВСЕМУ СТОЛУ:
+    await party_manager.broadcast(party_id, {
+        "type": "map_update",
+        "map_data": cur_map
+    })
+
     return cur_map
 
 
@@ -505,12 +549,13 @@ from sqlalchemy.orm.attributes import flag_modified
 # Вычисляем путь к app/static/audio надежно и абсолютно
 AUDIO_DIR = Path(__file__).resolve().parent.parent / "static" / "audio"
 
+
 @router.post("/{party_id}/audio/upload", summary="Загрузить MP3 файл трека")
 async def upload_party_audio(
-    party_id: int,
-    file: UploadFile = File(...),
-    db: DbSession = None,
-    current_user: CurrentUser = None
+        party_id: int,
+        file: UploadFile = File(...),
+        db: DbSession = None,
+        current_user: CurrentUser = None
 ):
     party_res = await db.execute(select(Party).where(Party.id == party_id))
     party = party_res.scalar_one_or_none()
@@ -547,7 +592,6 @@ async def upload_party_audio(
     await db.commit()
 
     return {"status": "ok", "track": {"title": track_title, "url": file_url}}
-
 
 
 @router.delete("/{party_id}/audio/track/{track_idx}", summary="Удалить трек")
@@ -595,7 +639,8 @@ async def get_party_messages(party_id: int, db: DbSession, current_user: Current
     visible = []
     for m in all_msgs:
         if m.message_type == "secret_roll":
-            if is_dm: visible.append(m)
+            if is_dm:
+                visible.append(m)
             else:
                 masked = PartyMessage(
                     id=m.id, party_id=m.party_id, user_id=m.user_id, sender_name="👑 Мастер (За ширмой)",
@@ -606,7 +651,8 @@ async def get_party_messages(party_id: int, db: DbSession, current_user: Current
             continue
         if m.whisper_to_id is not None:
             if is_dm or m.user_id == current_user.id or m.whisper_to_id == current_user.id: visible.append(m)
-        else: visible.append(m)
+        else:
+            visible.append(m)
     return visible
 
 
@@ -617,7 +663,8 @@ async def send_party_message(party_id: int, payload: SendMessageSchema, db: DbSe
     if not party: raise HTTPException(status_code=404, detail="Стол не найден.")
     is_dm = (party.dm_id == current_user.id)
     sender_title = f"👑 {current_user.username}" if is_dm else current_user.username
-    mem_res = await db.execute(select(PartyMember).where(PartyMember.party_id == party_id, PartyMember.user_id == current_user.id))
+    mem_res = await db.execute(
+        select(PartyMember).where(PartyMember.party_id == party_id, PartyMember.user_id == current_user.id))
     mem = mem_res.scalar_one_or_none()
     if mem and mem.character_id:
         c_res = await db.execute(select(Character).where(Character.id == mem.character_id))
@@ -641,7 +688,8 @@ async def toggle_pin_message(party_id: int, message_id: int, db: DbSession, curr
     party_res = await db.execute(select(Party).where(Party.id == party_id))
     party = party_res.scalar_one_or_none()
     if not party or party.dm_id != current_user.id: raise HTTPException(status_code=403, detail="Только Мастер.")
-    msg_res = await db.execute(select(PartyMessage).where(PartyMessage.id == message_id, PartyMessage.party_id == party_id))
+    msg_res = await db.execute(
+        select(PartyMessage).where(PartyMessage.id == message_id, PartyMessage.party_id == party_id))
     msg = msg_res.scalar_one_or_none()
     if not msg: raise HTTPException(status_code=404, detail="Сообщение не найдено.")
     msg.is_pinned = not msg.is_pinned
@@ -654,11 +702,13 @@ async def dm_secret_roll(party_id: int, payload: dict, db: DbSession, current_us
     party_res = await db.execute(select(Party).where(Party.id == party_id))
     party = party_res.scalar_one_or_none()
     if not party or party.dm_id != current_user.id: raise HTTPException(status_code=403, detail="Только Мастер.")
-    dice, mod, title = int(payload.get("dice_sides", 20)), int(payload.get("modifier", 0)), payload.get("title", "Тайная проверка")
+    dice, mod, title = int(payload.get("dice_sides", 20)), int(payload.get("modifier", 0)), payload.get("title",
+                                                                                                        "Тайная проверка")
     val = random.randint(1, dice)
     total = val + mod
-    res_str = f"d{dice} ({val}) {('+' if mod>=0 else '')+str(mod)} = {total}"
-    msg = PartyMessage(party_id=party_id, user_id=current_user.id, sender_name="👑 Мастер (За ширмой)", message_type="secret_roll", content=f"🔒 [{title}] {res_str}")
+    res_str = f"d{dice} ({val}) {('+' if mod >= 0 else '') + str(mod)} = {total}"
+    msg = PartyMessage(party_id=party_id, user_id=current_user.id, sender_name="👑 Мастер (За ширмой)",
+                       message_type="secret_roll", content=f"🔒 [{title}] {res_str}")
     db.add(msg)
     await db.commit()
     return {"status": "ok", "result": res_str, "total": total}
@@ -672,7 +722,8 @@ async def roll_party_stat(party_id: int, payload: RollStatSchema, db: DbSession,
     hero_name = payload.character_name or current_user.username
     crit = " 🔥 НАТУРАЛЬНЫЙ 20!" if d20 == 20 else (" 💀 КРИТИЧЕСКИЙ ПРОВАЛ 1!" if d20 == 1 else "")
     content = f"🎲 {hero_name} проверяет [{payload.stat_name}]: d20 ({d20}) {mod_str} = {total}{crit}"
-    msg = PartyMessage(party_id=party_id, user_id=current_user.id, sender_name=hero_name, message_type="roll", content=content)
+    msg = PartyMessage(party_id=party_id, user_id=current_user.id, sender_name=hero_name, message_type="roll",
+                       content=content)
     db.add(msg)
     await db.commit()
     return {"status": "ok", "content": content, "total": total}
@@ -683,7 +734,10 @@ async def create_quick_npc(party_id: int, payload: QuickNPCCreateSchema, db: DbS
     party_res = await db.execute(select(Party).where(Party.id == party_id))
     party = party_res.scalar_one_or_none()
     if not party or party.dm_id != current_user.id: raise HTTPException(status_code=403, detail="Только Мастер.")
-    npc = Character(name=payload.name.strip(), race=payload.race.strip(), class_name=payload.class_name.strip(), level=1, hp_max=payload.hp_max, hp_current=payload.hp_max, armor_class=payload.armor_class, stats={"str":10,"dex":10,"con":10,"int":10,"wis":10,"cha":10}, backstory=payload.notes, is_npc=True, user_id=current_user.id)
+    npc = Character(name=payload.name.strip(), race=payload.race.strip(), class_name=payload.class_name.strip(),
+                    level=1, hp_max=payload.hp_max, hp_current=payload.hp_max, armor_class=payload.armor_class,
+                    stats={"str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10}, backstory=payload.notes,
+                    is_npc=True, user_id=current_user.id)
     db.add(npc)
     await db.commit()
     await db.refresh(npc)
@@ -726,14 +780,17 @@ async def get_party_npcs(party_id: int, db: DbSession, current_user: CurrentUser
 
 
 @router.post("/{party_id}/races", summary="Раса стола")
-async def add_custom_race_to_party(party_id: int, payload: CustomRaceCreateSchema, db: DbSession, current_user: CurrentUser):
+async def add_custom_race_to_party(party_id: int, payload: CustomRaceCreateSchema, db: DbSession,
+                                   current_user: CurrentUser):
     stmt = select(Party).where(Party.id == party_id)
     res = await db.execute(stmt)
     party = res.scalar_one_or_none()
     if not party or party.dm_id != current_user.id: raise HTTPException(status_code=403, detail="Только Мастер.")
     race_id = f"custom_{party_id}_" + payload.name.lower().replace(" ", "_")
     cur_races = list(party.custom_races or [])
-    new_race = {"id": race_id, "name": payload.name.strip(), "speed": payload.speed, "description": payload.description.strip(), "ability_bonuses": payload.ability_bonuses, "traits": payload.traits, "dm_only": payload.dm_only, "is_custom": True, "party_id": party_id}
+    new_race = {"id": race_id, "name": payload.name.strip(), "speed": payload.speed,
+                "description": payload.description.strip(), "ability_bonuses": payload.ability_bonuses,
+                "traits": payload.traits, "dm_only": payload.dm_only, "is_custom": True, "party_id": party_id}
     cur_races.append(new_race)
     party.custom_races = cur_races
     flag_modified(party, "custom_races")
@@ -765,16 +822,18 @@ async def get_party_races(party_id: int, db: DbSession, current_user: CurrentUse
     if not is_dm: custom_races = [r for r in custom_races if not r.get("dm_only", False)]
     return custom_races + base_races
 
+
 import shutil
 import time
 from fastapi import UploadFile, File
 
+
 @router.post("/{party_id}/audio/upload", summary="Загрузить MP3 файл трека")
 async def upload_party_audio(
-    party_id: int,
-    file: UploadFile = File(...),
-    db: DbSession = None,
-    current_user: CurrentUser = None
+        party_id: int,
+        file: UploadFile = File(...),
+        db: DbSession = None,
+        current_user: CurrentUser = None
 ):
     party_res = await db.execute(select(Party).where(Party.id == party_id))
     party = party_res.scalar_one_or_none()
@@ -806,3 +865,14 @@ async def upload_party_audio(
     await db.commit()
 
     return {"status": "ok", "track": {"title": track_title, "url": file_url}}
+
+
+@router.websocket("/{party_id}/ws")
+async def party_websocket_endpoint(websocket: WebSocket, party_id: int):
+    await party_manager.connect(party_id, websocket)
+    try:
+        while True:
+            # Держим соединение открытым
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        party_manager.disconnect(party_id, websocket)

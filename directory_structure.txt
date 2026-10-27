@@ -7,8 +7,11 @@ dnd-companion/
 │   │   └── security.py
 │   ├── data
 │   │   ├── backgrounds.json
+│   │   ├── blood_curses.json
 │   │   ├── classes.json
 │   │   ├── feats.json
+│   │   ├── maneuvers.json
+│   │   ├── mutagens.json
 │   │   ├── progression.json
 │   │   ├── races.json
 │   │   ├── spells.json
@@ -49,7 +52,27 @@ dnd-companion/
 │   │   │   └── party_2_1793001728_krovostok_biografiya_bit_-_sal.mp3
 │   │   ├── css
 │   │   └── js
-│   │       └── wizard.js
+│   │       ├── sheet
+│   │       │   ├── components
+│   │       │   │   ├── DiceRoller.js
+│   │       │   │   ├── LevelUpModal.js
+│   │       │   │   ├── SkillsGrid.js
+│   │       │   │   └── SpellbookManager.js
+│   │       │   ├── core
+│   │       │   │   ├── ApiClient.js
+│   │       │   │   └── CharacterState.js
+│   │       │   ├── modules
+│   │       │   │   ├── BardController.js
+│   │       │   │   ├── BloodHunterController.js
+│   │       │   │   ├── FighterController.js
+│   │       │   │   ├── MonkKiController.js
+│   │       │   │   └── RogueController.js
+│   │       │   ├── rules
+│   │       │   │   ├── DndRules.js
+│   │       │   │   └── FeatValidator.js
+│   │       │   └── app.js
+│   │       └── wizard
+│   │           └── CharacterWizard.js
 │   ├── templates
 │   │   ├── sheet
 │   │   │   ├── tabs
@@ -68,6 +91,8 @@ dnd-companion/
 │   └── test_dice.py
 ├── .env
 ├── .gitignore
+├── directory_structure.txt
 ├── dnd_campaign.db
+├── fix_sequences.py
 ├── requirements.txt
 └── tree.py
