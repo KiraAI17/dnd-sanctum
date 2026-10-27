@@ -21,20 +21,35 @@ function initPartyWebSocket() {
 
       // 2. Обновление HP
       if (data.type === 'hp_update') {
+        const conf = getHpBarConfig(data.hp_current, data.hp_max);
+
+        // 1. Обновляем блок "Мой персонаж"
         if (myAttachedChar && myAttachedChar.id === data.character_id) {
           myAttachedChar.hp_current = data.hp_current;
           const elHp = document.getElementById('myHeroHpText');
-          if (elHp) elHp.textContent = `${data.hp_current} / ${data.hp_max}`;
+          if (elHp) elHp.textContent = conf.text;
+          const barEl = document.getElementById('myHeroProgressBar');
+          if (barEl) {
+            barEl.style.width = `${conf.pct}%`;
+            barEl.className = `h-full bg-gradient-to-r ${conf.colorClass} transition-all duration-300`;
+          }
         }
 
+        // 2. Обновляем строку на ширме Мастера
         const dmHp = document.getElementById(`dmHpDisplay_${data.character_id}`);
-        if (dmHp) dmHp.textContent = `${data.hp_current} / ${data.hp_max} HP`;
+        if (dmHp) dmHp.textContent = conf.text;
+        const dmBar = document.getElementById(`dmHpBar_${data.character_id}`);
+        if (dmBar) {
+          dmBar.style.width = `${conf.pct}%`;
+          dmBar.className = `h-full bg-gradient-to-r ${conf.colorClass} transition-all duration-300`;
+        }
 
+        // 3. Обновляем список отряда
         if (partyData && partyData.members) {
           const member = partyData.members.find(m => m.character_id === data.character_id);
           if (member) {
             member.character_hp_current = data.hp_current;
-            member.character_hp = `${data.hp_current}/${data.hp_max} HP`;
+            member.character_hp_max = data.hp_max;
             renderSquadList();
           }
         }

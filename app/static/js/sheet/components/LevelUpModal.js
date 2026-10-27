@@ -12,8 +12,14 @@ export class LevelUpModal {
     this.currentAsiChoiceMode = 'stats';
     this.compendiumFeats = [];
     this.subclassesMap = {};
+    this.monkDisciplinesCache = [];
 
     this.initSubclassesFallback();
+    this.exportGlobalHandlers();
+  }
+
+  exportGlobalHandlers() {
+    window.onMonkDisciplineChange = () => this.onMonkDisciplineChange();
   }
 
   initSubclassesFallback() {
@@ -25,9 +31,16 @@ export class LevelUpModal {
         "Орден Профанической души": { source: "Mercer", summary: "Договор с покровителями ради тёмных чар.", key_feature: "Договорная магия: ячейки магии колдуна." }
       },
       "монах": {
-        "Путь открытой ладони": { source: "PHB", summary: "Мастера безоружного боя и контроля энергии врагов.", key_feature: "Техника открытой ладони: нокдаун и отталкивание." },
-        "Путь тени": { source: "PHB", summary: "Ниндзя, использующие тени для маскировки и телепортации.", key_feature: "Искусство тени: чары тьмы и шаг сквозь тень." },
-        "Путь четырех стихий": { source: "PHB", summary: "Обуздание стихий через Ци.", key_feature: "Стихийные техники огня, воды, земли и воздуха." }
+        "Путь открытой ладони": { source: "PHB", summary: "Мастера безоружного боя и контроля энергии врагов.", key_feature: "Техника открытой ладони: нокдаун, отталкивание на 15 фт или лишение реакций." },
+        "Путь тени": { source: "PHB", summary: "Ниндзя, использующие тени для маскировки и телепортации.", key_feature: "Искусство тени: заговор Малая иллюзия, чары Тьмы и шаг сквозь тень на 60 фт." },
+        "Путь четырех стихий": { source: "PHB", summary: "Обуздание стихий через Ци.", key_feature: "Стихийные техники: водяной кнут, огненные змеи, воздушный кулак и заклинания стихий." },
+        "Путь долгой смерти": { source: "SCAG", summary: "Мрачные монахи, питающиеся жизненной силой павших врагов.", key_feature: "Касание смерти: временные хиты при убийстве врага (МУД + Уровень)." },
+        "Путь кэнсэя": { source: "XGtE", summary: "Мастера клинка и лука, делающие оружие продолжением духа.", key_feature: "Оружие кэнсэя: монашеское оружие, +2 к КД при Ловком парировании и +1к4 к выстрелам." },
+        "Путь пьяного мастера": { source: "XGtE", summary: "Непредсказуемые бойцы с хаотичными движениями пьяницы.", key_feature: "Техника пьяницы: Шквал ударов дарует Отход и +10 фт к скорости." },
+        "Путь солнечной души": { source: "XGtE", summary: "Воины света, стреляющие лучами чистой энергии солнца.", key_feature: "Луч сияющего солнца: дальнобойные атаки излучением на 30 фт от Ловкости." },
+        "Путь астрального тела": { source: "TCoE", summary: "Мастера, проецирующие спектральную броню и руки души.", key_feature: "Руки астрального тела: призыв за 1 Ци, атаки силовым полем на 10 фт от Мудрости." },
+        "Путь милосердия": { source: "TCoE", summary: "Чумные доктора и целители, балансирующие между исцелением и ядом.", key_feature: "Руки милосердия: Исцеляющая рука (хил) и Повреждающая рука (некротический урон)." },
+        "Путь восходящего дракона": { source: "FToD", summary: "Бойцы, воплотившие дыхание, крылья и первородную ярость драконов.", key_feature: "Дыхание дракона: конус 20 фт или линия 30 фт стихийного урона вместо атаки." }
       },
       "воин": {
         "Чемпион": { source: "PHB", summary: "Атлет с повышенной вероятностью крита.", key_feature: "Улучшенный крит: крит на 19 и 20." },
@@ -58,8 +71,9 @@ export class LevelUpModal {
     if (formulaEl) formulaEl.textContent = `d${this.hitDieSides} + ${DndRules.formatMod(conMod)}`;
     if (hpInput) hpInput.value = avgHp;
 
-    // 1. Боевой стиль на 2 ур.
     const cName = (char.class_name || '').toLowerCase();
+
+    // 1. Боевой стиль на 2 ур.
     const isMartial = cName.includes('охотник') || cName.includes('воин') || cName.includes('паладин') || cName.includes('следопыт');
     const styleBlock = document.getElementById('lvlFightingStyleBlock');
     if (styleBlock) styleBlock.classList.toggle('hidden', !(this.nextTargetLevel === 2 && isMartial));
@@ -72,7 +86,10 @@ export class LevelUpModal {
       if (showSub) this.loadSubclasses(char.class_name);
     }
 
-    // 3. ASI или Черта на 4, 8, 12, 16, 19 ур.
+    // 3. Практики монаха (Стихии / Кэнсэй на 3, 6, 11, 17 ур.)
+    this.checkAndLoadMonkDisciplines(char);
+
+    // 4. ASI или Черта на 4, 8, 12, 16, 19 ур.
     const asiBlock = document.getElementById('lvlAsiBlock');
     const isAsi = [4, 8, 12, 16, 19].includes(this.nextTargetLevel);
     if (asiBlock) {
@@ -135,30 +152,26 @@ export class LevelUpModal {
       if (res.ok) {
         let raw = await res.json();
 
-        // ВОТ ОНА — РАСПАКОВКА ОБЁРТКИ subclasses:
         if (raw && raw.subclasses && typeof raw.subclasses === 'object') {
           raw = raw.subclasses;
         } else if (raw && raw.data && typeof raw.data === 'object') {
           raw = raw.data;
         }
 
-        console.log("Успешно распаковано подклассов:", Object.keys(raw).length);
-
         for (const [sName, sData] of Object.entries(raw)) {
           if (!sData || typeof sData !== 'object') continue;
 
           const targetClass = (sData.class || sData.class_name || '').toLowerCase().trim();
 
-          // Разделяем Альтернативного воина и обычного Воина:
           const isCharAlt = norm.includes('альт');
           const isTargetAlt = targetClass.includes('альт');
+          if (isCharAlt !== isTargetAlt) continue;
 
-          if (isCharAlt !== isTargetAlt) {
-            continue;
-          }
+          const isMonkMatch = (norm.includes('монах') || norm.includes('monk')) &&
+                              (targetClass.includes('монах') || targetClass.includes('monk'));
 
-          // Для остальных (Бард, Плут, Монах, Варвар и др.):
-          const matches = targetClass === norm ||
+          const matches = isMonkMatch ||
+                          targetClass === norm ||
                           (norm && targetClass.includes(norm)) ||
                           (targetClass && norm.includes(targetClass));
 
@@ -166,28 +179,30 @@ export class LevelUpModal {
             this.subclassesMap[sName] = sData;
           }
         }
-      } else {
-        console.error("Ошибка ответа сервера:", res.status);
       }
     } catch (err) {
-      console.error("Сбой загрузки /compendium/subclasses:", err);
+      console.warn("Сбой загрузки подклассов:", err);
     }
 
-    console.log("Найдено архетипов для «" + className + "»:", Object.keys(this.subclassesMap));
+    if (Object.keys(this.subclassesMap).length === 0) {
+      for (const [fbClass, subs] of Object.entries(this.subclassesFallback)) {
+        if (norm.includes(fbClass) || fbClass.includes(norm)) {
+          this.subclassesMap = { ...subs };
+        }
+      }
+    }
 
-    // Отрисовка в выпадающий список (обычными строками, чтобы не слетали кавычки)
     if (Object.keys(this.subclassesMap).length === 0) {
       sel.innerHTML = '<option value="">-- Архетипы не найдены в базе --</option>' +
                       '<option value="custom">✍️ Свой авторский архетип...</option>';
     } else {
-      sel.innerHTML = '<option value="">-- Выберите архетип --</option>' +
-        Object.keys(this.subclassesMap).map(n => '<option value="' + n + '">👑 ' + n + '</option>').join('') +
+      sel.innerHTML = '<option value="">-- Выберите монастырскую традицию --</option>' +
+        Object.keys(this.subclassesMap).map(n => '<option value="' + n + '">🥋 ' + n + '</option>').join('') +
         '<option value="custom">✍️ Свой авторский архетип...</option>';
     }
 
     this.onSubclassChange();
   }
-
 
   onSubclassChange() {
     const sel = document.getElementById('lvlSubclassSelect');
@@ -209,7 +224,7 @@ export class LevelUpModal {
       return;
     }
 
-    // Если Бард выбирает Коллегию Мечей на 3 уровне — открываем выбор боевого стиля
+    // Если Бард выбирает Коллегию Мечей
     const styleBlock = document.getElementById('lvlFightingStyleBlock');
     const styleSelect = document.getElementById('lvlFightingStyleSelect');
     if (val.includes('Мечей') || val.includes('Swords')) {
@@ -228,6 +243,126 @@ export class LevelUpModal {
     document.getElementById('lvlSubclassPreviewSource').textContent = data.source || '5e';
     document.getElementById('lvlSubclassPreviewSummary').textContent = data.summary || '';
     document.getElementById('lvlSubclassPreviewKeyFeature').textContent = data.key_feature || '';
+
+    // Перепроверяем отображение блока практик при выборе архетипа
+    const char = this.state.get();
+    if (char) {
+      this.checkAndLoadMonkDisciplines(char, val);
+    }
+  }
+
+  // --- ЛОГИКА ПРАКТИК МОНАХА (Стихии / Кэнсэй) ---
+
+  async checkAndLoadMonkDisciplines(char, selectedSubclassName = null) {
+    const discBlock = document.getElementById('lvlMonkDisciplineBlock');
+    if (!discBlock) return;
+
+    const cName = (char.class_name || '').toLowerCase();
+    const isMonk = cName.includes('монах') || cName.includes('monk');
+    const effectiveSub = (selectedSubclassName || char.subclass || '').toLowerCase();
+
+    // Практики выбираются на 3, 6, 11 и 17 уровнях
+    const isDisciplineLevel = [3, 6, 11, 17].includes(this.nextTargetLevel);
+    const hasDisciplines = effectiveSub.includes('стихи') || effectiveSub.includes('кэнсэй') || effectiveSub.includes('elements') || effectiveSub.includes('kensei');
+
+    if (!isMonk || !isDisciplineLevel || !hasDisciplines) {
+      discBlock.classList.add('hidden');
+      return;
+    }
+
+    discBlock.classList.remove('hidden');
+    const titleEl = document.getElementById('lvlMonkDisciplineTitle');
+    const badgeEl = document.getElementById('lvlMonkDisciplineBadge');
+    const helpEl = document.getElementById('lvlMonkDisciplineHelp');
+
+    if (badgeEl) badgeEl.textContent = `${this.nextTargetLevel} уровень`;
+
+    if (effectiveSub.includes('стихи') || effectiveSub.includes('elements')) {
+      if (titleEl) titleEl.textContent = "Стихийная практика (Путь четырёх стихий):";
+      if (helpEl) helpEl.textContent = "Выберите новую стихийную технику для управления потоками Ци:";
+      await this.loadDisciplinesList("Путь четырех стихий", char);
+    } else if (effectiveSub.includes('кэнсэй') || effectiveSub.includes('kensei')) {
+      if (titleEl) titleEl.textContent = "Боевая практика / Оружие (Путь кэнсэя):";
+      if (helpEl) helpEl.textContent = "Выберите технику или специализированное оружие кэнсэя:";
+      await this.loadDisciplinesList("Путь кэнсэя", char);
+    }
+  }
+
+  async loadDisciplinesList(subclassFilter, char) {
+    const sel = document.getElementById('lvlMonkDisciplineSelect');
+    if (!sel) return;
+
+    if (this.monkDisciplinesCache.length === 0) {
+      try {
+        const res = await fetch('/compendium/monk-disciplines');
+        if (res.ok) {
+          const data = await res.json();
+          this.monkDisciplinesCache = data.disciplines || [];
+        }
+      } catch (err) {
+        console.warn("Сбой загрузки /compendium/monk-disciplines:", err);
+      }
+    }
+
+    // Список уже известных черт и фич персонажа
+    const knownNames = new Set((char.feats || []).map(f => (typeof f === 'string' ? f : f.name).toLowerCase()));
+    (char.features || []).forEach(f => {
+      const name = typeof f === 'string' ? f.split(':')[0] : f.name;
+      if (name) knownNames.add(name.toLowerCase().trim());
+    });
+
+    const targetSub = subclassFilter.toLowerCase();
+    const available = this.monkDisciplinesCache.filter(d => {
+      const matchesSub = (d.subclass || '').toLowerCase().includes(targetSub) || targetSub.includes((d.subclass || '').toLowerCase());
+      const levelOk = (d.required_level || 3) <= this.nextTargetLevel;
+      const notKnown = !knownNames.has(d.name.toLowerCase().trim());
+      return matchesSub && levelOk && notKnown;
+    });
+
+    if (available.length === 0) {
+      sel.innerHTML = '<option value="">-- Все доступные практики уже изучены --</option>';
+    } else {
+      sel.innerHTML = '<option value="">-- Выберите технику для изучения --</option>' +
+        available.map(d => {
+          const ki = d.ki_cost > 0 ? ` (${d.ki_cost} Ци)` : ' (Пассивно)';
+          return `<option value="${d.id}">⚡ ${d.name}${ki}</option>`;
+        }).join('');
+    }
+
+    this.onMonkDisciplineChange();
+  }
+
+  onMonkDisciplineChange() {
+    const sel = document.getElementById('lvlMonkDisciplineSelect');
+    const preview = document.getElementById('lvlMonkDisciplinePreview');
+    if (!sel || !preview) return;
+
+    const val = sel.value;
+    if (!val) {
+      preview.classList.add('hidden');
+      return;
+    }
+
+    const disc = this.monkDisciplinesCache.find(d => d.id === val);
+    if (!disc) {
+      preview.classList.add('hidden');
+      return;
+    }
+
+    preview.classList.remove('hidden');
+    const kiBadge = disc.ki_cost > 0 ? `<span class="text-amber-400 font-mono font-bold">${disc.ki_cost} Ци</span>` : '<span class="text-emerald-400 font-mono font-bold">Без траты Ци</span>';
+    const actionBadge = disc.action_type ? `<span class="text-stone-400 font-mono">${disc.action_type}</span>` : '';
+    const dmg = disc.damage_dice ? `<span class="text-rose-400 font-mono font-bold"> • ${disc.damage_dice} ${disc.damage_type || ''}</span>` : '';
+
+    preview.innerHTML = `
+      <div class="flex justify-between items-center border-b border-orange-950/60 pb-1 mb-1">
+        <strong class="text-amber-200 text-xs">${disc.name}</strong>
+        <div class="flex items-center gap-1.5 text-[10px]">
+          ${kiBadge} ${actionBadge} ${dmg}
+        </div>
+      </div>
+      <p class="text-stone-300 text-[11px] leading-relaxed">${disc.description}</p>
+    `;
   }
 
   switchAsiMode(mode) {
@@ -349,7 +484,29 @@ export class LevelUpModal {
       if (finalSub) payload.chosen_subclass = finalSub;
     }
 
-    // 3. ASI или Черта
+    // 3. Выбранная практика монаха (Стихии / Кэнсэй)
+    const discBlock = document.getElementById('lvlMonkDisciplineBlock');
+    if (discBlock && !discBlock.classList.contains('hidden')) {
+      const discId = document.getElementById('lvlMonkDisciplineSelect')?.value;
+      if (discId) {
+        const discObj = this.monkDisciplinesCache.find(d => d.id === discId);
+        if (discObj) {
+          // Если боевой стиль не выбирался — пишем в new_feat, иначе сохраняем в список практик
+          payload.new_feat = {
+            name: `Практика: ${discObj.name}`,
+            description: `${discObj.description} (Стоимость: ${discObj.ki_cost} Ци)`
+          };
+
+          // Сохраняем в локальное хранилище персонажа для вкладки Ци
+          const storageKey = `char_${char.id}_monk_disciplines`;
+          const learned = JSON.parse(localStorage.getItem(storageKey) || '[]');
+          learned.push(discObj);
+          localStorage.setItem(storageKey, JSON.stringify(learned));
+        }
+      }
+    }
+
+    // 4. ASI или Черта
     const asiBlock = document.getElementById('lvlAsiBlock');
     if (asiBlock && !asiBlock.classList.contains('hidden')) {
       if (this.currentAsiChoiceMode === 'stats') {

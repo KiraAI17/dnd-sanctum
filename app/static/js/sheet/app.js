@@ -39,8 +39,22 @@ class SheetApplication {
   async init() {
     try {
       // 1. Загрузка данных персонажа
-      const charData = await this.api.getCharacter();
+      const [charData, meRes] = await Promise.all([
+        this.api.getCharacter(),
+        apiFetch('/auth/me')
+      ]);
+
       this.state.set(charData);
+      let currentUser = null;
+      if (meRes.ok) currentUser = await meRes.json();
+
+      // Проверяем: владелец ли открыл страницу?
+      const isOwner = currentUser && (currentUser.id === charData.user_id);
+      this.isReadOnly = !isOwner;
+
+      if (this.isReadOnly) {
+        this.applyReadOnlyMode();
+      }
 
       const c = this.state.get();
       if (c && c.visual_custom) {
@@ -185,6 +199,60 @@ class SheetApplication {
     window.applyPreset = (p) => this.applyPreset(p);
     window.previewCustomColors = () => this.previewCustomColors();
     window.submitVisualTheme = () => this.submitVisualTheme();
+
+    // ВОТ ЭТА СТРОКА:
+    window.uploadCharacterFile = (event, type) => this.uploadFile(event, type);
+  }
+
+  applyReadOnlyMode() {
+    // 1. Показываем плашку «Режим просмотра DM»
+    const headerRow = document.querySelector('.flex.items-center.justify-between.border-b');
+    if (headerRow) {
+      const badge = document.createElement('div');
+      badge.className = "px-3 py-1 rounded-lg bg-amber-950/80 border border-amber-600/60 text-amber-300 font-mono text-xs flex items-center gap-1.5 shadow";
+      badge.innerHTML = "<span>👑</span> <span>Режим просмотра (Мастер стола)</span>";
+      headerRow.appendChild(badge);
+    }
+
+    // 2. Скрываем кнопки отдыха и повышения уровня
+    const restBtns = document.querySelectorAll('button[onclick*="handleRest"]');
+    restBtns.forEach(b => b.classList.add('hidden'));
+
+    const lvlUpBtn = document.querySelector('button[onclick*="openLevelUpModal"]');
+    if (lvlUpBtn) lvlUpBtn.classList.add('hidden');
+
+    // 3. Блокируем изменение HP игрока прямо из шапки листа (у Мастера для этого есть Ширма на столе)
+    const hpDeltaControls = document.getElementById('hpDeltaInput')?.parentElement;
+    if (hpDeltaControls) hpDeltaControls.classList.add('hidden');
+    const hpButtons = document.querySelectorAll('button[onclick*="modifyHp"]');
+    hpButtons.forEach(b => b.classList.add('hidden'));
+
+    // 4. Отключаем интерактивные кнопки траты очков Ци, костей превосходства и ячеек
+    setTimeout(() => {
+      // Все кнопки «Активировать», «Потратить», «Отдых» внутри вкладок классов
+      const actionButtons = document.querySelectorAll(
+        '#tabMonkKi button, #tabFighterManeuvers button, #tabBloodHunter button, #tabRogue button, #tabBard button'
+      );
+      actionButtons.forEach(btn => {
+        // Оставляем только броски дайсов/проверок, а трату ресурсов блокируем:
+        const txt = btn.textContent.toLowerCase();
+        if (txt.includes('активировать') || txt.includes('потратить') || txt.includes('отдых') || txt.includes('исцелиться') || txt.includes('принять')) {
+          btn.disabled = true;
+          btn.classList.add('opacity-40', 'cursor-not-allowed');
+          btn.title = "Доступно только владельцу персонажа";
+        }
+      });
+
+      // Скрываем добавление предметов и оружия
+      const addBtns = [
+        document.querySelector('button[onclick*="openItemModal"]'),
+        document.querySelector('button[onclick*="openWeaponModal"]'),
+        document.querySelector('button[onclick*="openSpellModal"]'),
+        document.getElementById('btnSaveBackstory'),
+        document.getElementById('btnSaveVisual')
+      ];
+      addBtns.forEach(b => { if (b) b.classList.add('hidden'); });
+    }, 200);
   }
 
   async openDisguiseModal() {
@@ -396,6 +464,7 @@ class SheetApplication {
       spellsBtn.classList.toggle('hidden', !isCaster);
     }
   }
+
 
   switchTab(tab) {
     const tabs = ['Stats', 'Combat', 'BloodHunter', 'MonkKi', 'FighterManeuvers', 'Rogue', 'Bard', 'Spells', 'Inventory', 'Features', 'Bio', 'Settings'];
@@ -1256,6 +1325,54 @@ class SheetApplication {
       }
     } catch (err) {
       alert("Ошибка сохранения: " + err.message);
+    }
+  }
+
+  async uploadFile(event, type) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = localStorage.getItem('token') || localStorage.getItem('access_token') || sessionStorage.getItem('token') || sessionStorage.getItem('access_token');
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token.replace(/^Bearer\s+/i, '')}`;
+
+    try {
+      const res = await fetch(`/characters/${this.charId}/${type}/upload`, {
+        method: 'POST',
+        headers: headers,
+        credentials: 'include',
+        body: formData
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const currentChar = this.state.get();
+
+        if (type === 'avatar') {
+          currentChar.avatar_url = data.avatar_url;
+          const inp = document.getElementById('visualAvatarInput');
+          if (inp) inp.value = data.avatar_url;
+        } else if (type === 'banner') {
+          currentChar.banner_url = data.banner_url;
+          const inp = document.getElementById('visualBannerInput');
+          if (inp) inp.value = data.banner_url;
+        }
+
+        this.state.set(currentChar);
+        this.render();
+        this.applyVisuals();
+        alert(type === 'avatar' ? "Аватарка успешно обновлена!" : "Баннер успешно обновлен!");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Не удалось загрузить изображение.");
+      }
+    } catch (e) {
+      alert("Ошибка отправки файла: " + e.message);
+    } finally {
+      event.target.value = '';
     }
   }
 }

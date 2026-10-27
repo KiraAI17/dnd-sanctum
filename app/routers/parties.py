@@ -876,3 +876,58 @@ async def party_websocket_endpoint(websocket: WebSocket, party_id: int):
             await websocket.receive_text()
     except WebSocketDisconnect:
         party_manager.disconnect(party_id, websocket)
+
+UPLOAD_MAPS_DIR = Path(__file__).resolve().parent.parent / "static" / "maps"
+UPLOAD_TOKENS_DIR = Path(__file__).resolve().parent.parent / "static" / "tokens"
+UPLOAD_MAPS_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_TOKENS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@router.post("/{party_id}/map/upload", summary="Загрузить изображение карты файлом")
+async def upload_party_map_image(
+    party_id: int,
+    file: UploadFile = File(...),
+    db: DbSession = None,
+    current_user: CurrentUser = None
+):
+    party_res = await db.execute(select(Party).where(Party.id == party_id))
+    party = party_res.scalar_one_or_none()
+    if not party or party.dm_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Только Мастер может загружать карты.")
+
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in ('.png', '.jpg', '.jpeg', '.webp'):
+        raise HTTPException(status_code=400, detail="Поддерживаются только изображения (.png, .jpg, .webp).")
+
+    clean_filename = f"party_{party_id}_map_{int(time.time())}{suffix}"
+    dest = UPLOAD_MAPS_DIR / clean_filename
+    with open(dest, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    file_url = f"/static/maps/{clean_filename}"
+    return {"status": "ok", "image_url": file_url}
+
+
+@router.post("/{party_id}/tokens/upload", summary="Загрузить арт для токена файлом")
+async def upload_party_token_image(
+    party_id: int,
+    file: UploadFile = File(...),
+    db: DbSession = None,
+    current_user: CurrentUser = None
+):
+    party_res = await db.execute(select(Party).where(Party.id == party_id))
+    party = party_res.scalar_one_or_none()
+    if not party or party.dm_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Только Мастер может загружать токены.")
+
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in ('.png', '.jpg', '.jpeg', '.webp'):
+        raise HTTPException(status_code=400, detail="Поддерживаются только изображения (.png, .jpg, .webp).")
+
+    clean_filename = f"party_{party_id}_tok_{int(time.time())}{suffix}"
+    dest = UPLOAD_TOKENS_DIR / clean_filename
+    with open(dest, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    file_url = f"/static/tokens/{clean_filename}"
+    return {"status": "ok", "image_url": file_url}

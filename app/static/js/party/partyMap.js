@@ -1,69 +1,121 @@
 let mapData = null;
+let currentGridSize = 50;
+
+// Инициализация линейки-стрелочки расстояний
+let isMeasuring = false;
+let rulerStart = { x: 0, y: 0 };
 
 async function renderBattleMap() {
   try {
     const res = await apiFetch(`/parties/${partyId}/map`);
-    if (res.ok) {
-      mapData = await res.json();
-      const canvas = document.getElementById('battleMapCanvas');
-      if (mapData.image_url) {
-        canvas.style.backgroundImage = `url('${mapData.image_url}')`;
-        document.getElementById('mapBackgroundInput').value = mapData.image_url;
-      }
+    if (!res.ok) return;
+    mapData = await res.json();
 
-      const tokens = mapData.tokens || [];
-      canvas.innerHTML = tokens.map(t => `
-        <div id="token_${t.id}" onmousedown="dragMapToken(event, '${t.id}')" class="absolute w-10 h-10 rounded-full border-2 border-amber-400 bg-stone-900/90 text-amber-200 font-bold text-xs flex items-center justify-center cursor-move shadow-xl select-none group" style="left: ${t.x}px; top: ${t.y}px;">
-          <span>${t.name.slice(0, 2)}</span>
-          <div class="absolute -top-5 left-1/2 -translate-x-1/2 bg-black/80 px-1.5 py-0.5 rounded text-[9px] font-serif text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-            ${t.name}
-          </div>
-        </div>
-      `).join('');
+    const canvas = document.getElementById('battleMapCanvas');
+    const overlay = document.getElementById('battleMapGridOverlay');
+    const tokensLayer = document.getElementById('battleMapTokensLayer');
+    if (!canvas || !tokensLayer) return;
+
+    currentGridSize = mapData.grid_size || 50;
+    const gridInput = document.getElementById('mapGridCustomInput');
+    if (gridInput) gridInput.value = currentGridSize;
+
+    // 1. Отрисовка фона карты
+    if (mapData.image_url && mapData.image_url.trim()) {
+      canvas.style.backgroundImage = `url('${mapData.image_url}')`;
     }
-  } catch (e) {}
+
+    // 2. Отрисовка тактической сетки
+    if (overlay) {
+      overlay.style.backgroundSize = `${currentGridSize}px ${currentGridSize}px`;
+    }
+
+    // 3. Обновление атласа карт (пресетов)
+    renderMapPresetsDropdown();
+
+    // 4. Отрисовка токенов с проверкой прав
+    const tokens = mapData.tokens || [];
+    const isDm = partyData && partyData.is_current_user_dm;
+    const myCharId = partyData ? partyData.my_character_id : null;
+
+    tokensLayer.innerHTML = tokens.map(t => {
+      const sizeMult = t.size || 1;
+      const pixelSize = currentGridSize * sizeMult - 6;
+
+      // Проверка прав: DM может двигать всех; игрок — только СВОЮ фишку
+      const canControl = isDm || (t.character_id && t.character_id === myCharId);
+
+      // Рамка стороны существа
+      let borderColor = 'border-amber-400';
+      if (t.type === 'enemy') borderColor = 'border-rose-500 shadow-rose-950/60';
+      else if (t.type === 'ally') borderColor = 'border-emerald-400 shadow-emerald-950/60';
+      else if (t.type === 'neutral') borderColor = 'border-amber-300 shadow-amber-950/60';
+
+      // Полоска здоровья над токеном
+      const curHp = t.hp_current !== undefined ? t.hp_current : (t.hp_max || 10);
+      const maxHp = t.hp_max || 10;
+      const pct = Math.max(0, Math.min(100, Math.round((curHp / maxHp) * 100)));
+      const hpColor = pct <= 25 ? 'bg-rose-600' : (pct <= 50 ? 'bg-amber-500' : 'bg-emerald-500');
+
+      const avatarSrc = t.avatar_url && t.avatar_url.trim() ? t.avatar_url : '';
+      const cursorClass = canControl ? 'cursor-grab active:cursor-grabbing' : 'cursor-default opacity-90';
+
+      return `
+        <div id="token_${t.id}"
+             ${canControl ? `onmousedown="dragMapToken(event, '${t.id}')"` : ''}
+             class="absolute rounded-full border-2 ${borderColor} bg-stone-900 shadow-2xl flex items-center justify-center select-none group transition-shadow ${cursorClass}"
+             style="width: ${pixelSize}px; height: ${pixelSize}px; left: ${t.x}px; top: ${t.y}px; z-index: ${sizeMult * 10};">
+
+          ${avatarSrc ? `
+            <img src="${avatarSrc}" class="w-full h-full object-cover rounded-full pointer-events-none">
+          ` : `
+            <span class="font-bold text-stone-100 font-serif text-xs pointer-events-none">${t.name.slice(0, 2)}</span>
+          `}
+
+          <!-- Полоска HP -->
+          <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-4/5 h-1.5 bg-black/80 rounded-full overflow-hidden border border-black pointer-events-none">
+            <div class="h-full ${hpColor} transition-all duration-300" style="width: ${pct}%;"></div>
+          </div>
+
+          <!-- Тултип -->
+          <div class="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-black/90 px-2 py-0.5 rounded text-[10px] font-mono text-amber-200 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-orange-950 z-50">
+            ${t.name} (${curHp}/${maxHp} HP)${!canControl ? ' 🔒' : ''}
+          </div>
+
+          <!-- Кнопка удаления для Мастера -->
+          ${isDm ? `
+            <button type="button" onclick="deleteMapToken('${t.id}')" title="Убрать токен" class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-950 border border-rose-600 text-rose-200 text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-rose-700 transition-all z-50">
+              &times;
+            </button>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+
+    initRulerEvents();
+  } catch (e) {
+    console.error("Ошибка renderBattleMap:", e);
+  }
 }
 
-async function saveMapBackground() {
-  const url = document.getElementById('mapBackgroundInput').value.trim();
-  if (!url) return;
-  try {
-    const res = await apiFetch(`/parties/${partyId}/map`, {
-      method: 'PATCH',
-      body: { image_url: url }
-    });
-    if (res.ok) renderBattleMap();
-  } catch (e) {}
-}
-
-async function addMapToken() {
-  const name = prompt("Имя токена (герой или монстр):", "Гоблин");
-  if (!name) return;
-  const tokens = mapData.tokens || [];
-  tokens.push({
-    id: "tok_" + Date.now(),
-    name: name,
-    x: 50 + (tokens.length * 30),
-    y: 50 + (tokens.length * 20),
-    color: "#f59e0b"
-  });
-  try {
-    await apiFetch(`/parties/${partyId}/map`, { method: 'PATCH', body: { tokens: tokens } });
-    renderBattleMap();
-  } catch (e) {}
-}
-
+// --- ПЕРЕТАСКИВАНИЕ С ПРИЛИПАНИЕМ К СЕТКЕ ---
 function dragMapToken(e, tokenId) {
+  if (e.button !== 0) return; // Только левая кнопка мыши
+  if (e.target.tagName.toLowerCase() === 'button') return;
   e.preventDefault();
+
   const el = document.getElementById(`token_${tokenId}`);
   const canvas = document.getElementById('battleMapCanvas');
+  if (!el || !canvas) return;
+
   const rect = canvas.getBoundingClientRect();
+  const tokenSize = el.offsetWidth;
 
   function onMouseMove(ev) {
-    let x = ev.clientX - rect.left - 20;
-    let y = ev.clientY - rect.top - 20;
-    x = Math.max(0, Math.min(canvas.clientWidth - 40, x));
-    y = Math.max(0, Math.min(canvas.clientHeight - 40, y));
+    let x = ev.clientX - rect.left - tokenSize / 2;
+    let y = ev.clientY - rect.top - tokenSize / 2;
+    x = Math.max(0, Math.min(canvas.clientWidth - tokenSize, x));
+    y = Math.max(0, Math.min(canvas.clientHeight - tokenSize, y));
     el.style.left = x + 'px';
     el.style.top = y + 'px';
   }
@@ -71,18 +123,368 @@ function dragMapToken(e, tokenId) {
   async function onMouseUp(ev) {
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
-    const x = parseInt(el.style.left) || 0;
-    const y = parseInt(el.style.top) || 0;
+
+    // Прилипание к ближайшей клетке сетки
+    let rawX = parseInt(el.style.left) || 0;
+    let rawY = parseInt(el.style.top) || 0;
+
+    const snappedX = Math.round(rawX / currentGridSize) * currentGridSize + 3;
+    const snappedY = Math.round(rawY / currentGridSize) * currentGridSize + 3;
+
+    el.style.left = snappedX + 'px';
+    el.style.top = snappedY + 'px';
 
     const tokens = mapData.tokens || [];
     const tok = tokens.find(t => t.id === tokenId);
     if (tok) {
-      tok.x = x;
-      tok.y = y;
+      tok.x = snappedX;
+      tok.y = snappedY;
       await apiFetch(`/parties/${partyId}/map`, { method: 'PATCH', body: { tokens: tokens } });
     }
   }
 
   document.addEventListener('mousemove', onMouseMove);
   document.addEventListener('mouseup', onMouseUp);
+}
+
+// --- ЛИНЕЙКА-СТРЕЛОЧКА РАССТОЯНИЯ (RULER) ---
+function initRulerEvents() {
+  const canvas = document.getElementById('battleMapCanvas');
+  const svg = document.getElementById('battleMapRulerSvg');
+  const line = document.getElementById('rulerLine');
+  const badge = document.getElementById('rulerBadge');
+  if (!canvas || !svg || !line || !badge) return;
+
+  canvas.oncontextmenu = (e) => e.preventDefault(); // Запрещаем контекстное меню на карте
+
+  canvas.addEventListener('mousedown', (e) => {
+    // Активация по правой кнопке мыши (button === 2) или левой с зажатым Shift
+    if (e.button === 2 || (e.button === 0 && e.shiftKey)) {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      isMeasuring = true;
+      rulerStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+
+      svg.classList.remove('hidden');
+      badge.classList.remove('hidden');
+
+      line.setAttribute('x1', rulerStart.x);
+      line.setAttribute('y1', rulerStart.y);
+      line.setAttribute('x2', rulerStart.x);
+      line.setAttribute('y2', rulerStart.y);
+    }
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isMeasuring) return;
+    const rect = canvas.getBoundingClientRect();
+    const curX = Math.max(0, Math.min(canvas.clientWidth, e.clientX - rect.left));
+    const curY = Math.max(0, Math.min(canvas.clientHeight, e.clientY - rect.top));
+
+    line.setAttribute('x2', curX);
+    line.setAttribute('y2', curY);
+
+    // Расчет расстояния: гипотенуза в пикселях / размер сетки * 5 футов
+    const dx = curX - rulerStart.x;
+    const dy = curY - rulerStart.y;
+    const distPx = Math.sqrt(dx * dx + dy * dy);
+    const cells = (distPx / currentGridSize).toFixed(1);
+    const feet = Math.round(cells * 5);
+
+    badge.textContent = `📏 ${feet} фт (${cells} кл)`;
+    badge.style.left = `${curX + 15}px`;
+    badge.style.top = `${curY - 15}px`;
+  });
+
+  window.addEventListener('mouseup', (e) => {
+    if (isMeasuring && (e.button === 2 || e.button === 0)) {
+      isMeasuring = false;
+      svg.classList.add('hidden');
+      badge.classList.add('hidden');
+    }
+  });
+}
+
+// --- СЕТКА И ЗАГРУЗКА КАРТ ---
+async function changeMapGridSize(newSize) {
+  currentGridSize = Math.max(20, Math.min(150, parseInt(newSize) || 50));
+  try {
+    await apiFetch(`/parties/${partyId}/map`, {
+      method: 'PATCH',
+      body: { grid_size: currentGridSize }
+    });
+    renderBattleMap();
+  } catch (e) {}
+}
+
+async function uploadMapImageFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token.replace(/^Bearer\s+/i, '')}`;
+
+    const res = await fetch(`/parties/${partyId}/map/upload`, {
+      method: 'POST',
+      headers: headers,
+      credentials: 'include',
+      body: formData
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      await apiFetch(`/parties/${partyId}/map`, {
+        method: 'PATCH',
+        body: { image_url: data.image_url }
+      });
+      renderBattleMap();
+      alert("Карта успешно загружена на сервер!");
+    }
+  } catch (e) {
+    alert("Ошибка загрузки карты: " + e.message);
+  } finally {
+    event.target.value = '';
+  }
+}
+
+// --- АТЛАС ЛОКАЦИЙ МАСТЕРА ---
+
+// Переменная для отслеживания текущей выбранной карты в Атласе
+let activeAtlasIndex = null;
+
+function renderMapPresetsDropdown() {
+  const sel = document.getElementById('mapPresetSelect');
+  if (!sel) return;
+
+  const key = `party_${partyId}_map_atlas`;
+  const presets = JSON.parse(localStorage.getItem(key) || '[]');
+
+  if (presets.length === 0) {
+    sel.innerHTML = '<option value="">-- Атлас пуст --</option>';
+    activeAtlasIndex = null;
+    return;
+  }
+
+  // Если активная карта совпадает по URL, ставим её выбранной
+  if (mapData && mapData.image_url) {
+    const foundIdx = presets.findIndex(p => p.image_url === mapData.image_url);
+    if (foundIdx !== -1) activeAtlasIndex = foundIdx;
+  }
+
+  sel.innerHTML = presets.map((p, idx) => {
+    const isSelected = activeAtlasIndex === idx ? 'selected' : '';
+    return `<option value="${idx}" ${isSelected}>📍 ${p.title}</option>`;
+  }).join('');
+}
+
+async function switchActiveMapPreset(val) {
+  if (val === '' || val === null) return;
+  const idx = parseInt(val);
+  const key = `party_${partyId}_map_atlas`;
+  const presets = JSON.parse(localStorage.getItem(key) || '[]');
+  const chosen = presets[idx];
+  if (!chosen) return;
+
+  activeAtlasIndex = idx;
+
+  try {
+    const res = await apiFetch(`/parties/${partyId}/map`, {
+      method: 'PATCH',
+      body: {
+        image_url: chosen.image_url,
+        grid_size: chosen.grid_size || 50
+      }
+    });
+    if (res.ok) {
+      renderBattleMap();
+    }
+  } catch (e) {
+    console.error("Ошибка смены локации:", e);
+  }
+}
+
+async function deleteActiveMapPreset() {
+  const sel = document.getElementById('mapPresetSelect');
+  const val = sel ? sel.value : '';
+
+  if (val === '' || val === null || val === undefined) {
+    alert("В Атласе нет выбранной карты для удаления!");
+    return;
+  }
+
+  const idx = parseInt(val);
+  const key = `party_${partyId}_map_atlas`;
+  const presets = JSON.parse(localStorage.getItem(key) || '[]');
+  const toDelete = presets[idx];
+  if (!toDelete) return;
+
+  if (!confirm(`Удалить карту «${toDelete.title}» из Атласа?`)) return;
+
+  presets.splice(idx, 1);
+  localStorage.setItem(key, JSON.stringify(presets));
+
+  activeAtlasIndex = presets.length > 0 ? 0 : null;
+  renderMapPresetsDropdown();
+
+  // Если удалили ту, на которой стояли — переключаем на первую оставшуюся
+  if (presets.length > 0) {
+    switchActiveMapPreset(0);
+  }
+
+  alert(`Карта «${toDelete.title}» удалена из вашего Атласа.`);
+}
+
+function openSaveMapModal() {
+  document.getElementById('saveMapModal')?.classList.remove('hidden');
+}
+
+async function confirmSaveMapPreset() {
+  const title = document.getElementById('newMapTitleInput')?.value.trim();
+  if (!title || !mapData || !mapData.image_url) {
+    alert("Укажите название карты и загрузите фон!");
+    return;
+  }
+
+  const key = `party_${partyId}_map_atlas`;
+  const presets = JSON.parse(localStorage.getItem(key) || '[]');
+  presets.push({
+    title: title,
+    image_url: mapData.image_url,
+    grid_size: currentGridSize
+  });
+  localStorage.setItem(key, JSON.stringify(presets));
+
+  document.getElementById('saveMapModal')?.classList.add('hidden');
+  renderMapPresetsDropdown();
+  alert(`Карта «${title}» сохранена в ваш Атлас!`);
+}
+
+// --- ВЫСАДКА ОТРЯДА И УПРАВЛЕНИЕ ТОКЕНАМИ ---
+async function deployPartySquadToMap() {
+  if (!partyData || !partyData.members) return;
+  const tokens = mapData.tokens || [];
+
+  partyData.members.forEach((m, idx) => {
+    if (!m.character_id) return;
+    const existing = tokens.find(t => t.character_id === m.character_id);
+    if (!existing) {
+      tokens.push({
+        id: "tok_hero_" + m.character_id,
+        character_id: m.character_id,
+        name: m.character_name || m.username,
+        avatar_url: m.avatar_url || m.banner_url || '',
+        hp_current: m.character_hp_current !== undefined ? m.character_hp_current : 10,
+        hp_max: m.character_hp_max || 10,
+        type: "ally",
+        size: 1,
+        x: (1 + (idx % 4)) * currentGridSize + 3,
+        y: (1 + Math.floor(idx / 4)) * currentGridSize + 3
+      });
+    }
+  });
+
+  try {
+    await apiFetch(`/parties/${partyId}/map`, { method: 'PATCH', body: { tokens: tokens } });
+    renderBattleMap();
+  } catch (e) {}
+}
+
+function openAddTokenModal() {
+  const modal = document.getElementById('addTokenModal');
+  const sel = document.getElementById('quickNpcTokenSelect');
+  if (modal) modal.classList.remove('hidden');
+
+  if (sel && typeof dmNpcsList !== 'undefined') {
+    sel.innerHTML = '<option value="">-- Создать вручную или выберите НИПа --</option>' +
+      (dmNpcsList || []).map((n, idx) => `<option value="${idx}">🎭 ${n.name} (${n.hp_max || 10} HP)</option>`).join('');
+  }
+}
+
+function closeAddTokenModal() {
+  document.getElementById('addTokenModal')?.classList.add('hidden');
+}
+
+function fillTokenFromNpc(idx) {
+  if (idx === '' || typeof dmNpcsList === 'undefined') return;
+  const n = dmNpcsList[idx];
+  if (!n) return;
+
+  document.getElementById('newTokenName').value = n.name;
+  document.getElementById('newTokenHp').value = n.hp_max || 20;
+  document.getElementById('newTokenAvatar').value = n.avatar_url || n.banner_url || '';
+  document.getElementById('newTokenType').value = 'enemy';
+}
+
+async function uploadTokenImageFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token.replace(/^Bearer\s+/i, '')}`;
+
+    const res = await fetch(`/parties/${partyId}/tokens/upload`, {
+      method: 'POST',
+      headers: headers,
+      credentials: 'include',
+      body: formData
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      document.getElementById('newTokenAvatar').value = data.image_url;
+      document.getElementById('tokenUploadLabelText').textContent = "✓ Загружено!";
+    }
+  } catch (e) {
+    alert("Ошибка загрузки портрета токена: " + e.message);
+  } finally {
+    event.target.value = '';
+  }
+}
+
+async function submitNewMapToken(e) {
+  e.preventDefault();
+  const name = document.getElementById('newTokenName').value.trim();
+  const type = document.getElementById('newTokenType').value;
+  const size = parseInt(document.getElementById('newTokenSize').value) || 1;
+  const hp = parseInt(document.getElementById('newTokenHp').value) || 15;
+  const avatar = document.getElementById('newTokenAvatar').value.trim();
+
+  const tokens = mapData.tokens || [];
+  tokens.push({
+    id: "tok_" + Date.now(),
+    name: name,
+    type: type,
+    size: size,
+    hp_current: hp,
+    hp_max: hp,
+    avatar_url: avatar,
+    x: 2 * currentGridSize + 3,
+    y: 2 * currentGridSize + 3
+  });
+
+  try {
+    await apiFetch(`/parties/${partyId}/map`, { method: 'PATCH', body: { tokens: tokens } });
+    closeAddTokenModal();
+    renderBattleMap();
+    e.target.reset();
+  } catch (err) {}
+}
+
+async function deleteMapToken(tokenId) {
+  if (!confirm("Удалить этот токен с карты?")) return;
+  const tokens = (mapData.tokens || []).filter(t => t.id !== tokenId);
+  try {
+    await apiFetch(`/parties/${partyId}/map`, { method: 'PATCH', body: { tokens: tokens } });
+    renderBattleMap();
+  } catch (e) {}
 }

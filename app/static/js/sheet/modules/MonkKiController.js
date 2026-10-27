@@ -51,6 +51,98 @@ export class MonkKiController {
 
     const aimCard = document.getElementById('monkFocusedAimCard');
     if (aimCard) aimCard.classList.toggle('hidden', lvl < 5);
+
+    // Вызываем отрисовку изученных практик и традиций
+    this.renderTraditionPanel(char, lvl, dieSides, wisMod, dexMod, prof, saveDc);
+  }
+
+  renderTraditionPanel(char, lvl, dieSides, wisMod, dexMod, prof, saveDc) {
+    let container = document.getElementById('monkTraditionContainer');
+    if (!container) {
+      const tabCard = document.querySelector('#tabMonkKi .fox-card');
+      if (!tabCard) return;
+      container = document.createElement('div');
+      container.id = 'monkTraditionContainer';
+      container.className = 'space-y-4 pt-3 border-t border-amber-950/60 font-serif';
+      tabCard.appendChild(container);
+    }
+
+    // Достаем практики из localStorage или из char.feats
+    const storageKey = `char_${char.id}_monk_disciplines`;
+    let learnedDisciplines = JSON.parse(localStorage.getItem(storageKey) || '[]');
+
+    if (learnedDisciplines.length === 0 && char.feats) {
+      char.feats.forEach(f => {
+        const fName = typeof f === 'string' ? f : f.name;
+        if (fName && fName.startsWith('Практика: ')) {
+          const cleanName = fName.replace('Практика: ', '').trim();
+          learnedDisciplines.push({
+            id: 'disc_' + cleanName.toLowerCase().replace(/\s+/g, '_'),
+            name: cleanName,
+            description: typeof f === 'string' ? '' : (f.description || ''),
+            ki_cost: 1
+          });
+        }
+      });
+    }
+
+    if (learnedDisciplines.length === 0) {
+      container.innerHTML = `
+        <div class="p-3 bg-black/40 border border-amber-950/60 rounded-xl text-stone-400 text-xs text-center">
+          Изученные практики традиции (Стихии / Кэнсэй) появятся здесь после выбора при повышении уровня.
+        </div>
+      `;
+      return;
+    }
+
+    let cardsHtml = learnedDisciplines.map(d => {
+      const kiText = d.ki_cost > 0 ? `${d.ki_cost} Ци` : 'Пассивно';
+      const dmg = d.damage_dice ? ` • ${d.damage_dice} ${d.damage_type || ''}` : '';
+      const save = d.saving_throw ? ` • Спасбросок ${d.saving_throw.toUpperCase()}` : '';
+
+      return `
+        <div class="p-3 rounded-xl bg-black/60 border border-amber-950/80 flex flex-col justify-between space-y-2 shadow">
+          <div>
+            <div class="flex justify-between items-start gap-2">
+              <strong class="text-amber-300 text-xs font-bold">${d.name}</strong>
+              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 shrink-0">${kiText}</span>
+            </div>
+            <p class="text-[11px] text-stone-300 mt-1 leading-relaxed">${d.description || ''}</p>
+            ${dmg || save ? `<div class="text-[10px] font-mono text-stone-400 pt-1">${save}${dmg}</div>` : ''}
+          </div>
+          ${d.ki_cost > 0 ? `
+            <div class="flex justify-end pt-1">
+              <button type="button" onclick="window.monkKi.useDiscipline('${d.id}', '${d.name}', ${d.ki_cost}, '${d.damage_dice || ''}')"
+                      class="px-3 py-1 rounded bg-gradient-to-r from-amber-600 to-foxOrange-600 hover:brightness-110 text-stone-950 font-bold text-xs shadow active:scale-95 transition-all">
+                Активировать (${d.ki_cost} Ци)
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="space-y-2">
+        <div class="flex justify-between items-center border-b border-orange-950/60 pb-1.5">
+          <strong class="text-amber-200 text-sm flex items-center gap-1.5">
+            <span>🥋</span> <span>Изученные боевые практики</span>
+          </strong>
+          <span class="text-[10px] font-mono text-amber-400">Сл спасброска: ${saveDc}</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+          ${cardsHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  useDiscipline(id, name, cost, damageDice) {
+    if (this.spendKi(cost, name)) {
+      if (damageDice && damageDice !== 'null' && damageDice !== '') {
+        window.diceRoller.rollFormula(`Урон: ${name}`, damageDice);
+      }
+    }
   }
 
   spendKi(amount, techniqueName) {

@@ -1,3 +1,18 @@
+window.getHpBarConfig = function(cur, max) {
+  const c = Math.max(0, parseInt(cur) || 0);
+  const m = Math.max(1, parseInt(max) || 1);
+  const pct = Math.min(100, Math.round((c / m) * 100));
+
+  let colorClass = "from-emerald-500 to-green-600";
+  if (pct <= 25) {
+    colorClass = "from-rose-600 to-red-700 animate-pulse";
+  } else if (pct <= 50) {
+    colorClass = "from-amber-500 to-orange-600";
+  }
+  return { pct, colorClass, text: `${c} / ${m}` };
+};
+
+
 const partyId = window.location.pathname.split('/').pop();
 let partyData = null;
 let currentUserData = null;
@@ -155,97 +170,6 @@ function switchPartyTab(tab) {
   if (tab === 'chat') scrollChatToBottom();
 }
 
-async function renderMyHeroSection() {
-  const attachedBlock = document.getElementById('attachedHeroBlock');
-  const noAttachedBlock = document.getElementById('noAttachedHeroBlock');
-  if (!attachedBlock || !noAttachedBlock) return;
-
-  if (!partyData || !partyData.my_character_id) {
-    attachedBlock.classList.add('hidden');
-    noAttachedBlock.classList.remove('hidden');
-    populateUserCharactersDropdown();
-    return;
-  }
-
-  try {
-    const res = await apiFetch(`/characters/${partyData.my_character_id}`);
-    if (res.ok) {
-      myAttachedChar = await res.json();
-      noAttachedBlock.classList.add('hidden');
-      attachedBlock.classList.remove('hidden');
-
-      const elName = document.getElementById('myHeroName');
-      const elSub = document.getElementById('myHeroSub');
-      const elHp = document.getElementById('myHeroHpText');
-      const elAc = document.getElementById('myHeroAc');
-      const elSpeed = document.getElementById('myHeroSpeed');
-      const elSheetBtn = document.getElementById('btnOpenFullSheet');
-
-      if (elName) elName.textContent = myAttachedChar.name;
-      if (elSub) elSub.textContent = `${myAttachedChar.race} • ${myAttachedChar.class_name} ${myAttachedChar.level} уровня • ${myAttachedChar.alignment || 'Нейтральный'}`;
-      if (elHp) elHp.textContent = `${myAttachedChar.hp_current || 0} / ${myAttachedChar.hp_max || 10}`;
-      if (elAc) elAc.textContent = myAttachedChar.armor_class || (10 + Math.floor(((myAttachedChar.stats?.dex || 10) - 10) / 2));
-      if (elSpeed) elSpeed.textContent = `${myAttachedChar.speed || 30} фт.`;
-      if (elSheetBtn) elSheetBtn.href = `/characters/${myAttachedChar.id}/sheet`;
-
-      const bannerBox = document.getElementById('myHeroBannerBox');
-      const avatarImg = document.getElementById('myHeroAvatarImg');
-      const avatarEmoji = document.getElementById('myHeroAvatarEmoji');
-
-      if (bannerBox) {
-        bannerBox.style.backgroundImage = (myAttachedChar.banner_url && myAttachedChar.banner_url.trim()) ? `url('${myAttachedChar.banner_url}')` : 'none';
-      }
-
-      const avatarSrc = (myAttachedChar.avatar_url && myAttachedChar.avatar_url.trim()) ? myAttachedChar.avatar_url : ((myAttachedChar.banner_url && myAttachedChar.banner_url.trim()) ? myAttachedChar.banner_url : '');
-      if (avatarImg && avatarEmoji) {
-        if (avatarSrc) {
-          avatarImg.src = avatarSrc;
-          avatarImg.classList.remove('hidden');
-          avatarEmoji.classList.add('hidden');
-        } else {
-          avatarImg.classList.add('hidden');
-          avatarEmoji.classList.remove('hidden');
-          avatarEmoji.textContent = getRaceEmoji(myAttachedChar.race);
-        }
-      }
-
-      const statsGrid = document.getElementById('myHeroStatsGrid');
-      if (statsGrid) {
-        const s = myAttachedChar.stats || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
-        const statConfig = [
-          { key: 'str', label: 'СИЛА' },
-          { key: 'dex', label: 'ЛОВКОСТЬ' },
-          { key: 'con', label: 'ТЕЛОСЛОЖ.' },
-          { key: 'int', label: 'ИНТЕЛЛЕКТ' },
-          { key: 'wis', label: 'МУДРОСТЬ' },
-          { key: 'cha', label: 'ХАРИЗМА' }
-        ];
-
-        statsGrid.innerHTML = statConfig.map(cfg => {
-          const val = s[cfg.key] || 10;
-          const mod = Math.floor((val - 10) / 2);
-          const modStr = mod >= 0 ? `+${mod}` : `${mod}`;
-          return `
-            <div onclick="rollStatCheck('${cfg.label}', ${mod})" title="Бросить d20 ${modStr}" class="p-2.5 rounded-xl bg-black/60 border border-orange-950 hover:border-amber-400 hover:bg-amber-950/30 cursor-pointer active:scale-95 transition-all group">
-              <span class="text-[10px] text-amber-400/90 group-hover:text-amber-300 font-bold block">${cfg.label}</span>
-              <strong class="text-base text-stone-100 block my-0.5">${val}</strong>
-              <span class="text-[11px] font-bold text-amber-300 block bg-[#160f0b] rounded px-1 py-0.5 border border-orange-950/80">${modStr}</span>
-            </div>
-          `;
-        }).join('');
-      }
-    } else {
-      attachedBlock.classList.add('hidden');
-      noAttachedBlock.classList.remove('hidden');
-      populateUserCharactersDropdown();
-    }
-  } catch (e) {
-    attachedBlock.classList.add('hidden');
-    noAttachedBlock.classList.remove('hidden');
-    populateUserCharactersDropdown();
-  }
-}
-
 async function rollStatCheck(statName, mod) {
   const heroName = myAttachedChar ? myAttachedChar.name : (currentUserData?.username || 'Герой');
   try {
@@ -318,64 +242,224 @@ async function adjustHeroHp(delta) {
   } catch (e) {}
 }
 
+// --- 1. МОЙ ПЕРСОНАЖ ---
+async function renderMyHeroSection() {
+  const attachedBlock = document.getElementById('attachedHeroBlock');
+  const noAttachedBlock = document.getElementById('noAttachedHeroBlock');
+  if (!attachedBlock || !noAttachedBlock) return;
+
+  if (!partyData || !partyData.my_character_id) {
+    attachedBlock.classList.add('hidden');
+    noAttachedBlock.classList.remove('hidden');
+    populateUserCharactersDropdown();
+    return;
+  }
+
+  try {
+    const res = await apiFetch(`/characters/${partyData.my_character_id}`);
+    if (res.ok) {
+      myAttachedChar = await res.json();
+      noAttachedBlock.classList.add('hidden');
+      attachedBlock.classList.remove('hidden');
+
+      const elName = document.getElementById('myHeroName');
+      const elSub = document.getElementById('myHeroSub');
+      const elAc = document.getElementById('myHeroAc');
+      const elSpeed = document.getElementById('myHeroSpeed');
+      const elSheetBtn = document.getElementById('btnOpenFullSheet');
+
+      if (elName) elName.textContent = myAttachedChar.name || 'Безымянный';
+      if (elSub) elSub.textContent = `${myAttachedChar.race || 'Человек'} • ${myAttachedChar.class_name || 'Воин'} ${myAttachedChar.level || 1} ур.`;
+
+      const dexMod = Math.floor((((myAttachedChar.stats || {}).dex || 10) - 10) / 2);
+      if (elAc) elAc.textContent = myAttachedChar.armor_class || (10 + dexMod);
+      if (elSpeed) elSpeed.textContent = `${myAttachedChar.speed || 30} фт.`;
+      if (elSheetBtn) elSheetBtn.href = `/characters/${myAttachedChar.id}/sheet`;
+
+      // 1. Полоска HP
+      const curHp = myAttachedChar.hp_current !== undefined ? myAttachedChar.hp_current : 10;
+      const maxHp = myAttachedChar.hp_max || 10;
+      const hpConf = window.getHpBarConfig(curHp, maxHp);
+
+      const elHpText = document.getElementById('myHeroHpText');
+      if (elHpText) elHpText.textContent = hpConf.text;
+
+      let heroBar = document.getElementById('myHeroProgressBar');
+      if (!heroBar) {
+        const hpBox = elHpText ? elHpText.closest('.p-4') : null;
+        if (hpBox) {
+          const barWrapper = document.createElement('div');
+          barWrapper.className = "w-full bg-black/60 h-2.5 rounded-full overflow-hidden border border-orange-950/80 my-1.5 shadow-inner";
+          barWrapper.innerHTML = `<div id="myHeroProgressBar" class="h-full bg-gradient-to-r ${hpConf.colorClass} transition-all duration-300" style="width: ${hpConf.pct}%;"></div>`;
+          const btnRow = hpBox.querySelector('.pt-1');
+          if (btnRow) hpBox.insertBefore(barWrapper, btnRow);
+          else hpBox.appendChild(barWrapper);
+        }
+      } else {
+        heroBar.style.width = `${hpConf.pct}%`;
+        heroBar.className = `h-full bg-gradient-to-r ${hpConf.colorClass} transition-all duration-300`;
+      }
+
+      // 2. Баннер и аватарка
+      const bannerBox = document.getElementById('myHeroBannerBox');
+      const avatarImg = document.getElementById('myHeroAvatarImg');
+      const avatarEmoji = document.getElementById('myHeroAvatarEmoji');
+
+      const bannerSrc = myAttachedChar.banner_url || '';
+      if (bannerBox) {
+        bannerBox.style.backgroundImage = bannerSrc ? `url('${bannerSrc}')` : 'none';
+      }
+
+      const avatarSrc = myAttachedChar.avatar_url || bannerSrc || '';
+      if (avatarImg && avatarEmoji) {
+        if (avatarSrc) {
+          avatarImg.src = avatarSrc;
+          avatarImg.classList.remove('hidden');
+          avatarEmoji.classList.add('hidden');
+        } else {
+          avatarImg.classList.add('hidden');
+          avatarEmoji.classList.remove('hidden');
+          avatarEmoji.textContent = getRaceEmoji(myAttachedChar.race);
+        }
+      }
+
+      // 3. Сетка характеристик
+      const statsGrid = document.getElementById('myHeroStatsGrid');
+      if (statsGrid) {
+        const s = myAttachedChar.stats || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+        const statConfig = [
+          { key: 'str', label: 'СИЛА' },
+          { key: 'dex', label: 'ЛОВКОСТЬ' },
+          { key: 'con', label: 'ТЕЛОСЛОЖ.' },
+          { key: 'int', label: 'ИНТЕЛЛЕКТ' },
+          { key: 'wis', label: 'МУДРОСТЬ' },
+          { key: 'cha', label: 'ХАРИЗМА' }
+        ];
+
+        statsGrid.innerHTML = statConfig.map(cfg => {
+          const val = s[cfg.key] !== undefined ? s[cfg.key] : 10;
+          const mod = Math.floor((val - 10) / 2);
+          const modStr = mod >= 0 ? `+${mod}` : `${mod}`;
+          return `
+            <div onclick="rollStatCheck('${cfg.label}', ${mod})" title="Бросить d20 ${modStr}" class="p-2.5 rounded-xl bg-black/60 border border-orange-950 hover:border-amber-400 hover:bg-amber-950/30 cursor-pointer active:scale-95 transition-all group">
+              <span class="text-[10px] text-amber-400/90 group-hover:text-amber-300 font-bold block">${cfg.label}</span>
+              <strong class="text-base text-stone-100 block my-0.5">${val}</strong>
+              <span class="text-[11px] font-bold text-amber-300 block bg-[#160f0b] rounded px-1 py-0.5 border border-orange-950/80">${modStr}</span>
+            </div>
+          `;
+        }).join('');
+      }
+    } else {
+      attachedBlock.classList.add('hidden');
+      noAttachedBlock.classList.remove('hidden');
+      populateUserCharactersDropdown();
+    }
+  } catch (e) {
+    console.error("Ошибка renderMyHeroSection:", e);
+    attachedBlock.classList.add('hidden');
+    noAttachedBlock.classList.remove('hidden');
+    populateUserCharactersDropdown();
+  }
+}
+
+// --- 2. ОТРЯД ---
 function renderSquadList() {
   const cont = document.getElementById('squadList');
   if (!cont) return;
 
-  if (!partyData.members || partyData.members.length === 0) {
+  const members = (partyData && partyData.members) || [];
+  if (members.length === 0) {
     cont.innerHTML = '<div class="col-span-full text-center py-6 text-stone-500 font-serif">В отряде пока никого нет.</div>';
     return;
   }
 
-  cont.innerHTML = partyData.members.map(m => {
+  cont.innerHTML = members.map(m => {
     const isLeader = m.is_dm ? '<span class="text-[9px] font-mono font-bold text-amber-300 bg-amber-950/40 border border-amber-800 px-1.5 py-0.5 rounded">👑 МАСТЕР</span>' : '';
-    const charName = m.character_name ? `<a href="/characters/${m.character_id}/sheet" class="text-amber-200 font-serif font-bold text-sm hover:underline">${m.character_name}</a>` : '<span class="text-stone-500 text-xs italic">Персонаж не выбран</span>';
+    const charName = m.character_name
+      ? `<a href="/characters/${m.character_id}/sheet" class="text-amber-200 font-serif font-bold text-sm hover:underline">${m.character_name}</a>`
+      : '<span class="text-stone-500 text-xs italic">Персонаж не выбран</span>';
 
-    let squadRace = m.character_race || '';
-    if ((squadRace).toLowerCase().includes('чейнджлинг')) {
-      let vc = m.visual_custom || {};
-      if (typeof vc === 'string') {
-        try { vc = JSON.parse(vc); } catch(e) {}
-      }
-      if (vc && vc.disguise_active && vc.disguise_race) {
-        squadRace = vc.disguise_race;
-      }
+    const squadRace = m.character_race || 'Герой';
+    const charClass = m.character_class
+      ? `<span class="text-[11px] text-stone-400 font-serif block">${squadRace} • ${m.character_class}</span>`
+      : '';
+
+    // Полоска здоровья
+    let hpBarHtml = '';
+    if (m.character_id) {
+      const cur = m.character_hp_current !== undefined ? m.character_hp_current : 10;
+      const max = m.character_hp_max || 10;
+      const conf = window.getHpBarConfig(cur, max);
+
+      hpBarHtml = `
+        <div class="space-y-1 w-28 sm:w-36">
+          <div class="flex justify-between items-center text-[10px] font-mono">
+            <span class="text-stone-400">Хиты:</span>
+            <span class="font-bold text-amber-200">${conf.text}</span>
+          </div>
+          <div class="w-full bg-black/70 h-2 rounded-full overflow-hidden border border-orange-950">
+            <div class="h-full bg-gradient-to-r ${conf.colorClass} transition-all duration-300" style="width: ${conf.pct}%;"></div>
+          </div>
+        </div>
+      `;
     }
 
-    const charClass = m.character_class ? `<span class="text-[11px] text-stone-400 font-serif block">${squadRace} • ${m.character_class}</span>` : '';
-    const hpBadge = m.character_hp ? `<span class="px-2 py-0.5 rounded bg-black/60 border border-orange-950 font-mono text-foxOrange-400 text-xs">${m.character_hp}</span>` : '';
-
-    const bannerStyle = m.banner_url ? `background-image: url('${m.banner_url}'); background-size: cover; background-position: center;` : '';
-    const avatarSrc = m.avatar_url && m.avatar_url.trim() ? m.avatar_url : (m.banner_url && m.banner_url.trim() ? m.banner_url : '');
+    const bannerSrc = m.banner_url || '';
+    const avatarSrc = m.avatar_url || bannerSrc || '';
+    const bannerStyle = bannerSrc ? `background-image: url('${bannerSrc}'); background-size: cover; background-position: center;` : '';
     const raceEmoji = getRaceEmoji(squadRace);
 
     return `
       <div class="rounded-xl border border-orange-950/80 bg-[#120d09] overflow-hidden flex flex-col justify-between shadow relative group">
         <div class="h-16 w-full relative bg-[#1a100a] flex items-end p-2" style="${bannerStyle}">
-          ${m.banner_url ? '<div class="absolute inset-0 bg-gradient-to-t from-[#120d09] via-[#120d09]/60 to-transparent"></div>' : ''}
+          ${bannerSrc ? '<div class="absolute inset-0 bg-gradient-to-t from-[#120d09] via-[#120d09]/60 to-transparent"></div>' : ''}
           <div class="relative z-10 flex items-center gap-2">
             <div class="w-9 h-9 rounded-lg overflow-hidden border border-amber-500/40 bg-stone-900 shrink-0 shadow flex items-center justify-center text-sm">
               ${avatarSrc ? `<img src="${avatarSrc}" class="w-full h-full object-cover">` : `<span>${raceEmoji}</span>`}
             </div>
             <div>
-              <strong class="text-stone-200 text-xs font-serif block">${m.username}</strong>
+              <strong class="text-stone-200 text-xs font-serif block">${m.username || 'Игрок'}</strong>
               ${isLeader}
             </div>
           </div>
         </div>
-        <div class="p-3.5 space-y-2 flex justify-between items-center">
+        <div class="p-3 space-y-2 flex flex-wrap justify-between items-center gap-2">
           <div>
             <div>${charName}</div>
             ${charClass}
           </div>
-          <div class="flex items-center gap-2">
-            ${hpBadge}
-            ${m.character_id ? `<a href="/characters/${m.character_id}/sheet" class="px-2.5 py-1 rounded bg-[#1c130d] border border-orange-900/60 hover:border-amber-400 text-amber-300 text-xs font-serif">Лист</a>` : ''}
+          <div class="flex items-center gap-3">
+            ${hpBarHtml}
+            ${m.character_id ? `<a href="/characters/${m.character_id}/sheet" class="px-2.5 py-1 rounded bg-[#1c130d] border border-orange-900/60 hover:border-amber-400 text-amber-300 text-xs font-serif shadow">Лист</a>` : ''}
           </div>
         </div>
       </div>
     `;
   }).join('');
+}
+
+
+// Обновление полоски при кликах на кнопки -5/-1/+1/+5
+async function adjustHeroHp(delta) {
+  if (!myAttachedChar) return;
+  const newHp = Math.max(0, Math.min(myAttachedChar.hp_max || 10, (myAttachedChar.hp_current || 0) + delta));
+  try {
+    const res = await apiFetch(`/parties/${partyId}/members/${myAttachedChar.id}/hp`, {
+      method: 'PATCH',
+      body: { hp_current: newHp }
+    });
+    if (res.ok) {
+      myAttachedChar.hp_current = newHp;
+      const hpConf = getHpBarConfig(newHp, myAttachedChar.hp_max || 10);
+      const textEl = document.getElementById('myHeroHpText');
+      if (textEl) textEl.textContent = hpConf.text;
+      const barEl = document.getElementById('myHeroProgressBar');
+      if (barEl) {
+        barEl.style.width = `${hpConf.pct}%`;
+        barEl.className = `h-full bg-gradient-to-r ${hpConf.colorClass} transition-all duration-300`;
+      }
+    }
+  } catch (e) {}
 }
 
 async function savePlayerNotes() {

@@ -191,3 +191,11 @@ async def get_compendium_maneuvers():
     if not f.exists():
         return []
     return json.loads(f.read_text(encoding="utf-8"))
+
+
+@router.get("/monk-disciplines", summary="Список практик монаха")
+async def get_monk_disciplines():
+    f = DATA_DIR / "monk_disciplines.json"
+    if not f.exists():
+        return {"disciplines": []}
+    return json.loads(f.read_text(encoding="utf-8"))

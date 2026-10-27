@@ -1220,15 +1220,23 @@
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label class="font-bold text-amber-300 block mb-1">Ссылка на портрет (Аватар):</label>
+                        <div class="space-y-1.5">
+                            <label class="font-bold text-amber-300 block mb-1">Портрет (Аватар):</label>
                             <input type="url" id="visualAvatarInput" placeholder="https://..."
                                    class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100 font-mono">
+                            <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-900 border border-stone-800 hover:border-amber-400 text-amber-300 text-xs font-bold transition-all">
+                                📁 Загрузить файл с устройства
+                                <input type="file" id="avatarFileInput" accept="image/*" onchange="window.uploadCharacterFile(event, 'avatar')" class="hidden">
+                            </label>
                         </div>
-                        <div>
-                            <label class="font-bold text-amber-300 block mb-1">Ссылка на баннер (Cover):</label>
+                        <div class="space-y-1.5">
+                            <label class="font-bold text-amber-300 block mb-1">Обложка (Баннер):</label>
                             <input type="url" id="visualBannerInput" placeholder="https://..."
                                    class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100 font-mono">
+                            <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-900 border border-stone-800 hover:border-amber-400 text-amber-300 text-xs font-bold transition-all">
+                                📁 Загрузить файл с устройства
+                                <input type="file" id="bannerFileInput" accept="image/*" onchange="window.uploadCharacterFile(event, 'banner')" class="hidden">
+                            </label>
                         </div>
                     </div>
 
@@ -1402,6 +1410,24 @@
                            class="text-[11px] text-stone-300 font-serif leading-relaxed"></p>
                     </div>
                 </div>
+            </div>
+
+            <!-- ВЫБОР ПРАКТИК МОНАХА (Стихии / Кэнсэй) -->
+            <div id="lvlMonkDisciplineBlock" class="hidden space-y-2 p-3.5 bg-[#0d0907] border border-amber-500/40 rounded-xl font-serif">
+                <div class="flex justify-between items-center border-b border-orange-950/60 pb-1.5">
+                    <label class="font-bold text-amber-300 flex items-center gap-1.5">
+                        <span>☯️</span> <span id="lvlMonkDisciplineTitle">Практика монастырской традиции:</span>
+                    </label>
+                    <span id="lvlMonkDisciplineBadge" class="text-[10px] font-mono text-amber-400">3 уровень</span>
+                </div>
+                <p id="lvlMonkDisciplineHelp" class="text-[11px] text-stone-400 leading-relaxed">
+                    Выберите технику для изучения:
+                </p>
+                <select id="lvlMonkDisciplineSelect" onchange="onMonkDisciplineChange()"
+                        class="w-full bg-[#140e0a] border border-orange-900 rounded-lg p-2 text-stone-100 text-xs font-serif focus:border-amber-400 focus:outline-none">
+                    <option value="">-- Выберите практику --</option>
+                </select>
+                <div id="lvlMonkDisciplinePreview" class="p-2.5 rounded-lg bg-[#140e0a] border border-orange-950/80 text-[11px] text-stone-300 hidden"></div>
             </div>
 
             <!-- ВЫБОР КОМПЕТЕНТНОСТИ НА 6 УРОВНЕ (ПЛУТ) -->
@@ -1759,5 +1785,5 @@
       return '👤';
     };
 </script>
-<script type="module" src="{{ url_for('static', path='js/sheet/app.js') }}"></script>
+<script type="module" src="{{ url_for('static', path='js/sheet/app.js') }}?v=2"></script>
 {% endblock %}

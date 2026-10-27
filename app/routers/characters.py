@@ -5,6 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
 from fastapi import APIRouter, HTTPException, Depends, status
+import time
+import shutil
+from pathlib import Path
+from fastapi import UploadFile, File
 
 from app.dependencies import CurrentUser, DbSession
 from app.models import Character, CharacterInventory, Item, UserRole
@@ -592,3 +596,76 @@ async def update_character_race_dm(
     await db.commit()
     await db.refresh(character)
     return CharacterDetailResponse.for_viewer(character, current_user.role)
+
+
+UPLOAD_AVATAR_DIR = Path(__file__).resolve().parent.parent / "static" / "avatars"
+UPLOAD_BANNER_DIR = Path(__file__).resolve().parent.parent / "static" / "banners"
+
+UPLOAD_AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_BANNER_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@router.post("/{character_id}/avatar/upload", summary="Загрузить аватарку персонажа файлом")
+async def upload_character_avatar(
+    character_id: int,
+    file: UploadFile = File(...),
+    db: DbSession = None,
+    current_user: CurrentUser = None,
+):
+    stmt = select(Character).where(Character.id == character_id)
+    result = await db.execute(stmt)
+    character = result.scalar_one_or_none()
+    if not character:
+        raise HTTPException(status_code=404, detail="Персонаж не найден")
+
+    _verify_character_owner(character, current_user)
+
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in ('.png', '.jpg', '.jpeg', '.webp', '.gif'):
+        raise HTTPException(status_code=400, detail="Поддерживаются только изображения (.png, .jpg, .webp, .gif)")
+
+    clean_filename = f"char_{character_id}_avatar_{int(time.time())}{suffix}"
+    dest_path = UPLOAD_AVATAR_DIR / clean_filename
+
+    with open(dest_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    file_url = f"/static/avatars/{clean_filename}"
+    character.avatar_url = file_url
+    await db.commit()
+    await db.refresh(character)
+
+    return {"status": "ok", "avatar_url": file_url}
+
+
+@router.post("/{character_id}/banner/upload", summary="Загрузить обложку (баннер) персонажа файлом")
+async def upload_character_banner(
+    character_id: int,
+    file: UploadFile = File(...),
+    db: DbSession = None,
+    current_user: CurrentUser = None,
+):
+    stmt = select(Character).where(Character.id == character_id)
+    result = await db.execute(stmt)
+    character = result.scalar_one_or_none()
+    if not character:
+        raise HTTPException(status_code=404, detail="Персонаж не найден")
+
+    _verify_character_owner(character, current_user)
+
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in ('.png', '.jpg', '.jpeg', '.webp', '.gif'):
+        raise HTTPException(status_code=400, detail="Поддерживаются только изображения (.png, .jpg, .webp, .gif)")
+
+    clean_filename = f"char_{character_id}_banner_{int(time.time())}{suffix}"
+    dest_path = UPLOAD_BANNER_DIR / clean_filename
+
+    with open(dest_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    file_url = f"/static/banners/{clean_filename}"
+    character.banner_url = file_url
+    await db.commit()
+    await db.refresh(character)
+
+    return {"status": "ok", "banner_url": file_url}
