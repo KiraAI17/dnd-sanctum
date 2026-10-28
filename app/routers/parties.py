@@ -390,6 +390,8 @@ async def get_party_detail(party_id: int, db: DbSession, current_user: CurrentUs
             character_hp_max=max_hp,
             character_ac=ac_val or 10,
             character_race=get_effective_race(c),
+            avatar_url=getattr(c, "avatar_url", None) if c else None,
+            banner_url=getattr(c, "banner_url", None) if c else None,
             joined_at=m.joined_at,
         ))
 

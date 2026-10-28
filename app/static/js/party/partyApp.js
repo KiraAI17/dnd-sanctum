@@ -112,6 +112,9 @@ function setupRoleView() {
     if (el) el.classList.toggle('hidden', !isDm);
   });
 
+  const dmBannerBtn = document.getElementById('dmBannerUploadBtnBlock');
+  if (dmBannerBtn) dmBannerBtn.classList.toggle('hidden', !isDm);
+
   if (!isDm) {
     document.getElementById('dmNotesTextarea').readOnly = true;
     document.getElementById('dmNotesTextarea').value = "Сюжетные тайны доступны только Мастеру стола.";
@@ -374,14 +377,14 @@ function renderSquadList() {
   }
 
   cont.innerHTML = members.map(m => {
-    const isLeader = m.is_dm ? '<span class="text-[9px] font-mono font-bold text-amber-300 bg-amber-950/40 border border-amber-800 px-1.5 py-0.5 rounded">👑 МАСТЕР</span>' : '';
+    const isLeader = m.is_dm ? '<span class="text-[9px] font-mono font-bold text-amber-300 bg-amber-950/60 border border-amber-500/60 px-1.5 py-0.5 rounded shadow">👑 МАСТЕР</span>' : '';
     const charName = m.character_name
-      ? `<a href="/characters/${m.character_id}/sheet" class="text-amber-200 font-serif font-bold text-sm hover:underline">${m.character_name}</a>`
-      : '<span class="text-stone-500 text-xs italic">Персонаж не выбран</span>';
+      ? `<a href="/characters/${m.character_id}/sheet" class="text-amber-200 font-serif font-bold text-base hover:text-amber-300 hover:underline transition-colors">${m.character_name}</a>`
+      : '<span class="text-stone-500 text-xs italic">Персонаж не привязан</span>';
 
     const squadRace = m.character_race || 'Герой';
     const charClass = m.character_class
-      ? `<span class="text-[11px] text-stone-400 font-serif block">${squadRace} • ${m.character_class}</span>`
+      ? `<span class="text-xs text-stone-300 font-serif block mt-0.5">${squadRace} • ${m.character_class}</span>`
       : '';
 
     // Полоска здоровья
@@ -397,7 +400,7 @@ function renderSquadList() {
             <span class="text-stone-400">Хиты:</span>
             <span class="font-bold text-amber-200">${conf.text}</span>
           </div>
-          <div class="w-full bg-black/70 h-2 rounded-full overflow-hidden border border-orange-950">
+          <div class="w-full bg-black/80 h-2 rounded-full overflow-hidden border border-orange-950 shadow-inner">
             <div class="h-full bg-gradient-to-r ${conf.colorClass} transition-all duration-300" style="width: ${conf.pct}%;"></div>
           </div>
         </div>
@@ -406,31 +409,35 @@ function renderSquadList() {
 
     const bannerSrc = m.banner_url || '';
     const avatarSrc = m.avatar_url || bannerSrc || '';
-    const bannerStyle = bannerSrc ? `background-image: url('${bannerSrc}'); background-size: cover; background-position: center;` : '';
+    const bannerStyle = bannerSrc
+      ? `background-image: linear-gradient(to top, rgba(18, 13, 9, 0.98) 0%, rgba(18, 13, 9, 0.45) 50%, rgba(18, 13, 9, 0.2) 100%), url('${bannerSrc}');`
+      : `background-image: linear-gradient(135deg, #1f140e 0%, #120a06 100%);`;
     const raceEmoji = getRaceEmoji(squadRace);
 
     return `
-      <div class="rounded-xl border border-orange-950/80 bg-[#120d09] overflow-hidden flex flex-col justify-between shadow relative group">
-        <div class="h-16 w-full relative bg-[#1a100a] flex items-end p-2" style="${bannerStyle}">
-          ${bannerSrc ? '<div class="absolute inset-0 bg-gradient-to-t from-[#120d09] via-[#120d09]/60 to-transparent"></div>' : ''}
-          <div class="relative z-10 flex items-center gap-2">
-            <div class="w-9 h-9 rounded-lg overflow-hidden border border-amber-500/40 bg-stone-900 shrink-0 shadow flex items-center justify-center text-sm">
+      <div class="rounded-2xl border border-orange-950/80 bg-[#120d09] overflow-hidden flex flex-col justify-between shadow-xl relative group hover:border-amber-500/50 transition-all">
+        <!-- Шапка с баннером героя -->
+        <div class="h-24 sm:h-28 w-full relative bg-cover bg-center flex items-end p-3.5 transition-all" style="${bannerStyle}">
+          <div class="relative z-10 flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl overflow-hidden border-2 border-amber-500/60 bg-stone-900 shrink-0 shadow-2xl flex items-center justify-center text-lg">
               ${avatarSrc ? `<img src="${avatarSrc}" class="w-full h-full object-cover">` : `<span>${raceEmoji}</span>`}
             </div>
             <div>
-              <strong class="text-stone-200 text-xs font-serif block">${m.username || 'Игрок'}</strong>
-              ${isLeader}
+              <strong class="text-stone-100 text-sm font-serif block drop-shadow-md">${m.username || 'Игрок'}</strong>
+              <div class="flex items-center gap-1.5 mt-0.5">${isLeader}</div>
             </div>
           </div>
         </div>
-        <div class="p-3 space-y-2 flex flex-wrap justify-between items-center gap-2">
+
+        <!-- Нижняя плашка со статами -->
+        <div class="p-3.5 space-y-2.5 flex flex-wrap justify-between items-center gap-2 bg-[#100b08]/90">
           <div>
             <div>${charName}</div>
             ${charClass}
           </div>
           <div class="flex items-center gap-3">
             ${hpBarHtml}
-            ${m.character_id ? `<a href="/characters/${m.character_id}/sheet" class="px-2.5 py-1 rounded bg-[#1c130d] border border-orange-900/60 hover:border-amber-400 text-amber-300 text-xs font-serif shadow">Лист</a>` : ''}
+            ${m.character_id ? `<a href="/characters/${m.character_id}/sheet" class="px-3 py-1.5 rounded-xl bg-[#1c130d] border border-orange-900/60 hover:border-amber-400 text-amber-300 text-xs font-serif shadow-md transition-all active:scale-95">Лист &rarr;</a>` : ''}
           </div>
         </div>
       </div>
@@ -559,8 +566,14 @@ async function initPartyDetail() {
       apiFetch('/characters/')
     ]);
 
-    if (uRes.ok) currentUserData = await uRes.json();
-    if (pRes.ok) partyData = await pRes.json();
+    if (uRes.ok) {
+      currentUserData = await uRes.json();
+      window.currentUserData = currentUserData; // <- сохраняем в window
+    }
+    if (pRes.ok) {
+      partyData = await pRes.json();
+      window.partyData = partyData; // <- сохраняем в window
+    }
     if (charsRes.ok) myCharactersList = await charsRes.json();
 
     // Инициализируем боевой движок

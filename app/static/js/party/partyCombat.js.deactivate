@@ -1,0 +1,2125 @@
+// ==========================================
+// COMBAT & ACTION SYSTEM (partyCombat.js)
+// ==========================================
+
+window.combatState = window.combatState || {
+  is_active: false,
+  round: 1,
+  current_turn_index: 0,
+  combatants: []
+};
+var combatState = window.combatState;
+
+window.selectedTargetTokenId = null;
+window.activeHudTokenId = null;
+window.deathSaves = { successes: 0, failures: 0, is_stable: false };
+
+window.combatEconomy = {
+  hasAction: true,
+  hasBonusAction: true,
+  hasReaction: true
+};
+
+window.combatMovementPool = {
+  maxFeet: 30,
+  remainingFeet: 30,
+  hasRolledDeathSaveThisTurn: false,
+  hasUsedDashThisTurn: false
+};
+
+window.selectedSpellFilterCircle = 'all';
+window.currentCombatantSpellsCache = [];
+window.currentCombatantFeaturesCache = [];
+window.activeAoeSpell = null;
+
+// Таблица ячеек D&D 5e по уровню полного заклинателя (Волшебник, Жрец, Друид, Чародей, Бард)
+window.FULL_CASTER_SLOTS_TABLE = {
+  1:  { 1: 2 },
+  2:  { 1: 3 },
+  3:  { 1: 4, 2: 2 },
+  4:  { 1: 4, 2: 3 },
+  5:  { 1: 4, 2: 3, 3: 2 },
+  6:  { 1: 4, 2: 3, 3: 3 },
+  7:  { 1: 4, 2: 3, 3: 3, 4: 1 },
+  8:  { 1: 4, 2: 3, 3: 3, 4: 2 },
+  9:  { 1: 4, 2: 3, 3: 3, 4: 3, 5: 1 },
+  10: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2 },
+  11: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2, 6: 1 },
+  12: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2, 6: 1 },
+  13: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2, 6: 1, 7: 1 },
+  14: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2, 6: 1, 7: 1 },
+  15: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2, 6: 1, 7: 1, 8: 1 },
+  16: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2, 6: 1, 7: 1, 8: 1 },
+  17: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2, 6: 1, 7: 1, 8: 1, 9: 1 },
+  18: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 3, 6: 1, 7: 1, 8: 1, 9: 1 },
+  19: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 3, 6: 2, 7: 1, 8: 1, 9: 1 },
+  20: { 1: 4, 2: 3, 3: 3, 4: 3, 5: 3, 6: 2, 7: 2, 8: 1, 9: 1 }
+};
+
+// --- 1. ВЫБОР ЦЕЛИ И ИНДИКАТОРЫ ---
+
+window.selectTargetToken = function(tokenId) {
+  const currentCombatant = (window.combatState && window.combatState.combatants)
+    ? window.combatState.combatants[window.combatState.current_turn_index]
+    : null;
+
+  if (currentCombatant && (currentCombatant.token_id === tokenId || currentCombatant.id === tokenId)) {
+    window.selectedTargetTokenId = null;
+    window.updateTargetIndicators();
+    return;
+  }
+
+  if (window.selectedTargetTokenId === tokenId) {
+    window.selectedTargetTokenId = null;
+  } else {
+    window.selectedTargetTokenId = tokenId;
+  }
+  window.updateTargetIndicators();
+};
+
+window.updateTargetIndicators = function() {
+  document.querySelectorAll('[id^="token_"]').forEach(el => {
+    el.classList.remove('ring-4', 'ring-rose-500', 'shadow-[0_0_20px_rgba(244,63,94,0.9)]');
+  });
+
+  const targetBox = document.getElementById('combatTargetIndicatorBox');
+  const targetName = document.getElementById('combatTargetNameText');
+  const targetHp = document.getElementById('combatTargetHpText');
+
+  const tokens = (window.mapData && window.mapData.tokens) || [];
+
+  if (window.selectedTargetTokenId) {
+    const el = document.getElementById(`token_${window.selectedTargetTokenId}`);
+    if (el) el.classList.add('ring-4', 'ring-rose-500', 'shadow-[0_0_20px_rgba(244,63,94,0.9)]');
+
+    const tok = tokens.find(t => t.id === window.selectedTargetTokenId);
+    if (tok && targetName && targetHp) {
+      targetName.textContent = tok.name;
+      targetHp.textContent = `(${tok.hp_current !== undefined ? tok.hp_current : 10}/${tok.hp_max || 10} HP)`;
+      if (targetBox) targetBox.className = "flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-rose-950/40 border border-rose-600 shadow text-xs";
+    }
+  } else {
+    if (targetName) targetName.textContent = "Не выбрана (клик по цели)";
+    if (targetHp) targetHp.textContent = "";
+    if (targetBox) targetBox.className = "flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-black/60 border border-orange-950 text-xs";
+  }
+};
+
+// --- 2. РАСЧЕТ ДИСТАНЦИИ ---
+
+window.calculateDistanceBetweenTokens = function(tokenIdA, tokenIdB) {
+  const tokens = window.mapData?.tokens || [];
+  const tokA = tokens.find(t => t.id === tokenIdA);
+  const tokB = tokens.find(t => t.id === tokenIdB);
+  if (!tokA || !tokB) return 999;
+
+  const gridSize = window.currentGridSize || 50;
+
+  const cellXA = Math.round(tokA.x / gridSize);
+  const cellYA = Math.round(tokA.y / gridSize);
+  const cellXB = Math.round(tokB.x / gridSize);
+  const cellYB = Math.round(tokB.y / gridSize);
+
+  const dx = Math.abs(cellXA - cellXB);
+  const dy = Math.abs(cellYA - cellYB);
+
+  return Math.max(dx, dy) * 5;
+};
+
+window.parseSpellRangeFeet = function(rangeVal) {
+  if (!rangeVal) return 60;
+  const s = String(rangeVal).toLowerCase().trim();
+  if (s.includes('на себя') || s.includes('self')) return 0;
+  if (s.includes('касание') || s.includes('touch')) return 5;
+  const match = s.match(/(\d+)/);
+  if (match) return parseInt(match[1]);
+  return 60;
+};
+
+// --- 3. 3D-ДАЙС ---
+
+window.showDiceRollModal = function(title, rollVal, modVal, totalVal, comment = '') {
+  let modal = document.getElementById('combatDiceModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'combatDiceModal';
+    modal.className = "fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none";
+    document.body.appendChild(modal);
+  }
+
+  const isNat20 = rollVal === 20;
+  const isNat1 = rollVal === 1;
+
+  let glowColor = "border-amber-500/80 shadow-[0_0_40px_rgba(245,158,11,0.5)]";
+  let badgeColor = "text-amber-300";
+  if (isNat20) {
+    glowColor = "border-emerald-500 shadow-[0_0_50px_rgba(16,185,129,0.8)]";
+    badgeColor = "text-emerald-400 font-black";
+  } else if (isNat1) {
+    glowColor = "border-rose-600 shadow-[0_0_50px_rgba(244,63,94,0.8)]";
+    badgeColor = "text-rose-500 font-black";
+  }
+
+  modal.innerHTML = `
+    <style>
+      @keyframes d20Tumble {
+        0% { transform: scale(0.6) rotate(0deg); }
+        25% { transform: scale(1.15) rotate(180deg); }
+        50% { transform: scale(0.9) rotate(360deg); }
+        75% { transform: scale(1.05) rotate(540deg); }
+        100% { transform: scale(1) rotate(720deg); }
+      }
+      .dice-poly-wrap {
+        animation: d20Tumble 0.75s cubic-bezier(0.15, 0.85, 0.35, 1.2) forwards;
+      }
+    </style>
+    <div class="fox-card ${glowColor} rounded-3xl p-6 max-w-xs w-full text-center space-y-4 bg-[#120a06] border-2 font-serif relative shadow-2xl">
+      <h3 class="text-xs uppercase tracking-widest text-stone-400 font-mono">${window.escapeHtml(title)}</h3>
+
+      <div class="relative w-32 h-32 mx-auto flex items-center justify-center">
+        <div class="dice-poly-wrap w-28 h-28 relative flex items-center justify-center">
+          <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-[0_10px_20px_rgba(0,0,0,0.9)]">
+            <polygon points="50,5 90,25 50,45" fill="#d97706" stroke="#fbbf24" stroke-width="1.5" opacity="0.95" />
+            <polygon points="50,5 10,25 50,45" fill="#b45309" stroke="#fbbf24" stroke-width="1.5" opacity="0.9" />
+            <polygon points="10,25 50,45 25,85" fill="#92400e" stroke="#f59e0b" stroke-width="1.5" opacity="0.85" />
+            <polygon points="90,25 50,45 75,85" fill="#b45309" stroke="#f59e0b" stroke-width="1.5" opacity="0.9" />
+            <polygon points="50,45 25,85 75,85" fill="#78350f" stroke="#fbbf24" stroke-width="2" />
+            <polygon points="25,85 50,95 75,85" fill="#451a03" stroke="#f59e0b" stroke-width="1.5" />
+          </svg>
+          <span id="rollingDiceNumber" class="absolute z-10 text-3xl font-mono font-black ${badgeColor} drop-shadow-[0_2px_8px_rgba(0,0,0,1)]">
+            ${Math.floor(Math.random() * 20) + 1}
+          </span>
+        </div>
+      </div>
+
+      <div class="text-xs text-stone-300 font-mono bg-black/60 py-2 px-3 rounded-xl border border-orange-950/80">
+        Бросок: <strong class="text-amber-300 text-sm" id="finalDiceDisplay">...</strong>
+        ${modVal !== 0 ? `(${modVal >= 0 ? '+' + modVal : modVal}) = <strong class="text-amber-200 text-sm">${totalVal}</strong>` : ''}
+      </div>
+
+      ${comment ? `<p class="text-xs font-serif ${badgeColor} font-bold leading-relaxed">${window.escapeHtml(comment)}</p>` : ''}
+
+      <button type="button" onclick="document.getElementById('combatDiceModal').remove()"
+              class="w-full py-2.5 rounded-xl bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-bold text-xs uppercase tracking-wider hover:brightness-110 active:scale-95 shadow-lg">
+        Принять
+      </button>
+    </div>
+  `;
+
+  const numEl = document.getElementById('rollingDiceNumber');
+  const finalEl = document.getElementById('finalDiceDisplay');
+  let frame = 0;
+  const interval = setInterval(() => {
+    if (numEl) numEl.textContent = Math.floor(Math.random() * 20) + 1;
+    frame++;
+    if (frame >= 8) {
+      clearInterval(interval);
+      if (numEl) numEl.textContent = rollVal;
+      if (finalEl) finalEl.textContent = rollVal;
+    }
+  }, 75);
+
+  setTimeout(() => {
+    const el = document.getElementById('combatDiceModal');
+    if (el) el.remove();
+  }, 4500);
+};
+
+// --- 4. ЭКОНОМИКА ДЕЙСТВИЙ И ДВИЖЕНИЯ ---
+
+window.resetCombatEconomyForTurn = function() {
+  window.combatEconomy.hasAction = true;
+  window.combatEconomy.hasBonusAction = true;
+  window.combatEconomy.hasReaction = true;
+  window.combatMovementPool.hasUsedDashThisTurn = false;
+  window.combatMovementPool.hasRolledDeathSaveThisTurn = false;
+  window.updateEconomyBadges();
+};
+
+window.updateEconomyBadges = function() {
+  const elAct = document.getElementById('badgeEcoAction');
+  const elBonus = document.getElementById('badgeEcoBonus');
+  const elMove = document.getElementById('badgeEcoMove');
+  const elSideMove = document.getElementById('combatMovementBadge');
+
+  if (elAct) {
+    elAct.className = window.combatEconomy.hasAction
+      ? "px-2 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-500 text-emerald-300 font-mono text-[10px] font-bold"
+      : "px-2 py-0.5 rounded-md bg-black/60 border border-stone-800 text-stone-600 font-mono text-[10px] line-through";
+  }
+  if (elBonus) {
+    elBonus.className = window.combatEconomy.hasBonusAction
+      ? "px-2 py-0.5 rounded-md bg-amber-950/80 border border-amber-500 text-amber-300 font-mono text-[10px] font-bold"
+      : "px-2 py-0.5 rounded-md bg-black/60 border border-stone-800 text-stone-600 font-mono text-[10px] line-through";
+  }
+
+  const moveText = `👟 ${window.combatMovementPool.remainingFeet}/${window.combatMovementPool.maxFeet} фт`;
+  if (elMove) elMove.textContent = moveText;
+  if (elSideMove) {
+    elSideMove.textContent = `${window.combatMovementPool.remainingFeet} / ${window.combatMovementPool.maxFeet} фт`;
+    elSideMove.className = (window.combatMovementPool.remainingFeet <= 0)
+      ? "text-rose-400 font-bold font-mono"
+      : "text-amber-300 font-bold font-mono";
+  }
+};
+window.updateMovementDisplay = window.updateEconomyBadges;
+
+window.initMovementForCurrentTurn = function() {
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+  if (!currentCombatant) return;
+
+  let baseSpeed = 30;
+  if (currentCombatant.character_id) {
+    if (window.myAttachedChar && window.myAttachedChar.id === currentCombatant.character_id) {
+      baseSpeed = window.myAttachedChar.speed || 30;
+    }
+  } else {
+    const npc = (typeof dmNpcsList !== 'undefined') ? dmNpcsList.find(n => n.name === currentCombatant.name) : null;
+    baseSpeed = npc?.speed || 30;
+  }
+
+  if (currentCombatant.conditions?.includes('🪽')) {
+    baseSpeed = 60;
+  }
+
+  window.combatMovementPool.maxFeet = baseSpeed;
+  window.combatMovementPool.remainingFeet = baseSpeed;
+  window.resetCombatEconomyForTurn();
+};
+
+// --- 5. УПРАВЛЕНИЕ БОЕМ ---
+
+window.initCombatState = async function() {
+  try {
+    const res = await apiFetch(`/parties/${partyId}/combat`);
+    if (res.ok) {
+      window.combatState = await res.json();
+      window.renderCombatUI();
+    }
+  } catch (e) {
+    console.error("Ошибка загрузки боя:", e);
+  }
+};
+
+window.renderCombatUI = function() {
+  const panel = document.getElementById('combatTrackerPanel');
+  const btnStart = document.getElementById('btnStartCombat');
+  const dmControls = document.getElementById('dmCombatControls');
+  const ribbon = document.getElementById('combatantsRibbon');
+  const bar = document.getElementById('combatActionBar');
+
+  const pData = (typeof partyData !== 'undefined' && partyData) ? partyData : window.partyData;
+  const uData = (typeof currentUserData !== 'undefined' && currentUserData) ? currentUserData : window.currentUserData;
+
+  const isDm = Boolean(
+    (pData && (pData.is_current_user_dm || (uData && pData.dm_id === uData.id))) ||
+    uData?.username === "Ent1XXX" ||
+    document.getElementById('partyRoleBadge')?.textContent.includes('Мастер')
+  );
+
+  const mapCol = document.getElementById('battleMapCol');
+  const actionCol = document.getElementById('combatActionCol');
+
+  if (!panel || !ribbon) return;
+
+  if (!window.combatState.is_active) {
+    panel.classList.add('hidden');
+    if (bar) bar.classList.add('hidden');
+    if (actionCol) actionCol.classList.add('hidden');
+    if (mapCol) {
+      mapCol.classList.remove('lg:col-span-8');
+      mapCol.classList.add('lg:col-span-12');
+    }
+    if (btnStart) btnStart.classList.remove('hidden');
+    document.querySelectorAll('[id^="token_"]').forEach(el => el.classList.remove('ring-4', 'ring-amber-400', 'animate-pulse'));
+    return;
+  }
+
+  panel.classList.remove('hidden');
+  if (actionCol) actionCol.classList.remove('hidden');
+  if (mapCol) {
+    mapCol.classList.remove('lg:col-span-12');
+    mapCol.classList.add('lg:col-span-8');
+  }
+  if (btnStart) btnStart.classList.add('hidden');
+
+  if (dmControls) {
+    dmControls.classList.toggle('hidden', !isDm);
+    dmControls.style.display = isDm ? 'flex' : 'none';
+  }
+
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index] || null;
+  const nextIndex = (window.combatState.current_turn_index + 1) % window.combatState.combatants.length;
+  const nextCombatant = window.combatState.combatants[nextIndex] || null;
+
+  const myCharId = pData?.my_character_id;
+  const isMyTurn = Boolean(currentCombatant && myCharId && currentCombatant.character_id === myCharId);
+  const btnNext = document.getElementById('btnActionNextTurn');
+
+  if (btnNext) {
+    if (isDm || isMyTurn) {
+      btnNext.classList.remove('opacity-50', 'pointer-events-none');
+      btnNext.removeAttribute('disabled');
+      const nextLabel = nextCombatant ? nextCombatant.name : 'следующий';
+      btnNext.innerHTML = isMyTurn
+        ? `<span>Завершить свой ход (далее: ${window.escapeHtml(nextLabel)})</span> <span class="text-sm">➔</span>`
+        : `<span>Ход к: ${window.escapeHtml(nextLabel)}</span> <span class="text-sm">➔</span>`;
+    } else {
+      btnNext.classList.add('opacity-50', 'pointer-events-none');
+      btnNext.setAttribute('disabled', 'true');
+      btnNext.innerHTML = `<span>Ожидание хода (${window.escapeHtml(currentCombatant ? currentCombatant.name : '...')} ходит)</span>`;
+    }
+  }
+
+  const roundEl = document.getElementById('combatRoundDisplay');
+  if (roundEl) roundEl.textContent = `Раунд ${window.combatState.round || 1}`;
+
+  const descEl = document.getElementById('combatCurrentTurnDesc');
+  if (descEl) {
+    descEl.textContent = currentCombatant ? `Сейчас ходит: ${currentCombatant.name}` : 'Бой начался';
+  }
+
+  // Лента инициативы
+  ribbon.innerHTML = window.combatState.combatants.map((c, idx) => {
+    const isActive = idx === window.combatState.current_turn_index;
+    const borderClass = isActive
+      ? 'border-amber-400 bg-amber-950/80 shadow-[0_0_15px_rgba(245,158,11,0.5)] scale-105 ring-2 ring-amber-400 z-10'
+      : 'border-stone-800 bg-black/70 opacity-80 hover:opacity-100 hover:border-stone-600';
+
+    const initBadge = `<span onclick="editCombatantInitiative(event, '${c.token_id}')" title="Редактировать инициативу" class="px-1.5 py-0.5 rounded bg-black/90 font-mono font-bold text-amber-300 text-[10px] border border-orange-950 hover:border-amber-400 cursor-pointer shadow">${c.initiative !== undefined ? c.initiative : 10}</span>`;
+    const condHtml = (c.conditions || []).map(icon => `<span class="text-xs">${icon}</span>`).join('');
+
+    let avatarHtml = '';
+    if (c.avatar_url && c.avatar_url.trim()) {
+      avatarHtml = `<img src="${c.avatar_url}" class="w-full h-full object-cover">`;
+    } else {
+      avatarHtml = `<div class="w-full h-full flex items-center justify-center font-bold text-xs text-amber-200 bg-stone-900">${(c.name || 'Т').slice(0, 2)}</div>`;
+    }
+
+    const curHp = c.hp_current !== undefined ? c.hp_current : (c.hp_max || 10);
+    const maxHp = c.hp_max || 10;
+    const hpPct = Math.max(0, Math.min(100, Math.round((curHp / maxHp) * 100)));
+    const hpColor = hpPct <= 25 ? 'bg-rose-500' : (hpPct <= 50 ? 'bg-amber-500' : 'bg-emerald-500');
+
+    return `
+      <div onclick="window.focusTokenOnMap('${c.token_id}')" class="shrink-0 p-2 rounded-xl border ${borderClass} flex items-center gap-2.5 cursor-pointer transition-all select-none min-w-[145px] max-w-[190px]">
+        <div class="w-9 h-9 rounded-lg overflow-hidden border border-amber-500/50 bg-stone-900 shrink-0 shadow">
+          ${avatarHtml}
+        </div>
+        <div class="overflow-hidden flex-1 py-0.5">
+          <strong class="text-xs text-stone-100 font-serif leading-normal block truncate" title="${window.escapeHtml(c.name)}">${window.escapeHtml(c.name)}</strong>
+          <div class="flex items-center gap-1.5 mt-1">
+            ${initBadge}
+            <div class="w-12 h-1.5 bg-black/80 rounded-full overflow-hidden border border-stone-800">
+              <div class="h-full ${hpColor}" style="width: ${hpPct}%;"></div>
+            </div>
+            <div class="flex items-center gap-0.5">${condHtml}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  window.highlightActiveTokenOnMap(currentCombatant);
+  window.checkMyTurnAlert(currentCombatant);
+  window.updateEconomyBadges();
+  window.renderActiveCombatActions();
+};
+
+window.highlightActiveTokenOnMap = function(currentCombatant) {
+  document.querySelectorAll('[id^="token_"]').forEach(el => {
+    el.classList.remove('ring-4', 'ring-amber-400', 'animate-pulse');
+  });
+
+  if (currentCombatant && currentCombatant.token_id) {
+    const el = document.getElementById(`token_${currentCombatant.token_id}`);
+    if (el) el.classList.add('ring-4', 'ring-amber-400', 'animate-pulse');
+  }
+};
+var highlightActiveTokenOnMap = window.highlightActiveTokenOnMap;
+
+window.focusTokenOnMap = function(tokenId) {
+  const el = document.getElementById(`token_${tokenId}`);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+};
+var focusTokenOnMap = window.focusTokenOnMap;
+
+window.checkMyTurnAlert = function(currentCombatant) {
+  const pData = (typeof partyData !== 'undefined' && partyData) ? partyData : window.partyData;
+  if (!currentCombatant || !pData || !pData.my_character_id) return;
+  if (currentCombatant.character_id === pData.my_character_id) {
+    const toast = document.getElementById('diceRollToast');
+    if (toast) {
+      document.getElementById('diceRollToastText').textContent = '⚔️ Твой ход! Ваша очередь действовать в раунде!';
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3500);
+    }
+  }
+};
+var checkMyTurnAlert = window.checkMyTurnAlert;
+
+// --- 6. ПЕРЕХОД ХОДА И СБРОС ВРЕМЕННЫХ БАФФОВ ---
+
+window.nextCombatTurn = async function() {
+  if (!window.combatState.is_active || window.combatState.combatants.length === 0) return;
+
+  let nextIdx = window.combatState.current_turn_index + 1;
+  let nextRound = window.combatState.round;
+
+  if (nextIdx >= window.combatState.combatants.length) {
+    nextIdx = 0;
+    nextRound += 1;
+  }
+
+  window.combatState.current_turn_index = nextIdx;
+  window.combatState.round = nextRound;
+
+  // СБРОС ВРЕМЕННЫХ БАФФОВ
+  const incomingCombatant = window.combatState.combatants[nextIdx];
+  if (incomingCombatant) {
+    if (incomingCombatant.conditions?.includes('🛡️')) {
+      incomingCombatant.conditions = incomingCombatant.conditions.filter(c => c !== '🛡️');
+      const tok = (window.mapData?.tokens || []).find(t => t.id === incomingCombatant.token_id);
+      if (tok) tok.conditions = incomingCombatant.conditions;
+    }
+    if (incomingCombatant.temp_ac) {
+      incomingCombatant.temp_ac = 0;
+    }
+    await apiFetch(`/parties/${partyId}/map`, { method: 'PATCH', body: { tokens: window.mapData.tokens } });
+  }
+
+  window.initMovementForCurrentTurn();
+
+  try {
+    await apiFetch(`/parties/${partyId}/combat`, {
+      method: 'PATCH',
+      body: {
+        current_turn_index: nextIdx,
+        round: nextRound,
+        combatants: window.combatState.combatants
+      }
+    });
+  } catch (e) {}
+
+  window.renderCombatUI();
+};
+var nextCombatTurn = window.nextCombatTurn;
+
+window.startCombat = async function() {
+  let currentMap = window.mapData;
+  if (!currentMap || !currentMap.tokens || currentMap.tokens.length === 0) {
+    try {
+      const mapRes = await apiFetch(`/parties/${partyId}/map`);
+      if (mapRes.ok) currentMap = await mapRes.json();
+    } catch (e) {}
+  }
+
+  let tokens = (currentMap && currentMap.tokens) ? currentMap.tokens : [];
+  if (tokens.length === 0) {
+    alert("На карте нет токенов! Выставите существ или нажмите «🛡️ Отряд на поле».");
+    return;
+  }
+
+  const combatants = tokens.map(t => {
+    let initValue = 10;
+    let avatar = t.avatar_url || '';
+
+    if (t.character_id && window.partyData?.members) {
+      const member = window.partyData.members.find(m => m.character_id === t.character_id);
+      let dexMod = 0;
+      if (member && member.stats) dexMod = Math.floor(((member.stats.dex || 10) - 10) / 2);
+      initValue = Math.floor(Math.random() * 20) + 1 + dexMod;
+      if (!avatar && member) avatar = member.avatar_url || member.banner_url || '';
+    } else {
+      initValue = Math.floor(Math.random() * 20) + 1 + 1;
+    }
+
+    return {
+      id: t.id,
+      token_id: t.id,
+      character_id: t.character_id || null,
+      name: t.name,
+      avatar_url: avatar,
+      initiative: initValue,
+      hp_current: t.hp_current !== undefined ? t.hp_current : (t.hp_max || 10),
+      hp_max: t.hp_max || 10,
+      conditions: t.conditions || []
+    };
+  });
+
+  combatants.sort((a, b) => (b.initiative || 0) - (a.initiative || 0));
+
+  window.combatState = {
+    is_active: true,
+    round: 1,
+    current_turn_index: 0,
+    combatants: combatants
+  };
+
+  window.initMovementForCurrentTurn();
+
+  try {
+    await apiFetch(`/parties/${partyId}/combat`, {
+      method: 'PATCH',
+      body: window.combatState
+    });
+  } catch (e) {}
+
+  window.renderCombatUI();
+  if (typeof renderBattleMap === 'function') renderBattleMap();
+};
+var startCombat = window.startCombat;
+
+window.endCombat = async function() {
+  if (!confirm("Завершить бой и сбросить инициативу?")) return;
+
+  (window.combatState.combatants || []).forEach(c => {
+    if (c.character_id) {
+      localStorage.removeItem(`char_${c.character_id}_death_saves`);
+    }
+  });
+
+  window.combatState = {
+    is_active: false,
+    round: 1,
+    current_turn_index: 0,
+    combatants: []
+  };
+
+  await apiFetch(`/parties/${partyId}/combat`, {
+    method: 'PATCH',
+    body: window.combatState
+  });
+
+  window.renderCombatUI();
+};
+var endCombat = window.endCombat;
+
+window.rollAllNpcInitiative = async function() {
+  window.combatState.combatants.forEach(c => {
+    if (!c.character_id) {
+      c.initiative = Math.floor(Math.random() * 20) + 1 + 1;
+    }
+  });
+
+  window.combatState.combatants.sort((a, b) => (b.initiative || 0) - (a.initiative || 0));
+
+  await apiFetch(`/parties/${partyId}/combat`, {
+    method: 'PATCH',
+    body: { combatants: window.combatState.combatants }
+  });
+
+  window.renderCombatUI();
+};
+var rollAllNpcInitiative = window.rollAllNpcInitiative;
+
+window.editCombatantInitiative = async function(e, tokenId) {
+  e.stopPropagation();
+  const c = window.combatState.combatants.find(x => x.token_id === tokenId);
+  if (!c) return;
+  const val = prompt(`Введите значение инициативы для «${c.name}»:`, c.initiative || 10);
+  if (val === null) return;
+  const num = parseInt(val);
+  if (!isNaN(num)) {
+    c.initiative = num;
+    window.combatState.combatants.sort((a, b) => (b.initiative || 0) - (a.initiative || 0));
+    await apiFetch(`/parties/${partyId}/combat`, {
+      method: 'PATCH',
+      body: { combatants: window.combatState.combatants }
+    });
+    window.renderCombatUI();
+  }
+};
+
+// --- 7. БОЕВАЯ КОНСОЛЬ ДЕЙСТВИЙ И АРСЕНАЛ ---
+
+window.renderActiveCombatActions = async function() {
+  const bar = document.getElementById('combatActionBar');
+  if (!bar) return;
+
+  if (!window.combatState.is_active || window.combatState.combatants.length === 0) {
+    bar.classList.add('hidden');
+    return;
+  }
+
+  bar.classList.remove('hidden');
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+  if (!currentCombatant) return;
+
+  const pData = (typeof partyData !== 'undefined' && partyData) ? partyData : window.partyData;
+  const uData = (typeof currentUserData !== 'undefined' && currentUserData) ? currentUserData : window.currentUserData;
+  const isDm = Boolean(
+    (pData && (pData.is_current_user_dm || (uData && pData.dm_id === uData.id))) ||
+    uData?.username === "Ent1XXX"
+  );
+  const isMyHeroTurn = pData && pData.my_character_id && currentCombatant.character_id === pData.my_character_id;
+
+  const playerPanel = document.getElementById('playerCombatActionsPanel');
+  const monsterPanel = document.getElementById('monsterCombatActionsPanel');
+  const deathPanel = document.getElementById('deathSavesPanel');
+
+  const titleEl = document.getElementById('combatActorTitle');
+  const subEl = document.getElementById('combatActorSubtitle');
+  if (titleEl) titleEl.textContent = `Ход: ${currentCombatant.name}`;
+  if (subEl) subEl.textContent = `Раунд ${window.combatState.round || 1} • Инициатива ${currentCombatant.initiative || 10}`;
+
+  const isDown = (currentCombatant.hp_current || 0) <= 0;
+  if (isDown) {
+    if (deathPanel) deathPanel.classList.remove('hidden');
+    window.renderDeathSavesTrack(currentCombatant);
+  } else {
+    if (deathPanel) deathPanel.classList.add('hidden');
+  }
+
+  // Если токен имеет привязанного персонажа игрока
+  if (currentCombatant.character_id && (isMyHeroTurn || isDm)) {
+    if (playerPanel) playerPanel.classList.toggle('hidden', isDown);
+    if (monsterPanel) monsterPanel.classList.add('hidden');
+    if (!isDown) {
+      await window.renderPlayerFullArsenal(currentCombatant);
+    }
+  }
+  // Если токен — Монстр или НИП (без character_id или управляется DM)
+  else {
+    if (playerPanel) playerPanel.classList.add('hidden');
+    if (monsterPanel) {
+      monsterPanel.classList.toggle('hidden', isDown);
+      if (!isDown) {
+        window.renderMonsterStatblock(currentCombatant);
+      }
+    }
+  }
+
+  window.updateTargetIndicators();
+};
+
+window.renderPlayerFullArsenal = async function(combatant) {
+  let char = window.myAttachedChar;
+  if (!char || char.id !== combatant.character_id) {
+    try {
+      const res = await apiFetch(`/characters/${combatant.character_id}`);
+      if (res.ok) char = await res.json();
+    } catch (e) {}
+  }
+
+  if (!char) {
+    char = {
+      id: combatant.character_id,
+      name: combatant.name,
+      class_name: "Воин",
+      level: 1,
+      stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }
+    };
+  }
+
+  const dexMod = Math.floor((((char.stats || {}).dex || 10) - 10) / 2);
+  const baseAc = char.armor_class || (10 + dexMod);
+  const tempAcBonus = combatant.temp_ac || 0;
+  const heroAc = baseAc + tempAcBonus;
+  const acDisplay = tempAcBonus > 0
+    ? `${heroAc} <span class="text-[9px] text-cyan-400 font-bold">(+${tempAcBonus} Щит)</span>`
+    : `${heroAc}`;
+
+  const heroHpCur = combatant.hp_current !== undefined ? combatant.hp_current : (char.hp_current || 10);
+  const heroHpMax = combatant.hp_max || char.hp_max || 10;
+  const heroSpeed = combatant.conditions?.includes('🪽') ? 60 : (char.speed || 30);
+
+  const heroStatblockHtml = `
+    <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono text-stone-300 bg-black/60 p-2 rounded-xl border border-amber-950/80 mb-2">
+      <div><span class="text-[9px] text-stone-500 block">КД</span><strong class="text-amber-300">${acDisplay}</strong></div>
+      <div><span class="text-[9px] text-stone-500 block">Хиты (HP)</span><strong class="text-emerald-400">${heroHpCur}/${heroHpMax}</strong></div>
+      <div><span class="text-[9px] text-stone-500 block">Скорость</span><strong class="text-stone-200">${heroSpeed} фт</strong></div>
+    </div>
+  `;
+
+  const statblockHost = document.getElementById('playerCombatHeroStatblock');
+  if (statblockHost) statblockHost.innerHTML = heroStatblockHtml;
+
+  const cName = String(char.class_name || '').toLowerCase().trim();
+  const sub = String(char.subclass || '').toLowerCase().trim();
+  const race = String(char.race || '').toLowerCase().trim();
+  const lvl = parseInt(char.level) || 1;
+
+  window.renderPlayerWeapons(char, combatant);
+  window.renderClassSpecialFeatures(char, cName, sub, race, lvl);
+  window.renderPlayerSpells(char, cName, sub, lvl);
+};
+
+window.renderPlayerWeapons = function(char, combatant) {
+  const list = document.getElementById('playerWeaponActionsList');
+  if (!list) return;
+
+  const rawWeapons = localStorage.getItem(`char_${char.id}_weapons`);
+  let weapons = [];
+  try { weapons = JSON.parse(rawWeapons) || []; } catch (e) { weapons = []; }
+
+  const stats = char.stats || { str: 10, dex: 10 };
+  const strMod = Math.floor(((stats.str || 10) - 10) / 2);
+  const dexMod = Math.floor(((stats.dex || 10) - 10) / 2);
+  const prof = Math.floor(((char.level || 1) - 1) / 4) + 2;
+
+  const bestMod = Math.max(strMod, dexMod);
+  const atkStr = (prof + bestMod >= 0 ? '+' : '') + (prof + bestMod);
+  const dmgModStr = (bestMod >= 0 ? '+' : '') + bestMod;
+
+  if (!Array.isArray(weapons) || weapons.length === 0) {
+    const cName = String(char.class_name || '').toLowerCase();
+    if (cName.includes('паладин') || cName.includes('paladin')) {
+      weapons = [
+        { name: "Длинный меч", atk: atkStr, dmg: `1d8${dmgModStr}` },
+        { name: "Копьё", atk: atkStr, dmg: `1d6${dmgModStr}` }
+      ];
+    } else if (cName.includes('монах') || cName.includes('monk')) {
+      weapons = [
+        { name: "Безоружный удар монаха", atk: atkStr, dmg: `1d4${dmgModStr}` },
+        { name: "Короткий меч", atk: atkStr, dmg: `1d6${dmgModStr}` }
+      ];
+    } else if (cName.includes('плут') || cName.includes('rogue')) {
+      weapons = [
+        { name: "Рапира", atk: (prof + dexMod >= 0 ? '+' : '') + (prof + dexMod), dmg: `1d8${(dexMod >= 0 ? '+' : '') + dexMod}` },
+        { name: "Короткий лук", atk: (prof + dexMod >= 0 ? '+' : '') + (prof + dexMod), dmg: `1d6${(dexMod >= 0 ? '+' : '') + dexMod}` }
+      ];
+    } else {
+      weapons = [
+        { name: "Основное оружие", atk: atkStr, dmg: `1d8${dmgModStr}` },
+        { name: "Короткий лук", atk: (prof + dexMod >= 0 ? '+' : '') + (prof + dexMod), dmg: `1d6${(dexMod >= 0 ? '+' : '') + dexMod}` }
+      ];
+    }
+  }
+
+  list.innerHTML = weapons.map(w => {
+    const wName = window.escapeHtml(w.name || 'Оружие');
+    const wAtk = window.escapeHtml(w.atk || '+4');
+    const wDmg = window.escapeHtml(w.dmg || '1d8+2');
+    const isRanged = w.name.toLowerCase().includes('лук') || w.name.toLowerCase().includes('арбалет');
+    const rangeText = isRanged ? "80 фт" : "5 фт (соседняя кл.)";
+
+    return `
+      <div class="flex items-center justify-between gap-2 p-2 rounded-xl bg-black/60 border border-orange-950 hover:border-amber-400 shadow">
+        <div>
+          <strong class="text-amber-200 block text-xs">${wName}</strong>
+          <span class="text-[10px] text-stone-400 font-mono">Атк: ${wAtk} • ${wDmg} • <span class="text-amber-400 font-bold">${rangeText}</span></span>
+        </div>
+        <button type="button" onclick="executePlayerAttack('${wName}', '${wAtk}', '${wDmg}')"
+                class="px-2.5 py-1 rounded bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-bold text-xs hover:brightness-110 active:scale-95 shadow shrink-0">
+          Удар 🎯
+        </button>
+      </div>
+    `;
+  }).join('');
+};
+
+// --- ФИЛЬТРАЦИЯ ПАССИВОК И ДИНАМИЧЕСКИЙ ВЫВОД СПОСОБНОСТЕЙ ---
+
+window.renderClassSpecialFeatures = function(char, cName, sub, race, lvl) {
+  const container = document.getElementById('playerClassFeaturesList');
+  if (!container) return;
+
+  const features = [];
+
+  // 1. Расовые способности: отсекаем бесполезные пассивки без боевых механик
+  let charRaceTraits = [];
+  if (Array.isArray(char.traits)) {
+    charRaceTraits = char.traits;
+  } else if (window.partyData?.custom_races) {
+    const foundRace = window.partyData.custom_races.find(r => r.name.toLowerCase() === race.toLowerCase());
+    if (foundRace && Array.isArray(foundRace.traits)) {
+      charRaceTraits = foundRace.traits;
+    }
+  }
+
+  charRaceTraits.forEach(trait => {
+    const tName = trait.name || 'Особенность';
+    const tDesc = trait.description || trait.desc || '';
+
+    const lower = tDesc.toLowerCase();
+    const isUselessPassive = lower.includes('не нужно спать') || lower.includes('не нуждаетесь в пище') || lower.includes('ваш возраст') || lower.includes('вы говорите, читаете');
+    const hasNumbersOrAction = /\d+/.test(tDesc) || tDesc.includes('спасбросок') || tDesc.includes('действие') || tDesc.includes('урон');
+
+    if (!isUselessPassive && hasNumbersOrAction) {
+      features.push({
+        name: tName,
+        source: 'Раса',
+        icon: tName.includes('нырок') ? '🦊' : (tName.includes('песнь') ? '❄️' : '✨'),
+        cost: 'Расовое',
+        desc: tDesc,
+        funcName: "useGenericTrait"
+      });
+    }
+  });
+
+  // 2. Классовые способности
+  if (cName.includes('паладин') || cName.includes('paladin')) {
+    features.push({
+      name: "Божественная кара (+2d8)",
+      source: "Паладин",
+      icon: "✨",
+      cost: "1 ячейка",
+      desc: "Нанесите +2d8 урона излучением по цели в радиусе 5 футов при рукопашном ударе.",
+      funcName: "triggerDivineSmite"
+    });
+    features.push({
+      name: `Наложение рук (+${lvl * 5} HP)`,
+      source: "Паладин",
+      icon: "💚",
+      cost: "Действие",
+      desc: `Исцелите себя или союзника касанием на выбранное количество очков из пула (${lvl * 5} HP).`,
+      funcName: "triggerLayOnHands"
+    });
+  }
+
+  if (cName.includes('воин') || cName.includes('fighter')) {
+    features.push({
+      name: `Второе дыхание (1d10+${lvl})`,
+      source: "Воин",
+      icon: "💨",
+      cost: "Бонусное",
+      desc: "Восстановите 1d10 + уровень воина очков здоровья в свой ход.",
+      funcName: "triggerSecondWindCombat"
+    });
+    if (lvl >= 2) {
+      features.push({
+        name: "Всплеск действий",
+        source: "Воин",
+        icon: "⚡",
+        cost: "1/отдых",
+        desc: "Получите дополнительное полноценное Действие в этот ход.",
+        funcName: "triggerActionSurge"
+      });
+    }
+  }
+
+  if (cName.includes('охотник') || cName.includes('blood')) {
+    const activeRite = localStorage.getItem(`char_${char.id}_bh_active_rite`);
+    features.push({
+      name: activeRite ? `Алый обряд: ${activeRite}` : "Активировать Алый обряд",
+      source: "Кр. Охотник",
+      icon: "🩸",
+      cost: "1 кость HP",
+      desc: "Пожертвуйте кость здоровья, напитав оружие стихийным уроном (огонь, холод или молния) до короткого отдыха.",
+      funcName: "triggerCrimsonRiteDynamic"
+    });
+
+    const knownCurses = JSON.parse(localStorage.getItem(`char_${char.id}_known_curses`) || '[]');
+    knownCurses.forEach(curseName => {
+      features.push({
+        name: `Проклятие: ${curseName}`,
+        source: "Кр. Охотник",
+        icon: "👁️",
+        cost: "1 Кровь",
+        desc: `Использовать проклятие крови «${curseName}» на видимое существо в пределах 30 футов.`,
+        funcName: "triggerBloodCurseDynamic",
+        param: curseName
+      });
+    });
+
+    if (lvl >= 6) {
+      const brandTarget = localStorage.getItem(`char_${char.id}_bh_brand_target`);
+      features.push({
+        name: brandTarget ? `Клеймо на: ${brandTarget}` : "Клеймо наказания",
+        source: "Кр. Охотник",
+        icon: "⚡",
+        cost: "Атака",
+        desc: "Выжгите клеймо на теле цели: цель не может телепортироваться и получает урон при попытке ударить вас.",
+        funcName: "triggerBrandDynamic"
+      });
+    }
+
+    if (sub.includes('ликантроп') && lvl >= 3) {
+      const isLycan = localStorage.getItem(`char_${char.id}_lycan_active`) === 'true';
+      features.push({
+        name: isLycan ? "🐾 Форма зверя (Активна)" : "🐺 Принять форму зверя",
+        source: "Ликантроп",
+        icon: "🐺",
+        cost: "Бонусное",
+        desc: "Примите форму гибрида: +1 к КД, сопротивление урону, атака когтями 1d6.",
+        funcName: "triggerLycanToggleDynamic"
+      });
+    }
+  }
+
+  if (cName.includes('варвар') || cName.includes('barbarian')) {
+    features.push({
+      name: "Впасть в Ярость",
+      source: "Варвар",
+      icon: "🪓",
+      cost: "Бонусное",
+      desc: "+2 к урону оружием от Силы, сопротивление дробящему, колющему и рубящему урону, преимущество на проверки Силы.",
+      funcName: "triggerBarbarianRage"
+    });
+  }
+
+  if (cName.includes('плут') || cName.includes('rogue')) {
+    const sneakCount = Math.ceil(lvl / 2);
+    features.push({
+      name: `Скрытая атака (+${sneakCount}d6)`,
+      source: "Плут",
+      icon: "🗡️",
+      cost: "1/ход",
+      desc: `Нанесите дополнительный урон +${sneakCount}d6 оружием с фехтовальным или дальнобойным свойством при преимуществе или наличии союзника рядом.`,
+      funcName: "triggerSneakAttackDynamic"
+    });
+  }
+
+  // Базовые действия
+  features.push(
+    { name: "Рывок", source: "Базовое", icon: "🏃", cost: "Действие", desc: "Удвойте свою скорость перемещения на текущий ход.", funcName: "triggerDashAction" },
+    { name: "Уклонение", source: "Базовое", icon: "🛡️", cost: "Действие", desc: "Все броски атаки по вам совершаются с помехой до начала вашего следующего хода.", funcName: "triggerDodgeAction" },
+    { name: "Первая помощь", source: "Базовое", icon: "🩹", cost: "Действие", desc: "Стабилизируйте существо при 0 HP (проверка Мудрости [Медицина] со СЛ 10).", funcName: "stabilizeDownedHero" }
+  );
+
+  window.currentCombatantFeaturesCache = features;
+
+  container.innerHTML = features.map((f, idx) => {
+    return `
+      <div class="flex items-center justify-between gap-1 p-1.5 rounded-xl bg-black/60 border border-orange-950 hover:border-amber-400 shadow transition-all">
+        <button type="button" onclick="executeFeatureByIndex(${idx})"
+                class="flex items-center gap-1.5 text-left truncate flex-1 active:scale-95 transition-transform"
+                title="${window.escapeHtml(f.desc)}">
+          <span class="text-sm shrink-0">${f.icon}</span>
+          <div class="truncate">
+            <div class="flex items-center gap-1 truncate">
+              <strong class="text-xs text-stone-200 block truncate">${window.escapeHtml(f.name)}</strong>
+              <span class="text-[8px] font-mono px-1 rounded bg-stone-900 border border-stone-800 text-stone-400">${f.source}</span>
+            </div>
+            <span class="text-[9px] text-stone-500 font-mono block">${window.escapeHtml(f.cost)}</span>
+          </div>
+        </button>
+
+        <button type="button" onclick="openFeatureDetailModal(${idx})"
+                class="w-6 h-6 rounded bg-stone-900 border border-stone-800 hover:border-amber-400 text-amber-300 flex items-center justify-center text-xs font-bold shrink-0 shadow">
+          ℹ️
+        </button>
+      </div>
+    `;
+  }).join('');
+};
+
+window.executeFeatureByIndex = function(idx) {
+  const f = window.currentCombatantFeaturesCache[idx];
+  if (!f) return;
+  if (f.funcName === "useGenericTrait") {
+    window.useGenericTrait(f.name, f.desc);
+  } else if (f.funcName && typeof window[f.funcName] === 'function') {
+    window[f.funcName](f.param || f.name);
+  }
+};
+
+window.openFeatureDetailModal = function(idx) {
+  const f = window.currentCombatantFeaturesCache[idx];
+  if (!f) return;
+
+  document.getElementById('modalSpellTitle').textContent = f.name;
+  document.getElementById('modalSpellSub').textContent = `Источник: ${f.source} • Стоимость: ${f.cost}`;
+  document.getElementById('modalSpellTime').textContent = f.cost;
+  document.getElementById('modalSpellRange').textContent = "По правилам 5e";
+  document.getElementById('modalSpellDuration').textContent = "Мгновенное / Раунд";
+  document.getElementById('modalSpellDamage').textContent = f.name.includes('+') ? f.name : "Особое";
+  document.getElementById('modalSpellDesc').textContent = f.desc || "Описание отсутствует.";
+
+  const castBtn = document.getElementById('modalSpellCastBtn');
+  castBtn.textContent = "Активировать ✨";
+  castBtn.onclick = () => {
+    closeSpellDetailModal();
+    window.executeFeatureByIndex(idx);
+  };
+
+  document.getElementById('spellDetailModal').classList.remove('hidden');
+};
+
+window.useGenericTrait = function(name, desc) {
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+  const msg = `⚡ «${currentCombatant.name}» применяет способность «${name}»!\n${desc}`;
+  window.showDiceRollModal(`Способность: ${name}`, 20, 0, 20, desc);
+  window.broadcastFeatureUse(msg);
+};
+
+// --- 8. ЯЧЕЙКИ ЗАКЛИНАНИЙ (ВЫЧИСЛЕНИЕ ПО УРОВНЮ БЕЗ КЭШ-ЛОКОВ) ---
+
+window.getCharacterSlots = function(char) {
+  if (!char) return {};
+  const charId = char.id;
+  const key = `char_${charId}_spell_slots`;
+
+  // Проверяем актуальный сохраненный прогресс
+  const raw = localStorage.getItem(key);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      // Если это не огрызок с 1 кругом для мага высокого уровня:
+      const level = parseInt(char.level) || 1;
+      if (level < 3 || Object.keys(parsed).length > 1) {
+        return parsed;
+      }
+    } catch (e) {}
+  }
+
+  // Генерируем правильную сетку ячеек D&D 5e по уровню персонажа
+  const charLvl = Math.max(1, Math.min(20, parseInt(char.level) || 1));
+  const tableRow = window.FULL_CASTER_SLOTS_TABLE[charLvl] || { 1: 2 };
+
+  const normalized = {};
+  for (let c = 1; c <= 9; c++) {
+    const maxVal = tableRow[c] || 0;
+    if (maxVal > 0) {
+      normalized[c] = { cur: maxVal, max: maxVal };
+    }
+  }
+
+  window.saveCharacterSlots(charId, normalized);
+  return normalized;
+};
+
+window.saveCharacterSlots = function(charId, slots) {
+  localStorage.setItem(`char_${charId}_spell_slots`, JSON.stringify(slots));
+};
+
+window.resetSpellSlots = function(charId) {
+  localStorage.removeItem(`char_${charId}_spell_slots`);
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+  if (currentCombatant) window.renderPlayerFullArsenal(currentCombatant);
+  alert("Ячейки заклинаний восстановлены до максимума!");
+};
+
+window.filterSpellsByCircle = function(circle) {
+  window.selectedSpellFilterCircle = circle;
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+  if (currentCombatant) {
+    window.renderPlayerFullArsenal(currentCombatant);
+  }
+};
+
+window.renderPlayerSpells = function(char, cName, sub, lvl) {
+  const section = document.getElementById('playerSpellActionsSection');
+  const list = document.getElementById('playerSpellActionsList');
+  if (!section || !list) return;
+
+  const isCaster = ['волшебник', 'колдун', 'жрец', 'бард', 'друид', 'чародей', 'паладин', 'следопыт', 'изобретатель', 'wizard', 'sorcerer', 'cleric', 'bard', 'druid', 'warlock', 'paladin', 'ranger'].some(k => cName.includes(k)) ||
+                   sub.includes('мистический') || sub.includes('профан');
+
+  if (!isCaster) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  section.classList.remove('hidden');
+
+  // ЯЧЕЙКА ВЫБРАННОГО КРУГА:
+  const slots = window.getCharacterSlots(char);
+  const slotsDisplay = document.getElementById('playerSpellSlotsDisplay');
+  if (slotsDisplay) {
+    if (window.selectedSpellFilterCircle === 'all' || window.selectedSpellFilterCircle === 0 || window.selectedSpellFilterCircle === '0') {
+      slotsDisplay.innerHTML = `<span class="text-stone-400 font-mono text-[10px]">Заговоры (без ячеек)</span>`;
+    } else {
+      const curCircle = parseInt(window.selectedSpellFilterCircle) || 1;
+      const slotData = slots[curCircle] || { cur: 0, max: 0 };
+      const isDepleted = slotData.cur <= 0;
+      const color = isDepleted ? "text-rose-400 border-rose-900 bg-rose-950/40" : "text-cyan-300 border-cyan-800 bg-cyan-950/40";
+      slotsDisplay.innerHTML = `
+        <span class="px-2 py-0.5 rounded border text-[10px] font-mono font-bold ${color}">
+          ${curCircle} круг: [${slotData.cur} / ${slotData.max}]
+        </span>
+      `;
+    }
+  }
+
+  let spells = [];
+  if (Array.isArray(char.spells) && char.spells.length > 0) spells = char.spells;
+  else if (Array.isArray(char.spells_known) && char.spells_known.length > 0) spells = char.spells_known;
+  else {
+    const rawSaved = localStorage.getItem(`char_${char.id}_spells`);
+    if (rawSaved) {
+      try { spells = JSON.parse(rawSaved) || []; } catch (e) {}
+    }
+  }
+
+  spells = spells.map(sp => {
+    if (typeof sp === 'string') return { name: sp, level: 1, damage: null, range: "60 футов" };
+    return sp;
+  });
+
+  if (spells.length === 0) {
+    spells = [
+      { name: "Огненный снаряд", level: 0, damage: "1d10", range: "120 футов", description: "Луч огня устремляется к существу или предмету в пределах дистанции." },
+      { name: "Огненный шар", level: 3, damage: "8d6", range: "150 футов (сфера 20 фт)", is_aoe: true, description: "Яркий луч вспыхивает из пальца и взрывается в сфере радиусом 20 футов (8d6 огнём)." },
+      { name: "Полёт", level: 3, damage: null, range: "Касание", description: "Существо получает скорость полёта 60 футов до конца концентрации." },
+      { name: "Невидимость", level: 2, damage: null, range: "Касание", description: "Существо становится невидимым (👻) до совершения атаки или сотворения заклинания." },
+      { name: "Щит (+5 КД)", level: 1, damage: null, range: "На себя", is_shield: true, description: "Невидимый барьер магической силы защищает вас (+5 к КД) до начала вашего следующего хода." }
+    ];
+  }
+
+  window.currentCombatantSpellsCache = spells;
+
+  // Динамические кнопки кругов
+  const availableCircles = Array.from(new Set(spells.map(s => parseInt(s.level) || 0))).sort((a, b) => a - b);
+
+  const filterButtonsHtml = `
+    <div class="flex items-center gap-1 overflow-x-auto pb-1 mb-2 text-[10px] font-mono scrollbar-thin">
+      <button type="button" onclick="filterSpellsByCircle('all')"
+              class="px-2 py-0.5 rounded shrink-0 ${window.selectedSpellFilterCircle === 'all' ? 'bg-cyan-500 text-stone-950 font-bold' : 'bg-stone-900 border border-stone-800 text-stone-400'}">
+        Все (${spells.length})
+      </button>
+      ${availableCircles.map(c => `
+        <button type="button" onclick="filterSpellsByCircle(${c})"
+                class="px-2 py-0.5 rounded shrink-0 ${window.selectedSpellFilterCircle === String(c) || window.selectedSpellFilterCircle === c ? 'bg-cyan-500 text-stone-950 font-bold' : 'bg-stone-900 border border-stone-800 text-stone-400'}">
+          ${c === 0 ? 'Заговоры' : `${c} круг`}
+        </button>
+      `).join('')}
+    </div>
+  `;
+
+  let filtered = spells;
+  if (window.selectedSpellFilterCircle !== 'all') {
+    const targetLvl = parseInt(window.selectedSpellFilterCircle);
+    filtered = spells.filter(s => (parseInt(s.level) || 0) === targetLvl);
+  }
+
+  if (filtered.length === 0) {
+    list.innerHTML = filterButtonsHtml + '<div class="text-stone-500 text-[11px] p-2 text-center">Нет заклинаний этого круга.</div>';
+    return;
+  }
+
+  list.innerHTML = filterButtonsHtml + filtered.map(sp => {
+    const spName = window.escapeHtml(sp.name || 'Заклинание');
+    const lvlNum = parseInt(sp.level) || 0;
+    const lvlText = lvlNum === 0 ? "Заговор" : `${lvlNum} круг`;
+    const dmg = sp.damage ? ` • ${sp.damage}` : (sp.damage_dice ? ` • ${sp.damage_dice}` : '');
+    const rangeDisplay = sp.range || "60 фт";
+    const isAoe = sp.is_aoe || rangeDisplay.includes('сфера') || rangeDisplay.includes('конус') || rangeDisplay.includes('линия');
+
+    return `
+      <div class="flex items-center justify-between gap-1.5 p-2 rounded-xl bg-black/60 border border-cyan-950 hover:border-cyan-500 shadow transition-all">
+        <div class="truncate flex-1">
+          <div class="flex items-center gap-1.5 truncate">
+            <strong class="text-cyan-200 block text-xs truncate">${spName}</strong>
+            ${isAoe ? '<span class="text-[9px] bg-rose-950/60 border border-rose-800 text-rose-300 px-1 rounded font-mono">AOE</span>' : ''}
+          </div>
+          <span class="text-[10px] text-stone-400 font-mono">${lvlText}${dmg} • <span class="text-cyan-400">${rangeDisplay}</span></span>
+        </div>
+
+        <div class="flex items-center gap-1 shrink-0">
+          <button type="button" onclick="openSpellDetailModal('${window.escapeHtml(sp.name)}')" title="Прочитать описание"
+                  class="w-6 h-6 rounded bg-stone-900 border border-stone-700 hover:border-cyan-400 text-cyan-300 flex items-center justify-center text-xs font-bold transition-all">
+            ℹ️
+          </button>
+          <button type="button" onclick="castSpellByIndex(${spells.indexOf(sp)})"
+                  class="px-2.5 py-1 rounded bg-cyan-950 border border-cyan-600 hover:bg-cyan-900 text-cyan-200 font-bold text-xs shadow active:scale-95">
+            Каст ✨
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+};
+
+window.openSpellDetailModal = function(spellName) {
+  const sp = (window.currentCombatantSpellsCache || []).find(s => s.name === spellName) || {
+    name: spellName,
+    level: 1,
+    school: "Воплощение",
+    range: "60 футов",
+    cast_time: "1 действие",
+    duration: "Мгновенная",
+    description: "Описание заклинания загружается..."
+  };
+
+  document.getElementById('modalSpellTitle').textContent = sp.name;
+  document.getElementById('modalSpellSub').textContent = `${sp.level === 0 ? 'Заговор' : sp.level + ' круг'}, ${sp.school || 'Магия'}`;
+  document.getElementById('modalSpellTime').textContent = sp.cast_time || "1 действие";
+  document.getElementById('modalSpellRange').textContent = sp.range || "60 футов";
+  document.getElementById('modalSpellDuration').textContent = sp.duration || "Мгновенная";
+  document.getElementById('modalSpellDamage').textContent = sp.damage || sp.damage_dice || "По описанию";
+  document.getElementById('modalSpellDesc').textContent = sp.description || "Описание отсутствует.";
+
+  const castBtn = document.getElementById('modalSpellCastBtn');
+  castBtn.textContent = "Сотворить ✨";
+  castBtn.onclick = () => {
+    closeSpellDetailModal();
+    const idx = window.currentCombatantSpellsCache.indexOf(sp);
+    if (idx !== -1) window.castSpellByIndex(idx);
+  };
+
+  document.getElementById('spellDetailModal').classList.remove('hidden');
+};
+
+window.closeSpellDetailModal = function() {
+  document.getElementById('spellDetailModal')?.classList.add('hidden');
+};
+
+window.castSpellByIndex = function(idx) {
+  const sp = window.currentCombatantSpellsCache[idx];
+  if (!sp) return;
+
+  const spName = sp.name;
+  const lvl = parseInt(sp.level) || 0;
+  const dmg = sp.damage || sp.damage_dice || '';
+  const rangeDisplay = sp.range || "60 фт";
+  const isHeal = sp.is_heal || spName.toLowerCase().includes('лечащ') || spName.toLowerCase().includes('исцел');
+  const isShield = sp.is_shield || spName.toLowerCase().includes('щит');
+  const isFly = spName.toLowerCase().includes('полёт') || spName.toLowerCase().includes('полет');
+  const isInvis = spName.toLowerCase().includes('невидим');
+  const isAoe = sp.is_aoe || rangeDisplay.includes('сфера') || rangeDisplay.includes('конус') || rangeDisplay.includes('линия');
+
+  window.castPlayerSpell(spName, lvl, dmg, rangeDisplay, isHeal, isShield, isFly, isInvis, isAoe);
+};
+
+// --- 9. СОТВОРЕНИЕ ЗАКЛИНАНИЙ С AOE, ПОЛЁТОМ И НЕВИДИМОСТЬЮ ---
+
+window.castPlayerSpell = async function(spellName, circle, damageFormula, rangeStr = "60 фт", isHeal = false, isShield = false, isFly = false, isInvis = false, isAoe = false) {
+  if (!window.combatEconomy.hasAction && !isShield) {
+    alert("Основное действие уже потрачено в этом ходу!");
+    return;
+  }
+
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+  if (!currentCombatant) return;
+
+  let char = window.myAttachedChar;
+  if (!char || char.id !== currentCombatant.character_id) {
+    const pData = (typeof partyData !== 'undefined' && partyData) ? partyData : window.partyData;
+    const mem = (pData?.members || []).find(m => m.character_id === currentCombatant.character_id);
+    char = mem || { id: currentCombatant.character_id, level: 1 };
+  }
+  const charId = char.id;
+
+  // 1. ИНТЕРАКТИВНЫЙ AOE-ПРИЦЕЛ
+  if (isAoe) {
+    window.activeAoeSpell = {
+      name: spellName,
+      circle: circle,
+      damage: damageFormula,
+      radiusFeet: 20,
+      char: char
+    };
+    alert(`🎯 Выберите эпицентр «${spellName}» кликом по карте! Подсвечен радиус поражения 20 фт.`);
+    if (typeof initAoeTargeting === 'function') initAoeTargeting();
+    return;
+  }
+
+  // 2. СПИСАНИЕ ЯЧЕЙКИ
+  if (circle >= 1 && charId) {
+    const slots = window.getCharacterSlots(char);
+    const circleSlot = slots[circle];
+
+    if (!circleSlot || circleSlot.cur <= 0) {
+      alert(`У персонажа «${currentCombatant.name}» нет свободных ячеек ${circle} круга!`);
+      return;
+    }
+
+    circleSlot.cur -= 1;
+    slots[circle] = circleSlot;
+    window.saveCharacterSlots(charId, slots);
+  }
+
+  // 3. ЗАКЛИНАНИЕ «ПОЛЁТ» (СКОРОСТЬ 60 ФТ)
+  if (isFly) {
+    currentCombatant.conditions = currentCombatant.conditions || [];
+    if (!currentCombatant.conditions.includes('🪽')) currentCombatant.conditions.push('🪽');
+
+    window.combatMovementPool.maxFeet = 60;
+    window.combatMovementPool.remainingFeet = 60;
+    window.updateMovementDisplay();
+
+    window.combatEconomy.hasAction = false;
+    window.updateEconomyBadges();
+
+    window.triggerVisualFx(currentCombatant.token_id, 'heal');
+    window.broadcastFeatureUse(`🪽 «${currentCombatant.name}» сотворяет «Полёт»! Скорость перемещения увеличена до 60 фт!`);
+    window.renderPlayerFullArsenal(currentCombatant);
+    return;
+  }
+
+  // 4. ЗАКЛИНАНИЕ «НЕВИДИМОСТЬ» (👻)
+  if (isInvis) {
+    currentCombatant.conditions = currentCombatant.conditions || [];
+    if (!currentCombatant.conditions.includes('👻')) currentCombatant.conditions.push('👻');
+
+    const tok = (window.mapData?.tokens || []).find(t => t.id === currentCombatant.token_id);
+    if (tok) {
+      tok.conditions = currentCombatant.conditions;
+      await apiFetch(`/parties/${partyId}/map`, { method: 'PATCH', body: { tokens: window.mapData.tokens } });
+    }
+
+    window.combatEconomy.hasAction = false;
+    window.updateEconomyBadges();
+
+    window.triggerVisualFx(currentCombatant.token_id, 'heal');
+    window.broadcastFeatureUse(`👻 «${currentCombatant.name}» растворяется в воздухе и становится НЕВИДИМЫМ!`);
+    window.renderPlayerFullArsenal(currentCombatant);
+    if (typeof renderBattleMap === 'function') renderBattleMap();
+    return;
+  }
+
+  // 5. ЗАКЛИНАНИЕ «ЩИТ» (+5 КД)
+  if (isShield || spellName.toLowerCase().includes('щит')) {
+    currentCombatant.temp_ac = (currentCombatant.temp_ac || 0) + 5;
+    currentCombatant.conditions = currentCombatant.conditions || [];
+    if (!currentCombatant.conditions.includes('🛡️')) currentCombatant.conditions.push('🛡️');
+
+    window.triggerVisualFx(currentCombatant.token_id, 'heal');
+    window.showDiceRollModal("Заклинание Щит", 5, 0, 5, "КД увеличен на +5 до следующего хода!");
+    window.broadcastFeatureUse(`🛡️ «${currentCombatant.name}» применяет «Щит» (+5 КД)!`);
+    window.renderPlayerFullArsenal(currentCombatant);
+    return;
+  }
+
+  const maxRange = window.parseSpellRangeFeet(rangeStr);
+
+  // 6. ЗАКЛИНАНИЕ НА СЕБЯ
+  if (maxRange === 0) {
+    window.combatEconomy.hasAction = false;
+    window.updateEconomyBadges();
+    window.triggerVisualFx(currentCombatant.token_id, 'heal');
+    window.broadcastFeatureUse(`✨ «${currentCombatant.name}» накладывает на себя «${spellName}»!`);
+    window.renderPlayerFullArsenal(currentCombatant);
+    return;
+  }
+
+  // 7. ОДИНОЧНАЯ ЦЕЛЬ
+  if (!window.selectedTargetTokenId && damageFormula) {
+    alert("Выберите цель на карте кликом по токену!");
+    return;
+  }
+
+  const tokens = (window.mapData && window.mapData.tokens) || [];
+  const target = tokens.find(t => t.id === window.selectedTargetTokenId);
+  if (!target) return;
+
+  if (!isHeal && currentCombatant.token_id === target.id) {
+    alert("Вы не можете бить атакующим заклинанием самого себя!");
+    return;
+  }
+
+  const distance = window.calculateDistanceBetweenTokens(currentCombatant.token_id, target.id);
+  if (distance > maxRange) {
+    alert(`Цель вне дальности! Расстояние: ${distance} фт (дальность заклинания: ${maxRange} фт).`);
+    return;
+  }
+
+  let msg = `✨ Заклинание «${spellName}» по «${target.name}» (дистанция ${distance} фт)!`;
+
+  if (damageFormula) {
+    const dmgResult = window.rollDiceFormula(damageFormula, false);
+    if (isHeal) {
+      msg += `\n💚 Исцеление: +${dmgResult.total} HP (${dmgResult.text})`;
+      window.activeHudTokenId = target.id;
+      await window.applyTokenDamageSilently(dmgResult.total);
+      window.triggerVisualFx(target.id, 'heal');
+      window.showDiceRollModal(`Исцеление [${spellName}]`, dmgResult.total, 0, dmgResult.total, `+${dmgResult.total} HP`);
+    } else {
+      msg += `\n💥 Урон: ${dmgResult.total} (${dmgResult.text})`;
+      window.activeHudTokenId = target.id;
+      await window.applyTokenDamageSilently(-dmgResult.total);
+      window.triggerVisualFx(target.id, 'fire');
+      window.showDiceRollModal(`Заклинание [${spellName}]`, dmgResult.total, 0, dmgResult.total, `Урон: ${dmgResult.total}`);
+    }
+  }
+
+  window.combatEconomy.hasAction = false;
+  window.updateEconomyBadges();
+  window.broadcastFeatureUse(msg);
+  window.renderPlayerFullArsenal(currentCombatant);
+};
+
+// --- 10. АТАКИ ОРУЖИЕМ С ПРОВЕРКОЙ КД ---
+
+window.executePlayerAttack = async function(weaponName, atkBonusStr, dmgFormula) {
+  if (!window.combatEconomy.hasAction) {
+    alert("Основное действие уже потрачено в этом ходу!");
+    return;
+  }
+
+  if (!window.selectedTargetTokenId) {
+    alert("Сначала выберите цель кликом по токену врага!");
+    return;
+  }
+
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+  if (currentCombatant && (currentCombatant.token_id === window.selectedTargetTokenId || currentCombatant.id === window.selectedTargetTokenId)) {
+    alert("Вы не можете атаковать самого себя!");
+    return;
+  }
+
+  const tokens = (window.mapData && window.mapData.tokens) || [];
+  const target = tokens.find(t => t.id === window.selectedTargetTokenId);
+  if (!target) return;
+
+  const distance = window.calculateDistanceBetweenTokens(currentCombatant.token_id, target.id);
+  const isRanged = weaponName.toLowerCase().includes('лук') || weaponName.toLowerCase().includes('арбалет') || weaponName.toLowerCase().includes('дротик');
+  const maxRange = isRanged ? 80 : 5;
+
+  if (distance > maxRange) {
+    alert(`Цель вне досягаемости! Расстояние: ${distance} фт (радиус оружия: ${maxRange} фт). Подойдите вплотную на соседнюю клетку!`);
+    return;
+  }
+
+  const atkBonus = parseInt(atkBonusStr) || 0;
+  const d20 = Math.floor(Math.random() * 20) + 1;
+  const totalAtk = d20 + atkBonus;
+  const isCrit = d20 === 20;
+
+  // ПРОВЕРКА КД ЦЕЛИ
+  let targetAc = 10;
+  if (target.character_id) {
+    const mem = (window.partyData?.members || []).find(m => m.character_id === target.character_id);
+    targetAc = mem?.character_ac || 10;
+  } else {
+    const npc = (typeof dmNpcsList !== 'undefined') ? dmNpcsList.find(n => n.name === target.name) : null;
+    targetAc = npc?.armor_class || 12;
+  }
+
+  const attackerName = currentCombatant ? currentCombatant.name : 'Герой';
+
+  if (!isCrit && totalAtk < targetAc) {
+    const missMsg = `💨 ${attackerName} атакует «${target.name}» [${weaponName}]: бросок d20(${d20})+${atkBonus} = ${totalAtk} против КД ${targetAc} ➔ ПРОМАХ!`;
+    window.combatEconomy.hasAction = false;
+    window.updateEconomyBadges();
+    window.showDiceRollModal(`Атака [${weaponName}]`, d20, atkBonus, totalAtk, `ПРОМАХ! (КД цели: ${targetAc})`);
+    window.broadcastFeatureUse(missMsg);
+    return;
+  }
+
+  const dmgResult = window.rollDiceFormula(dmgFormula, isCrit);
+  let resultMsg = `⚔️ ${attackerName} попадает по «${target.name}» [${weaponName}] (КД ${targetAc}):\n🎲 d20(${d20})+${atkBonus} = ${totalAtk}${isCrit ? ' 🔥 КРИТ!' : ''}\n💥 Урон: ${dmgResult.total} (${dmgResult.text})`;
+
+  window.activeHudTokenId = window.selectedTargetTokenId;
+  await window.applyTokenDamageSilently(-dmgResult.total);
+
+  window.combatEconomy.hasAction = false;
+  window.updateEconomyBadges();
+
+  window.triggerVisualFx(target.id, 'slash');
+  window.showDiceRollModal(`Попадание [${weaponName}]`, d20, atkBonus, totalAtk, `ПОПАДАНИЕ! Урон: ${dmgResult.total} (${dmgResult.text})`);
+  window.broadcastFeatureUse(resultMsg);
+};
+
+// --- СТАТБЛОК МОНСТРОВ С РЕАЛЬНЫМИ КНОПКАМИ ДЕЙСТВИЙ ---
+
+window.renderMonsterStatblock = function(combatant) {
+  const attacksList = document.getElementById('monsterAttacksList');
+  if (!attacksList) return;
+
+  let npcData = null;
+  if (typeof dmNpcsList !== 'undefined') {
+    npcData = dmNpcsList.find(n => n.name === combatant.name);
+  }
+
+  const acEl = document.getElementById('monsterAcDisplay');
+  const hpEl = document.getElementById('monsterHpDisplay');
+  const spEl = document.getElementById('monsterSpeedDisplay');
+
+  if (acEl) acEl.textContent = npcData?.armor_class || 12;
+  if (hpEl) hpEl.textContent = `${combatant.hp_current !== undefined ? combatant.hp_current : 15}/${combatant.hp_max || 15}`;
+  if (spEl) spEl.textContent = `${npcData?.speed || 30} фт`;
+
+  const attacks = [
+    { name: "Удар когтями / оружием", atk: "+4", dmg: "1d6+2", range: 5 },
+    { name: "Выстрел из лука", atk: "+4", dmg: "1d6+2", range: 80 }
+  ];
+
+  const attacksHtml = attacks.map(a => `
+    <div class="flex items-center justify-between gap-2 p-2 rounded-xl bg-black/60 border border-rose-950 hover:border-rose-500 shadow">
+      <div>
+        <strong class="text-rose-200 block text-xs">${window.escapeHtml(a.name)}</strong>
+        <span class="text-[10px] text-stone-400 font-mono">Атк: ${a.atk} • ${a.dmg} • <span class="text-amber-400 font-bold">${a.range} фт</span></span>
+      </div>
+      <button type="button" onclick="executeMonsterAttack('${window.escapeHtml(combatant.name)}', '${window.escapeHtml(a.name)}', '${a.atk}', '${a.dmg}', ${a.range})"
+              class="px-2.5 py-1 rounded bg-rose-700 hover:bg-rose-600 text-stone-100 font-bold text-xs active:scale-95 shadow ml-2 shrink-0">
+        Удар 🎯
+      </button>
+    </div>
+  `).join('');
+
+  const actionsHtml = `
+    <div class="grid grid-cols-2 gap-1.5 pt-2 border-t border-rose-950/60">
+      <button type="button" onclick="monsterDashAction('${window.escapeHtml(combatant.name)}')"
+              class="px-2 py-1 rounded bg-stone-900 border border-stone-800 hover:border-amber-400 text-stone-200 text-xs font-mono">
+        🏃 Рывок (+30 фт)
+      </button>
+      <button type="button" onclick="monsterDodgeAction('${window.escapeHtml(combatant.name)}')"
+              class="px-2 py-1 rounded bg-stone-900 border border-stone-800 hover:border-amber-400 text-stone-200 text-xs font-mono">
+        🛡️ Уклонение
+      </button>
+    </div>
+  `;
+
+  attacksList.innerHTML = attacksHtml + actionsHtml;
+};
+
+window.executeMonsterAttack = async function(monsterName, attackName, atkBonusStr, dmgFormula, maxRange = 5) {
+  if (!window.combatEconomy.hasAction) {
+    alert("Монстр уже потратил действие в этом ходу!");
+    return;
+  }
+
+  if (!window.selectedTargetTokenId) {
+    alert("Выберите цель кликом по токену!");
+    return;
+  }
+
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+  const tokens = (window.mapData && window.mapData.tokens) || [];
+  const target = tokens.find(t => t.id === window.selectedTargetTokenId);
+  if (!target) return;
+
+  const distance = window.calculateDistanceBetweenTokens(currentCombatant.token_id, target.id);
+  if (distance > maxRange) {
+    alert(`Цель слишком далеко! Расстояние: ${distance} фт (дальность: ${maxRange} фт).`);
+    return;
+  }
+
+  const atkBonus = parseInt(atkBonusStr) || 0;
+  const d20 = Math.floor(Math.random() * 20) + 1;
+  const totalAtk = d20 + atkBonus;
+  const isCrit = d20 === 20;
+
+  let targetAc = 10;
+  if (target.character_id) {
+    const mem = (window.partyData?.members || []).find(m => m.character_id === target.character_id);
+    targetAc = mem?.character_ac || 10;
+  }
+
+  if (!isCrit && totalAtk < targetAc) {
+    const missMsg = `💨 ${monsterName} промахивается по «${target.name}» [${attackName}]: d20(${d20})+${atkBonus} = ${totalAtk} против КД ${targetAc}.`;
+    window.combatEconomy.hasAction = false;
+    window.updateEconomyBadges();
+    window.showDiceRollModal(`Атака монстра`, d20, atkBonus, totalAtk, `ПРОМАХ! (КД: ${targetAc})`);
+    window.broadcastFeatureUse(missMsg);
+    return;
+  }
+
+  const dmgResult = window.rollDiceFormula(dmgFormula, isCrit);
+  let resultMsg = `👹 ${monsterName} попадает по «${target.name}» [${attackName}]:\n🎲 d20(${d20})+${atkBonus} = ${totalAtk}\n💥 Урон: ${dmgResult.total} (${dmgResult.text})`;
+
+  window.activeHudTokenId = window.selectedTargetTokenId;
+  await window.applyTokenDamageSilently(-dmgResult.total);
+
+  window.combatEconomy.hasAction = false;
+  window.updateEconomyBadges();
+
+  window.triggerVisualFx(target.id, 'slash');
+  window.showDiceRollModal(`Удар монстра`, d20, atkBonus, totalAtk, `ПОПАДАНИЕ! Урон: ${dmgResult.total}`);
+  window.broadcastFeatureUse(resultMsg);
+};
+
+// --- 11. НАЛОЖЕНИЕ РУК (ИСПРАВЛЕННОЕ ДЛЯ СЕБЯ И ДЛЯ ДРУГИХ) ---
+
+window.triggerLayOnHands = async function() {
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+  if (!currentCombatant) return;
+
+  if (!window.combatEconomy.hasAction) {
+    alert("Основное действие уже потрачено в этом ходу!");
+    return;
+  }
+
+  // Явный выбор: кого лечить?
+  const isSelf = confirm(`Исцелить самого себя («${currentCombatant.name}»)?\n\n[ОК] — Исцелить себя\n[Отмена] — Исцелить выбранную цель на карте`);
+
+  let targetTokenId = currentCombatant.token_id;
+  let targetName = currentCombatant.name;
+
+  if (!isSelf) {
+    if (!window.selectedTargetTokenId) {
+      alert("Сначала выберите союзника на карте кликом по его токену!");
+      return;
+    }
+    targetTokenId = window.selectedTargetTokenId;
+    const t = (window.mapData?.tokens || []).find(x => x.id === targetTokenId);
+    if (!t) return;
+    targetName = t.name;
+
+    const dist = window.calculateDistanceBetweenTokens(currentCombatant.token_id, targetTokenId);
+    if (dist > 5) {
+      alert(`Наложение рук требует касания! Дистанция: ${dist} фт (нужно стоять на соседней клетке: 5 фт).`);
+      return;
+    }
+  }
+
+  const amtStr = prompt(`Сколько HP передать из пула Наложения рук для «${targetName}»?`, "5");
+  if (!amtStr) return;
+  const amt = parseInt(amtStr);
+  if (isNaN(amt) || amt <= 0) return;
+
+  window.activeHudTokenId = targetTokenId;
+  await window.applyTokenDamageSilently(amt);
+
+  // Если лечили себя
+  if (isSelf && window.myAttachedChar && typeof adjustHeroHp === 'function') {
+    await adjustHeroHp(amt);
+  }
+
+  window.combatEconomy.hasAction = false;
+  window.updateEconomyBadges();
+
+  window.triggerVisualFx(targetTokenId, 'heal');
+  const msg = `💚 Наложение рук: «${currentCombatant.name}» восстанавливает +${amt} HP для «${targetName}»!`;
+  window.showDiceRollModal("Наложение рук", amt, 0, amt, `Исцелено +${amt} HP`);
+  window.broadcastFeatureUse(msg);
+
+  if (typeof renderBattleMap === 'function') renderBattleMap();
+  window.renderCombatUI();
+};
+
+// --- СПАСБРОСКИ ОТ СМЕРТИ ---
+
+window.renderDeathSavesTrack = function(combatant) {
+  const saveKey = combatant.character_id
+    ? `char_${combatant.character_id}_death_saves`
+    : `npc_${combatant.token_id}_death_saves`;
+
+  window.deathSaves = JSON.parse(localStorage.getItem(saveKey) || '{"successes":0,"failures":0,"is_stable":false}');
+
+  for (let i = 1; i <= 3; i++) {
+    const sEl = document.getElementById(`dSuccess_${i}`);
+    if (sEl) {
+      sEl.className = i <= window.deathSaves.successes
+        ? "w-4 h-4 rounded-full border border-emerald-500 bg-emerald-500 text-stone-950 font-bold flex items-center justify-center text-[10px]"
+        : "w-4 h-4 rounded-full border border-emerald-500 bg-transparent flex items-center justify-center text-[10px]";
+      sEl.textContent = i <= window.deathSaves.successes ? "✓" : "";
+    }
+
+    const fEl = document.getElementById(`dFailure_${i}`);
+    if (fEl) {
+      fEl.className = i <= window.deathSaves.failures
+        ? "w-4 h-4 rounded-full border border-rose-500 bg-rose-500 text-stone-950 font-bold flex items-center justify-center text-[10px]"
+        : "w-4 h-4 rounded-full border border-rose-500 bg-transparent flex items-center justify-center text-[10px]";
+      fEl.textContent = i <= window.deathSaves.failures ? "✕" : "";
+    }
+  }
+
+  const btnRoll = document.getElementById('btnRollDeathSave');
+  if (btnRoll) {
+    if (window.deathSaves.is_stable) {
+      btnRoll.disabled = true;
+      btnRoll.classList.add('opacity-50', 'pointer-events-none');
+      btnRoll.textContent = "💤 Стабилизирован (не бросает)";
+    } else if (window.combatMovementPool.hasRolledDeathSaveThisTurn) {
+      btnRoll.disabled = true;
+      btnRoll.classList.add('opacity-50', 'pointer-events-none');
+      btnRoll.textContent = "✓ Спасбросок уже совершен в этом ходу";
+    } else {
+      btnRoll.disabled = false;
+      btnRoll.classList.remove('opacity-50', 'pointer-events-none');
+      btnRoll.textContent = "🎲 Бросок d20 от смерти";
+    }
+  }
+};
+
+window.rollDeathSave = async function() {
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+  if (!currentCombatant) return;
+
+  if (window.combatMovementPool.hasRolledDeathSaveThisTurn) {
+    alert("Вы уже совершили спасбросок от смерти в этом ходу!");
+    return;
+  }
+
+  const d20 = Math.floor(Math.random() * 20) + 1;
+  window.combatMovementPool.hasRolledDeathSaveThisTurn = true;
+
+  let msg = "";
+  let comment = "";
+
+  if (d20 === 20) {
+    window.deathSaves = { successes: 0, failures: 0, is_stable: false };
+    currentCombatant.hp_current = 1;
+    comment = "🔥 НАТУРАЛЬНЫЙ 20! Персонаж приходит в сознание с 1 HP!";
+    msg = `🔥 Натуральный 20! «${currentCombatant.name}» встаёт на ноги с 1 HP!`;
+    window.activeHudTokenId = currentCombatant.token_id;
+    await window.applyTokenDamage(1);
+  } else if (d20 >= 10) {
+    window.deathSaves.successes += 1;
+    comment = `УСПЕХ (${window.deathSaves.successes}/3)`;
+    if (window.deathSaves.successes >= 3) {
+      window.deathSaves.is_stable = true;
+      comment += " 🎉 Персонаж стабилизировался!";
+    }
+    msg = `🎲 Спасбросок от смерти «${currentCombatant.name}»: [${d20}] ➔ ${comment}`;
+  } else if (d20 === 1) {
+    window.deathSaves.failures += 2;
+    comment = `💀 КРИТИЧЕСКИЙ ПРОВАЛ (1)! Получено сразу 2 провала (${window.deathSaves.failures}/3)!`;
+    msg = `💀 Критический провал! «${currentCombatant.name}»: [1] ➔ 2 провала!`;
+  } else {
+    window.deathSaves.failures += 1;
+    comment = `ПРОВАЛ (${window.deathSaves.failures}/3)`;
+    msg = `🎲 Спасбросок от смерти «${currentCombatant.name}»: [${d20}] ➔ ${comment}`;
+  }
+
+  if (window.deathSaves.failures >= 3) {
+    comment += " 💀 ПЕРСОНАЖ ПОГИБ!";
+    msg += " 💀 ПЕРСОНАЖ ПОГИБ!";
+    currentCombatant.conditions = currentCombatant.conditions || [];
+    if (!currentCombatant.conditions.includes('💀')) currentCombatant.conditions.push('💀');
+  }
+
+  const saveKey = currentCombatant.character_id
+    ? `char_${currentCombatant.character_id}_death_saves`
+    : `npc_${currentCombatant.token_id}_death_saves`;
+  localStorage.setItem(saveKey, JSON.stringify(window.deathSaves));
+  window.renderDeathSavesTrack(currentCombatant);
+
+  window.showDiceRollModal("Спасбросок от смерти", d20, 0, d20, comment);
+  window.broadcastFeatureUse(msg);
+};
+
+window.stabilizeDownedHero = async function() {
+  if (!window.selectedTargetTokenId) {
+    alert("Кликните по токену существа с 0 HP!");
+    return;
+  }
+
+  const tokens = window.mapData?.tokens || [];
+  const target = tokens.find(t => t.id === window.selectedTargetTokenId);
+  if (!target) return;
+
+  if ((target.hp_current || 0) > 0) {
+    alert("Это существо в сознании (хиты больше 0) и не нуждается в стабилизации!");
+    return;
+  }
+
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+  if (currentCombatant) {
+    const dist = window.calculateDistanceBetweenTokens(currentCombatant.token_id, target.id);
+    if (dist > 5) {
+      alert(`Слишком далеко! Дистанция: ${dist} фт (нужно 5 фт вплотную). Подойдите к телу.`);
+      return;
+    }
+  }
+
+  const d20 = Math.floor(Math.random() * 20) + 1;
+  const wisMod = 2;
+  const total = d20 + wisMod;
+
+  if (total >= 10) {
+    target.hp_current = 1;
+    target.conditions = (target.conditions || []).filter(c => c !== '💀');
+    if (!target.conditions.includes('💤')) target.conditions.push('💤');
+
+    const saveKey = target.character_id
+      ? `char_${target.character_id}_death_saves`
+      : `npc_${target.id}_death_saves`;
+    localStorage.setItem(saveKey, JSON.stringify({ successes: 3, failures: 0, is_stable: true }));
+
+    await apiFetch(`/parties/${partyId}/map`, {
+      method: 'PATCH',
+      body: { tokens: tokens }
+    });
+
+    const cTarget = window.combatState.combatants.find(c => c.token_id === target.id);
+    if (cTarget) {
+      cTarget.hp_current = 1;
+      cTarget.conditions = target.conditions;
+    }
+
+    const msg = `🩹 Первая помощь (Медицина ${total}): «${target.name}» стабилизирован! Череп снят, 1 HP, находится без сознания (💤).`;
+    window.showDiceRollModal("Первая помощь (Медицина)", d20, wisMod, total, `УСПЕХ! ${target.name} стабилизирован.`);
+    window.broadcastFeatureUse(msg);
+
+    if (typeof renderBattleMap === 'function') renderBattleMap();
+    window.renderCombatUI();
+  } else {
+    const msg = `🩹 Первая помощь не удалась: проверка Медицины ${total} против СЛ 10.`;
+    window.showDiceRollModal("Первая помощь (Медицина)", d20, wisMod, total, "ПРОВАЛ (СЛ 10).");
+    window.broadcastFeatureUse(msg);
+  }
+};
+
+// --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+
+window.triggerActionSurge = function() {
+  window.combatEconomy.hasAction = true;
+  window.updateEconomyBadges();
+  window.broadcastFeatureUse("⚡ Всплеск действий Воина: восстановлено полное Действие в свой ход!");
+  alert("Всплеск действий! Вы можете совершить ещё одно полноценное Действие (атаку или заклинание).");
+};
+
+window.triggerDivineSmite = async function() {
+  if (!window.selectedTargetTokenId) {
+    alert("Сначала выберите цель на карте кликом по токену врага!");
+    return;
+  }
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+  const target = (window.mapData.tokens || []).find(t => t.id === window.selectedTargetTokenId);
+  if (!target) return;
+
+  const dist = window.calculateDistanceBetweenTokens(currentCombatant.token_id, target.id);
+  if (dist > 5) {
+    alert(`Кара паладина наносится только в ближнем бою! Дистанция: ${dist} фт (нужно стоять на соседней клетке: 5 фт).`);
+    return;
+  }
+
+  const dmgResult = window.rollDiceFormula('2d8', false);
+  const msg = `✨ БОЖЕСТВЕННАЯ КАРА по «${target.name}»: +${dmgResult.total} урона излучением (${dmgResult.text})!`;
+
+  window.activeHudTokenId = target.id;
+  await window.applyTokenDamageSilently(-dmgResult.total);
+
+  window.triggerVisualFx(target.id, 'fire');
+  window.showDiceRollModal("Божественная кара", dmgResult.total, 0, dmgResult.total, `+${dmgResult.total} урона излучением`);
+  window.broadcastFeatureUse(msg);
+};
+
+window.triggerSecondWindCombat = async function() {
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+  if (!currentCombatant) return;
+
+  if (!window.combatEconomy.hasBonusAction) {
+    alert("Бонусное действие уже потрачено в этом ходу!");
+    return;
+  }
+
+  const lvl = window.myAttachedChar ? (window.myAttachedChar.level || 1) : 1;
+  const roll = Math.floor(Math.random() * 10) + 1;
+  const total = roll + lvl;
+
+  window.activeHudTokenId = currentCombatant.token_id;
+  await window.applyTokenDamageSilently(total);
+
+  if (window.myAttachedChar && typeof adjustHeroHp === 'function') {
+    await adjustHeroHp(total);
+  }
+
+  window.combatEconomy.hasBonusAction = false;
+  window.updateEconomyBadges();
+
+  window.triggerVisualFx(currentCombatant.token_id, 'heal');
+  const msg = `💨 Второе дыхание Воина: 1d10(${roll}) + ${lvl} = +${total} HP восстановлено!`;
+  window.showDiceRollModal("Второе дыхание (1d10)", roll, lvl, total, `+${total} HP восстановлено`);
+  window.broadcastFeatureUse(msg);
+};
+
+window.triggerDodgeAction = async function() {
+  if (!window.combatEconomy.hasAction) {
+    alert("Действие уже потрачено в этом ходу!");
+    return;
+  }
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+  if (!currentCombatant) return;
+
+  window.activeHudTokenId = currentCombatant.token_id;
+  await window.toggleTokenCondition('🛡️');
+
+  window.combatEconomy.hasAction = false;
+  window.updateEconomyBadges();
+  window.broadcastFeatureUse(`🛡️ «${currentCombatant.name}» совершает Уклонение (атаки по нему с помехой до следующего хода)!`);
+};
+
+window.triggerBarbarianRage = async function() {
+  if (!window.combatEconomy.hasBonusAction) {
+    alert("Бонусное действие уже потрачено в этом ходу!");
+    return;
+  }
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+  if (!currentCombatant) return;
+
+  window.activeHudTokenId = currentCombatant.token_id;
+  await window.toggleTokenCondition('🔥');
+
+  window.combatEconomy.hasBonusAction = false;
+  window.updateEconomyBadges();
+  window.broadcastFeatureUse(`🪓 «${currentCombatant.name}» впадает в ЯРОСТЬ!`);
+};
+
+window.triggerDashAction = function() {
+  if (!window.combatEconomy.hasAction) {
+    alert("Действие уже потрачено в этом ходу!");
+    return;
+  }
+  if (window.combatMovementPool.hasUsedDashThisTurn) {
+    alert("Рывок уже использован в этом ходу!");
+    return;
+  }
+
+  window.combatMovementPool.hasUsedDashThisTurn = true;
+  window.combatEconomy.hasAction = false;
+  window.combatMovementPool.remainingFeet += window.combatMovementPool.maxFeet;
+  window.updateEconomyBadges();
+  window.broadcastFeatureUse(`🏃 Действие Рывок: скорость удвоена (+${window.combatMovementPool.maxFeet} фт)!`);
+};
+
+window.monsterDashAction = function(name) {
+  if (!window.combatEconomy.hasAction) {
+    alert("Монстр уже потратил действие в этом ходу!");
+    return;
+  }
+  window.combatEconomy.hasAction = false;
+  window.combatMovementPool.remainingFeet += window.combatMovementPool.maxFeet;
+  window.updateEconomyBadges();
+  window.broadcastFeatureUse(`👹 «${name}» совершает Рывок (+${window.combatMovementPool.maxFeet} фт скорости)!`);
+};
+
+window.monsterDodgeAction = async function(name) {
+  if (!window.combatEconomy.hasAction) {
+    alert("Монстр уже потратил действие в этом ходу!");
+    return;
+  }
+  const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+  if (!currentCombatant) return;
+
+  window.activeHudTokenId = currentCombatant.token_id;
+  await window.toggleTokenCondition('🛡️');
+  window.combatEconomy.hasAction = false;
+  window.updateEconomyBadges();
+  window.broadcastFeatureUse(`👹 «${name}» встаёт в защитную стойку (Уклонение)!`);
+};
+
+window.triggerVisualFx = function(targetTokenId, type = 'slash') {
+  const tokenEl = document.getElementById(`token_${targetTokenId}`);
+  if (!tokenEl) return;
+
+  const fx = document.createElement('div');
+  fx.className = "absolute inset-0 pointer-events-none z-50 flex items-center justify-center animate-ping duration-300";
+
+  if (type === 'slash') {
+    fx.innerHTML = `<span class="text-3xl filter drop-shadow-[0_0_15px_rgba(244,63,94,1)]">⚔️</span>`;
+  } else if (type === 'fire') {
+    fx.innerHTML = `<span class="text-4xl filter drop-shadow-[0_0_20px_rgba(245,158,11,1)]">💥</span>`;
+  } else if (type === 'heal') {
+    fx.innerHTML = `<span class="text-3xl filter drop-shadow-[0_0_15px_rgba(16,185,129,1)]">✨</span>`;
+  }
+
+  tokenEl.appendChild(fx);
+  setTimeout(() => fx.remove(), 600);
+};
+
+window.applyTokenDamageSilently = async function(delta) {
+  if (!window.activeHudTokenId || !window.mapData) return;
+  const token = (window.mapData.tokens || []).find(t => t.id === window.activeHudTokenId);
+  if (!token) return;
+
+  const maxHp = token.hp_max || 10;
+  const curHp = token.hp_current !== undefined ? token.hp_current : maxHp;
+  const newHp = Math.max(0, Math.min(maxHp, curHp + delta));
+  token.hp_current = newHp;
+
+  if (newHp === 0) {
+    token.conditions = token.conditions || [];
+    if (!token.conditions.includes('💀')) token.conditions.push('💀');
+    token.conditions = token.conditions.filter(c => c !== '🛡️');
+
+    const saveKey = token.character_id
+      ? `char_${token.character_id}_death_saves`
+      : `npc_${token.id}_death_saves`;
+    localStorage.setItem(saveKey, JSON.stringify({ successes: 0, failures: 0, is_stable: false }));
+  } else if (curHp === 0 && newHp > 0) {
+    token.conditions = (token.conditions || []).filter(c => c !== '💀');
+    const saveKey = token.character_id
+      ? `char_${token.character_id}_death_saves`
+      : `npc_${token.id}_death_saves`;
+    localStorage.setItem(saveKey, JSON.stringify({ successes: 0, failures: 0, is_stable: false }));
+  }
+
+  await apiFetch(`/parties/${partyId}/map`, {
+    method: 'PATCH',
+    body: { tokens: window.mapData.tokens }
+  });
+
+  const combatant = window.combatState.combatants.find(c => c.token_id === window.activeHudTokenId);
+  if (combatant) {
+    combatant.hp_current = newHp;
+    combatant.conditions = token.conditions;
+    await apiFetch(`/parties/${partyId}/combat`, {
+      method: 'PATCH',
+      body: { combatants: window.combatState.combatants }
+    });
+  }
+
+  if (typeof renderBattleMap === 'function') renderBattleMap();
+  window.updateTargetIndicators();
+};
+
+window.rollDiceFormula = function(formula, isCrit = false) {
+  const match = String(formula).match(/(\d+)d(\d+)([\+\-]\d+)?/i);
+  if (!match) return { total: 4, text: "4" };
+
+  let count = parseInt(match[1]) || 1;
+  if (isCrit) count *= 2;
+  const sides = parseInt(match[2]) || 6;
+  const mod = match[3] ? parseInt(match[3]) : 0;
+
+  let rolls = [];
+  let sum = 0;
+  for (let i = 0; i < count; i++) {
+    const r = Math.floor(Math.random() * sides) + 1;
+    rolls.push(r);
+    sum += r;
+  }
+  const total = Math.max(1, sum + mod);
+  return {
+    total,
+    text: `[${rolls.join('+')}] ${mod >= 0 ? '+' + mod : mod}`
+  };
+};
+
+window.escapeHtml = function(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
+// --- 12. ХУД ТОКЕНА ---
+
+window.openTokenHud = function(e, tokenId) {
+  e.stopPropagation();
+  window.activeHudTokenId = tokenId;
+  const hud = document.getElementById('tokenActionHud');
+  const tokens = (window.mapData && window.mapData.tokens) || [];
+  const token = tokens.find(t => t.id === tokenId);
+  if (!hud || !token) return;
+
+  const nameEl = document.getElementById('hudTokenName');
+  const hpEl = document.getElementById('hudTokenHp');
+  if (nameEl) nameEl.textContent = token.name;
+  const cur = token.hp_current !== undefined ? token.hp_current : 10;
+  const max = token.hp_max || 10;
+  if (hpEl) hpEl.textContent = `${cur} / ${max}`;
+
+  hud.style.left = `${Math.min(window.innerWidth - 260, e.clientX + 10)}px`;
+  hud.style.top = `${Math.min(window.innerHeight - 250, e.clientY + 10)}px`;
+  hud.classList.remove('hidden');
+};
+
+window.closeTokenHud = function() {
+  document.getElementById('tokenActionHud')?.classList.add('hidden');
+  window.activeHudTokenId = null;
+};
+
+window.applyTokenDamage = async function(delta) {
+  await window.applyTokenDamageSilently(delta);
+  window.renderCombatUI();
+};
+
+window.toggleTokenCondition = async function(conditionIcon) {
+  if (!window.activeHudTokenId || !window.mapData) return;
+  const token = (window.mapData.tokens || []).find(t => t.id === window.activeHudTokenId);
+  if (!token) return;
+
+  token.conditions = token.conditions || [];
+  if (token.conditions.includes(conditionIcon)) {
+    token.conditions = token.conditions.filter(c => c !== conditionIcon);
+  } else {
+    token.conditions.push(conditionIcon);
+  }
+
+  await apiFetch(`/parties/${partyId}/map`, {
+    method: 'PATCH',
+    body: { tokens: window.mapData.tokens }
+  });
+
+  const combatant = window.combatState.combatants.find(c => c.token_id === window.activeHudTokenId);
+  if (combatant) {
+    combatant.conditions = token.conditions;
+    await apiFetch(`/parties/${partyId}/combat`, {
+      method: 'PATCH',
+      body: { combatants: window.combatState.combatants }
+    });
+  }
+
+  if (typeof renderBattleMap === 'function') renderBattleMap();
+  window.renderCombatUI();
+};

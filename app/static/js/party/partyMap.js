@@ -42,8 +42,9 @@ async function renderBattleMap() {
     const myCharId = partyData ? partyData.my_character_id : null;
 
     // Чей сейчас ход в бою?
-    const currentCombatant = (combatState && combatState.is_active && combatState.combatants)
-      ? combatState.combatants[combatState.current_turn_index]
+    const cState = window.combatState || (typeof combatState !== 'undefined' ? combatState : null);
+    const currentCombatant = (cState && cState.is_active && Array.isArray(cState.combatants))
+      ? cState.combatants[cState.current_turn_index]
       : null;
 
     tokensLayer.innerHTML = tokens.map(t => {
@@ -59,9 +60,13 @@ async function renderBattleMap() {
       else if (t.type === 'ally') borderColor = 'border-emerald-400 shadow-emerald-950/80';
       else if (t.type === 'neutral') borderColor = 'border-amber-300 shadow-amber-950/80';
 
-      // Если сейчас ход этого существа — золотой пульсирующий ореол
+      // Если сейчас ход этого существа — золотой ореол
       const isTurn = currentCombatant && (currentCombatant.token_id === t.id || currentCombatant.id === t.id);
       const turnRing = isTurn ? 'ring-4 ring-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.8)] scale-105' : '';
+
+      // Проверка невидимости (состояние 👻): полупрозрачность для скрытности
+      const isInvisible = (t.conditions || []).includes('👻');
+      const invisClass = isInvisible ? 'opacity-40 filter drop-shadow-[0_0_12px_rgba(168,85,247,0.8)]' : 'opacity-100';
 
       // Полоска здоровья
       const curHp = t.hp_current !== undefined ? t.hp_current : (t.hp_max || 10);
@@ -81,7 +86,7 @@ async function renderBattleMap() {
         <div id="token_${t.id}"
              ${canControl ? `onmousedown="dragMapToken(event, '${t.id}')"` : `onclick="selectTargetToken('${t.id}')"`}
              ondblclick="openTokenHud(event, '${t.id}')"
-             class="absolute rounded-full border-2 ${borderColor} ${turnRing} bg-stone-900 shadow-2xl flex items-center justify-center select-none group transition-all ${cursorClass}"
+             class="absolute rounded-full border-2 ${borderColor} ${turnRing} ${invisClass} bg-stone-900 shadow-2xl flex items-center justify-center select-none group transition-all ${cursorClass}"
              style="width: ${pixelSize}px; height: ${pixelSize}px; left: ${t.x || 0}px; top: ${t.y || 0}px; z-index: ${isTurn ? 50 : sizeMult * 10};">
 
           ${avatarSrc ? `
@@ -120,6 +125,7 @@ async function renderBattleMap() {
       `;
     }).join('');
 
+
     initRulerEvents();
   } catch (e) {
     console.error("Ошибка renderBattleMap:", e);
@@ -127,11 +133,47 @@ async function renderBattleMap() {
 }
 
 
-// --- ПЕРЕТАСКИВАНИЕ С ПРИЛИПАНИЕМ К СЕТКЕ ---
+// --- ПЕРЕТАСКИВАНИЕ ТОКЕНОВ СТРОГО В СВОЙ ХОД И ПО ЛИМИТУ СКОРОСТИ ---
 function dragMapToken(e, tokenId) {
   if (e.button !== 0) return;
   if (e.target.tagName.toLowerCase() === 'button') return;
   e.preventDefault();
+
+  const isCombatActive = Boolean(window.combatState && window.combatState.is_active);
+  const currentCombatant = isCombatActive ? window.combatState.combatants[window.combatState.current_turn_index] : null;
+
+  const pData = (typeof partyData !== 'undefined' && partyData) ? partyData : window.partyData;
+  const uData = (typeof currentUserData !== 'undefined' && currentUserData) ? currentUserData : window.currentUserData;
+  const isDm = Boolean(
+    (pData && (pData.is_current_user_dm || (uData && pData.dm_id === uData.id))) ||
+    uData?.username === "Ent1XXX"
+  );
+  const myCharId = pData ? pData.my_character_id : null;
+
+  if (window.fogEnabled) {
+    window.renderFogOfWar();
+  }
+  // ПРОВЕРКА ПРАВ:
+  // Если идет бой:
+  // - Игрок может двигать ТОЛЬКО своего персонажа и ТОЛЬКО когда сейчас его ход!
+  // - Мастер может двигать ТОЛЬКО текущего ходящего комбатанта!
+  if (isCombatActive) {
+    const isThisTokenTurn = currentCombatant && (currentCombatant.token_id === tokenId || currentCombatant.id === tokenId);
+    if (!isThisTokenTurn) {
+      // Клик по чужому токену в чужой ход — это выбор цели, а не перемещение
+      if (typeof selectTargetToken === 'function') {
+        selectTargetToken(tokenId);
+      }
+      return;
+    }
+
+    if (!isDm && currentCombatant.character_id !== myCharId) {
+      if (typeof selectTargetToken === 'function') {
+        selectTargetToken(tokenId);
+      }
+      return;
+    }
+  }
 
   const el = document.getElementById(`token_${tokenId}`);
   const canvas = document.getElementById('battleMapCanvas');
@@ -141,6 +183,9 @@ function dragMapToken(e, tokenId) {
   const tokenSize = el.offsetWidth;
   const startX = e.clientX;
   const startY = e.clientY;
+
+  const originalLeft = parseInt(el.style.left) || 0;
+  const originalTop = parseInt(el.style.top) || 0;
   let hasMoved = false;
 
   function onMouseMove(ev) {
@@ -159,7 +204,6 @@ function dragMapToken(e, tokenId) {
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
 
-    // ЕСЛИ НЕ ДВИГАЛИ МЫШЬЮ — ЭТО ВЫБОР ЦЕЛИ!
     if (!hasMoved) {
       if (typeof selectTargetToken === 'function') {
         selectTargetToken(tokenId);
@@ -172,6 +216,27 @@ function dragMapToken(e, tokenId) {
 
     const snappedX = Math.round(rawX / currentGridSize) * currentGridSize + 3;
     const snappedY = Math.round(rawY / currentGridSize) * currentGridSize + 3;
+
+    // ПРОВЕРКА ЛИМИТА ДВИЖЕНИЯ В БОЮ
+    if (isCombatActive) {
+      const dxCells = Math.abs(Math.round(snappedX / currentGridSize) - Math.round(originalLeft / currentGridSize));
+      const dyCells = Math.abs(Math.round(snappedY / currentGridSize) - Math.round(originalTop / currentGridSize));
+      const distanceMoved = Math.max(dxCells, dyCells) * 5;
+
+      const remaining = window.combatMovementPool?.remainingFeet || 0;
+
+      if (distanceMoved > remaining) {
+        alert(`Недостаточно очков движения! Попытка пройти: ${distanceMoved} фт, осталось: ${remaining} фт.`);
+        el.style.left = originalLeft + 'px';
+        el.style.top = originalTop + 'px';
+        return;
+      }
+
+      window.combatMovementPool.remainingFeet -= distanceMoved;
+      if (typeof window.updateMovementDisplay === 'function') {
+        window.updateMovementDisplay();
+      }
+    }
 
     el.style.left = snappedX + 'px';
     el.style.top = snappedY + 'px';
@@ -188,6 +253,8 @@ function dragMapToken(e, tokenId) {
   document.addEventListener('mousemove', onMouseMove);
   document.addEventListener('mouseup', onMouseUp);
 }
+
+
 
 
 // --- ЛИНЕЙКА-СТРЕЛОЧКА РАССТОЯНИЯ (RULER) ---
@@ -582,3 +649,417 @@ async function uploadPartyBannerFile(event) {
   }
 }
 
+// --- ЗУМ И МАСШТАБИРОВАНИЕ КАРТЫ ---
+let currentMapZoom = 1.0;
+
+function zoomBattleMap(delta) {
+  currentMapZoom = Math.max(0.5, Math.min(2.0, parseFloat((currentMapZoom + delta).toFixed(2))));
+  applyMapZoom();
+}
+
+function resetBattleMapZoom() {
+  currentMapZoom = 1.0;
+  applyMapZoom();
+}
+
+function applyMapZoom() {
+  const wrapper = document.getElementById('battleMapZoomWrapper');
+  const badge = document.getElementById('mapZoomBadge');
+  if (wrapper) {
+    wrapper.style.transform = `scale(${currentMapZoom})`;
+  }
+  if (badge) {
+    badge.textContent = `${Math.round(currentMapZoom * 100)}%`;
+  }
+}
+
+// --- НАСТРОЙКИ РАДИУСОВ ЗРЕНИЯ (В КЛЕТКАХ) ---
+window.fogNormalVisionCells = parseInt(localStorage.getItem('fog_normal_cells')) || 6;
+window.fogDarkVisionCells = parseInt(localStorage.getItem('fog_dark_cells')) || 12;
+
+window.changeVisionRadius = function(type, val) {
+  const cells = parseInt(val) || 6;
+  if (type === 'normal') {
+    window.fogNormalVisionCells = cells;
+    localStorage.setItem('fog_normal_cells', cells);
+    const lbl = document.getElementById('labelNormalVision');
+    if (lbl) lbl.textContent = cells;
+  } else if (type === 'dark') {
+    window.fogDarkVisionCells = cells;
+    localStorage.setItem('fog_dark_cells', cells);
+    const lbl = document.getElementById('labelDarkVision');
+    if (lbl) lbl.textContent = cells;
+  }
+  if (window.fogEnabled) {
+    window.renderFogOfWar();
+  }
+};
+
+// --- ТУМАН ВОЙНЫ: ЧЕТКАЯ ГРАНИЦА ДЛЯ ДМ, КИСТЬ И ДИНАМИКА ---
+window.fogEnabled = false;
+window.fogMode = 'combat'; // 'combat' | 'vision' | 'brush'
+window.fogBrushAction = 'erase'; // 'erase' (ластик) | 'paint' (закраска)
+window.fogBrushRadius = 50;
+let isFogDrawing = false;
+
+// Оффскрин-маска ручной кисти
+let brushMaskCanvas = null;
+let brushMaskCtx = null;
+
+function ensureBrushMask() {
+  if (!brushMaskCanvas) {
+    brushMaskCanvas = document.createElement('canvas');
+    brushMaskCanvas.width = 1000;
+    brushMaskCanvas.height = 750;
+    brushMaskCtx = brushMaskCanvas.getContext('2d');
+    // По умолчанию маска пустая (всё покрыто туманом)
+    brushMaskCtx.clearRect(0, 0, 1000, 750);
+  }
+}
+
+window.toggleFogOfWarMode = function() {
+  window.fogEnabled = !window.fogEnabled;
+  const fogCanvas = document.getElementById('fogOfWarCanvas');
+  const btn = document.getElementById('btnToggleFog');
+  const modeBlock = document.getElementById('fogModeSelectBlock');
+  if (!fogCanvas) return;
+
+  if (window.fogEnabled) {
+    fogCanvas.classList.remove('hidden');
+    if (btn) btn.className = "px-2.5 py-1.5 rounded-lg bg-amber-500 text-stone-950 text-xs font-bold shadow";
+    if (modeBlock) modeBlock.classList.remove('hidden');
+    initFogBrushEvents();
+    window.renderFogOfWar();
+  } else {
+    fogCanvas.classList.add('hidden');
+    if (btn) btn.className = "px-2.5 py-1.5 rounded-lg bg-stone-900 border border-stone-800 text-stone-300 text-xs font-bold hover:border-amber-400";
+    if (modeBlock) modeBlock.classList.add('hidden');
+    document.querySelectorAll('[id^="token_"]').forEach(el => el.classList.remove('token-fog-hidden'));
+  }
+};
+
+window.setFogMode = function(mode) {
+  window.fogMode = mode;
+  const fogCanvas = document.getElementById('fogOfWarCanvas');
+  const subBar = document.getElementById('fogBrushSubBar');
+
+  const btnCombat = document.getElementById('btnFogCombat');
+  const btnVision = document.getElementById('btnFogVision');
+  const btnBrush = document.getElementById('btnFogBrush');
+
+  if (btnCombat) btnCombat.className = (mode === 'combat') ? "px-2 py-1 rounded bg-amber-400 text-stone-950 font-bold" : "px-2 py-1 rounded text-stone-300 hover:text-amber-200";
+  if (btnVision) btnVision.className = (mode === 'vision') ? "px-2 py-1 rounded bg-amber-400 text-stone-950 font-bold" : "px-2 py-1 rounded text-stone-300 hover:text-amber-200";
+  if (btnBrush) btnBrush.className = (mode === 'brush') ? "px-2 py-1 rounded bg-amber-400 text-stone-950 font-bold" : "px-2 py-1 rounded text-stone-300 hover:text-amber-200";
+
+  if (mode === 'brush') {
+    if (subBar) subBar.classList.remove('hidden');
+    // Включаем прием кликов мыши на холст тумана
+    if (fogCanvas) {
+      fogCanvas.style.pointerEvents = 'auto';
+      fogCanvas.style.cursor = 'crosshair';
+    }
+  } else {
+    if (subBar) subBar.classList.add('hidden');
+    // Отключаем перехват кликов, чтобы мышь двигала фишки на карте
+    if (fogCanvas) {
+      fogCanvas.style.pointerEvents = 'none';
+      fogCanvas.style.cursor = 'default';
+    }
+  }
+
+  window.renderFogOfWar();
+};
+
+window.setFogBrushAction = function(action) {
+  window.fogBrushAction = action;
+  const btnE = document.getElementById('btnBrushErase');
+  const btnP = document.getElementById('btnBrushPaint');
+  if (btnE) btnE.className = (action === 'erase') ? "px-2 py-0.5 rounded bg-emerald-600 text-white font-bold" : "px-2 py-0.5 rounded bg-stone-800 text-stone-300";
+  if (btnP) btnP.className = (action === 'paint') ? "px-2 py-0.5 rounded bg-rose-700 text-white font-bold" : "px-2 py-0.5 rounded bg-stone-800 text-stone-300";
+};
+
+window.changeFogBrushRadius = function(val) {
+  window.fogBrushRadius = parseInt(val) || 50;
+};
+
+// ОБРАБОТЧИКИ МЫШИ ДЛЯ КИСТИ
+let fogEventsBound = false;
+function initFogBrushEvents() {
+  if (fogEventsBound) return;
+  const fogCanvas = document.getElementById('fogOfWarCanvas');
+  if (!fogCanvas) return;
+  ensureBrushMask();
+
+  fogCanvas.addEventListener('mousedown', (e) => {
+    if (!window.fogEnabled || window.fogMode !== 'brush') return;
+    isFogDrawing = true;
+    applyBrushStroke(e);
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (isFogDrawing && window.fogMode === 'brush') {
+      applyBrushStroke(e);
+    }
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (isFogDrawing) {
+      isFogDrawing = false;
+    }
+  });
+
+  function applyBrushStroke(e) {
+    const rect = fogCanvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left);
+    const y = (e.clientY - rect.top);
+
+    brushMaskCtx.beginPath();
+    brushMaskCtx.arc(x, y, window.fogBrushRadius, 0, Math.PI * 2);
+
+    if (window.fogBrushAction === 'erase') {
+      // Стираем туман (делаем прозрачным)
+      brushMaskCtx.globalCompositeOperation = 'destination-out';
+      brushMaskCtx.fill();
+    } else {
+      // Закрашиваем (возвращаем тьму)
+      brushMaskCtx.globalCompositeOperation = 'source-over';
+      brushMaskCtx.fillStyle = 'rgba(0,0,0,1)';
+      brushMaskCtx.fill();
+    }
+    window.renderFogOfWar();
+  }
+
+  fogEventsBound = true;
+}
+
+// ОСНОВНОЙ РЕНДЕР ТУМАНА
+window.renderFogOfWar = function() {
+  const fogCanvas = document.getElementById('fogOfWarCanvas');
+  if (!fogCanvas || !window.fogEnabled) return;
+  const ctx = fogCanvas.getContext('2d');
+  const tokens = window.mapData?.tokens || [];
+  const gSize = window.currentGridSize || 50;
+
+  const pData = window.partyData;
+  const uData = window.currentUserData;
+  const isDm = Boolean(
+    (pData && (pData.is_current_user_dm || (uData && pData.dm_id === uData.id))) ||
+    uData?.username === "Ent1XXX" ||
+    document.getElementById('partyRoleBadge')?.textContent.includes('Мастер')
+  );
+
+  ensureBrushMask();
+  ctx.clearRect(0, 0, fogCanvas.width, fogCanvas.height);
+
+  // 1. БАЗОВАЯ ПЛОТНОСТЬ ТУМАНА
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = isDm ? "rgba(4, 2, 2, 0.78)" : "rgba(0, 0, 0, 1.0)";
+  ctx.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
+
+  // Кисть DM
+  if (window.fogMode === 'brush') {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.drawImage(brushMaskCanvas, 0, 0);
+  }
+
+  // 2. РАСЧЕТ ИСТОЧНИКОВ СВЕТА СТРОГО ПО ПОЛЗУНКАМ
+  const lightSources = [];
+
+  tokens.forEach(t => {
+    if (t.type === 'ally' || t.character_id) {
+      const tokenPx = (t.size || 1) * gSize;
+      const cx = t.x + tokenPx / 2;
+      const cy = t.y + tokenPx / 2;
+
+      // Проверка на темное зрение
+      const charRace = String(t.race || '').toLowerCase();
+      const hasDarkvision = /эльф|гном|дворф|тифлинг|полуорк|илверн/i.test(charRace);
+
+      const cells = hasDarkvision ? window.fogDarkVisionCells : window.fogNormalVisionCells;
+      const exactRadiusPx = cells * gSize;
+
+      lightSources.push({ cx, cy, radius: exactRadiusPx, isDarkvision: hasDarkvision });
+    }
+  });
+
+  // 3. ПРОРЕЗАЕМ СВЕТ БЕЗ РАЗДУВАНИЯ
+  ctx.globalCompositeOperation = 'destination-out';
+  lightSources.forEach(s => {
+    // Делаем четкий срез света: до 95% радиуса 100% прозрачность, без градиентных хвостов
+    const grad = ctx.createRadialGradient(s.cx, s.cy, s.radius * 0.92, s.cx, s.cy, s.radius);
+    grad.addColorStop(0, "rgba(0, 0, 0, 1)");
+    grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(s.cx, s.cy, s.radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.restore();
+
+  // 4. ПУНКТИРНАЯ ГРАНИЦА ДЛЯ ДМА (СТРОГО ПО ТОМУ ЖЕ РАДИУСУ)
+  if (isDm) {
+    ctx.save();
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 5]);
+
+    lightSources.forEach(s => {
+      // Янтарный пунктир для обычного зрения, голубоватый для темного
+      ctx.strokeStyle = s.isDarkvision ? "rgba(56, 189, 248, 0.85)" : "rgba(245, 158, 11, 0.85)";
+      ctx.beginPath();
+      ctx.arc(s.cx, s.cy, s.radius, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+
+  // 5. СКРЫТИЕ ВРАГОВ ВНЕ ЗОНЫ
+  tokens.forEach(t => {
+    const tokenEl = document.getElementById(`token_${t.id}`);
+    if (!tokenEl) return;
+
+    if (t.type === 'ally' || t.character_id) {
+      tokenEl.classList.remove('token-fog-hidden');
+      tokenEl.style.opacity = "1";
+      return;
+    }
+
+    const tPx = (t.size || 1) * gSize;
+    const tCx = t.x + tPx / 2;
+    const tCy = t.y + tPx / 2;
+
+    const isVisible = lightSources.some(s => {
+      const dist = Math.sqrt((s.cx - tCx) ** 2 + (s.cy - tCy) ** 2);
+      return dist <= s.radius;
+    });
+
+    if (isVisible) {
+      tokenEl.classList.remove('token-fog-hidden');
+      tokenEl.style.opacity = "1";
+    } else {
+      if (isDm) {
+        tokenEl.classList.remove('token-fog-hidden');
+        tokenEl.style.opacity = "0.35";
+      } else {
+        tokenEl.classList.add('token-fog-hidden');
+        tokenEl.style.opacity = "0";
+      }
+    }
+  });
+};
+
+
+// --- ИНТЕРАКТИВНОЕ НАВЕДЕНИЕ И ПОДСВЕТКА AOE-ЗАКЛИНАНИЙ ---
+
+function initAoeTargeting() {
+  const canvas = document.getElementById('battleMapCanvas');
+  if (!canvas) return;
+
+  // Создаем слой подсветки области, если его нет
+  let aoeOverlay = document.getElementById('aoeTargetingOverlay');
+  if (!aoeOverlay) {
+    aoeOverlay = document.createElement('div');
+    aoeOverlay.id = 'aoeTargetingOverlay';
+    aoeOverlay.className = "absolute rounded-full border-2 border-rose-500 bg-rose-500/25 pointer-events-none z-40 hidden shadow-[0_0_30px_rgba(244,63,94,0.6)] animate-pulse";
+    canvas.appendChild(aoeOverlay);
+  }
+
+  function onMapMouseMove(e) {
+    if (!window.activeAoeSpell) return;
+    const rect = canvas.getBoundingClientRect();
+    const curX = e.clientX - rect.left;
+    const curY = e.clientY - rect.top;
+
+    const gridSize = currentGridSize || 50;
+    // Радиус сферы: 20 футов = 4 клетки сетки = gridSize * 4 радиус (диаметр * 2)
+    const radiusPx = (window.activeAoeSpell.radiusFeet / 5) * gridSize;
+    const diameterPx = radiusPx * 2;
+
+    aoeOverlay.style.width = diameterPx + 'px';
+    aoeOverlay.style.height = diameterPx + 'px';
+    aoeOverlay.style.left = (curX - radiusPx) + 'px';
+    aoeOverlay.style.top = (curY - radiusPx) + 'px';
+    aoeOverlay.classList.remove('hidden');
+  }
+
+  async function onMapClick(e) {
+    if (!window.activeAoeSpell) return;
+    e.stopPropagation();
+
+    const spell = window.activeAoeSpell;
+    window.activeAoeSpell = null;
+    aoeOverlay.classList.add('hidden');
+
+    canvas.removeEventListener('mousemove', onMapMouseMove);
+    canvas.removeEventListener('click', onMapClick);
+
+    const rect = canvas.getBoundingClientRect();
+    const centerX = e.clientX - rect.left;
+    const centerY = e.clientY - rect.top;
+
+    // Списываем ячейку
+    if (spell.circle >= 1 && spell.char) {
+      const slots = window.getCharacterSlots(spell.char);
+      if (slots[spell.circle] && slots[spell.circle].cur > 0) {
+        slots[spell.circle].cur -= 1;
+        window.saveCharacterSlots(spell.char.id, slots);
+      }
+    }
+
+    // Бросок урона (например 8d6 для Огненного шара)
+    const dmg = window.rollDiceFormula(spell.damage || '8d6', false);
+
+    // Находим все токены в радиусе взрыва
+    const gridSize = currentGridSize || 50;
+    const radiusPx = (spell.radiusFeet / 5) * gridSize;
+    const tokens = window.mapData?.tokens || [];
+    const hitTokens = [];
+
+    tokens.forEach(t => {
+      const tokCenterX = t.x + 25;
+      const tokCenterY = t.y + 25;
+      const distPx = Math.sqrt((tokCenterX - centerX)**2 + (tokCenterY - centerY)**2);
+      if (distPx <= radiusPx) {
+        hitTokens.push(t);
+      }
+    });
+
+    // Наносим урон пораженным существам
+    for (const t of hitTokens) {
+      window.activeHudTokenId = t.id;
+      await window.applyTokenDamageSilently(-dmg.total);
+      window.triggerVisualFx(t.id, 'fire');
+    }
+
+    window.combatEconomy.hasAction = false;
+    window.updateEconomyBadges();
+
+    const targetNames = hitTokens.map(t => t.name).join(', ') || 'никто не задет';
+    const msg = `💥 ВЗРЫВ AOE: «${spell.name}» (сфера ${spell.radiusFeet} фт)!\n🔥 Урон: ${dmg.total} (${dmg.text})\n🎯 Задеты: ${targetNames}`;
+
+    window.showDiceRollModal(`Взрыв [${spell.name}]`, dmg.total, 0, dmg.total, `Задето целей: ${hitTokens.length}`);
+    window.broadcastFeatureUse(msg);
+
+    const currentCombatant = window.combatState.combatants[window.combatState.current_turn_index];
+    if (currentCombatant) window.renderPlayerFullArsenal(currentCombatant);
+  }
+
+  canvas.addEventListener('mousemove', onMapMouseMove);
+  canvas.addEventListener('click', onMapClick);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const slNorm = document.getElementById('sliderNormalVision');
+  const slDark = document.getElementById('sliderDarkVision');
+  const lbNorm = document.getElementById('labelNormalVision');
+  const lbDark = document.getElementById('labelDarkVision');
+  if (slNorm && lbNorm) {
+    slNorm.value = window.fogNormalVisionCells;
+    lbNorm.textContent = window.fogNormalVisionCells;
+  }
+  if (slDark && lbDark) {
+    slDark.value = window.fogDarkVisionCells;
+    lbDark.textContent = window.fogDarkVisionCells;
+  }
+});

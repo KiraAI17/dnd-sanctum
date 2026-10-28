@@ -46,6 +46,7 @@ async def get_wizard_page(request: Request):
         context={"page_title": "Мастер создания героя"},
     )
 
+
 import json
 from fastapi import Request
 from fastapi.responses import HTMLResponse
@@ -73,3 +74,15 @@ async def get_all_spells():
         with open(SPELLS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return []
+
+
+from fastapi import APIRouter, Request, Depends, HTTPException, status
+
+
+@router.get("/map-editor", response_class=HTMLResponse)
+async def map_editor_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="map_editor.html",
+        context={}
+    )

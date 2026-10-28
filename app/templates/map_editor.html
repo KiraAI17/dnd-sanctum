@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6 space-y-4 font-serif">
+  <!-- ШАПКА РЕДАКТОРА -->
+  <div class="flex flex-wrap justify-between items-center gap-3 border-b border-orange-950 pb-3">
+    <div>
+      <div class="flex items-center gap-2">
+        <a href="/" class="text-xs text-stone-400 hover:text-amber-300 transition-colors">&larr; Меню</a>
+        <span class="text-stone-600">&bull;</span>
+        <h1 class="text-2xl font-bold text-amber-200">🗺️ Редактор тактических карт</h1>
+      </div>
+      <p class="text-xs text-stone-400 mt-0.5">Создавайте арены, размечайте стены, освещение, двери и опасные зоны для ваших столов.</p>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <input type="file" id="editorUploadInput" accept="image/*" class="hidden" onchange="window.mapEditor.loadBgImage(this.files[0])">
+      <button type="button" onclick="document.getElementById('editorUploadInput').click()"
+              class="px-3.5 py-1.5 rounded-xl bg-stone-900 border border-stone-800 text-amber-300 hover:border-amber-400 text-xs font-bold transition-all shadow">
+        📁 Загрузить фон
+      </button>
+
+      <input type="file" id="editorImportJsonInput" accept=".json" class="hidden" onchange="window.mapEditor.importJson(this.files[0])">
+      <button type="button" onclick="document.getElementById('editorImportJsonInput').click()"
+              class="px-3 py-1.5 rounded-xl bg-stone-900 border border-stone-800 text-stone-300 hover:text-white text-xs font-bold transition-all shadow">
+        📥 Импорт JSON
+      </button>
+
+      <button type="button" onclick="window.mapEditor.exportJson()"
+              class="px-4 py-1.5 rounded-xl bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 text-xs font-bold hover:brightness-110 shadow active:scale-95 transition-all">
+        💾 Экспорт JSON
+      </button>
+    </div>
+  </div>
+
+  <!-- ТУЛБАР ИНСТРУМЕНТОВ -->
+  <div class="flex flex-wrap items-center justify-between gap-3 bg-[#120a06] border border-orange-950 p-2.5 rounded-2xl text-xs shadow-xl">
+    <div class="flex flex-wrap items-center gap-2">
+      <!-- Настройка шага сетки -->
+      <div class="flex items-center gap-1.5 bg-black/60 border border-orange-900/60 rounded-xl px-2.5 py-1 font-mono">
+        <span class="text-stone-400 text-[10px]">Сетка:</span>
+        <input type="number" id="editorGridSize" value="50" min="20" max="150" step="5"
+               onchange="window.mapEditor.setGridSize(this.value)"
+               class="w-12 bg-transparent text-center text-amber-300 font-bold focus:outline-none">
+        <span class="text-stone-500 text-[10px]">px</span>
+      </div>
+
+      <div class="h-5 w-px bg-stone-800 mx-1"></div>
+
+      <!-- Кнопки выбора инструментов -->
+      <div class="flex items-center gap-1">
+        <button type="button" onclick="window.mapEditor.setTool('select')" id="tool_select"
+                class="tool-btn px-3 py-1.5 rounded-lg bg-amber-400 text-stone-950 text-xs font-bold shadow">
+          🖐️ Выбор
+        </button>
+        <button type="button" onclick="window.mapEditor.setTool('wall')" id="tool_wall"
+                class="tool-btn px-3 py-1.5 rounded-lg bg-stone-900 border border-stone-800 text-stone-300 text-xs font-bold hover:border-amber-400">
+          🧱 Стена
+        </button>
+        <button type="button" onclick="window.mapEditor.setTool('door')" id="tool_door"
+                class="tool-btn px-3 py-1.5 rounded-lg bg-stone-900 border border-stone-800 text-stone-300 text-xs font-bold hover:border-amber-400">
+          🚪 Дверь
+        </button>
+        <button type="button" onclick="window.mapEditor.setTool('light')" id="tool_light"
+                class="tool-btn px-3 py-1.5 rounded-lg bg-stone-900 border border-stone-800 text-stone-300 text-xs font-bold hover:border-amber-400">
+          💡 Свет
+        </button>
+        <button type="button" onclick="window.mapEditor.setTool('hazard')" id="tool_hazard"
+                class="tool-btn px-3 py-1.5 rounded-lg bg-stone-900 border border-stone-800 text-rose-300 text-xs font-bold hover:border-rose-400">
+          ⚠️ Зона (Лава/Ловушка)
+        </button>
+      </div>
+    </div>
+
+    <!-- Операции с объектами -->
+    <div class="flex items-center gap-1.5">
+      <button type="button" onclick="window.mapEditor.state.undo(); window.mapEditor.renderer.render();"
+              class="px-2.5 py-1 rounded-lg bg-stone-900 border border-stone-800 text-stone-300 hover:text-white text-xs font-mono" title="Отменить (Ctrl+Z)">
+        ↩️ Отмена
+      </button>
+      <button type="button" onclick="window.mapEditor.clearObjects()"
+              class="px-3 py-1 rounded-lg bg-rose-950/60 border border-rose-800 text-rose-300 hover:bg-rose-900 text-xs font-bold transition-all">
+        🗑️ Очистить всё
+      </button>
+    </div>
+  </div>
+
+  <!-- ВЬЮПОРТ ХОЛСТА РЕДАКТОРА -->
+  <div class="overflow-auto border border-orange-950 rounded-2xl bg-black max-h-[750px] relative select-none shadow-2xl flex items-center justify-center p-2" id="editorViewport">
+    <canvas id="editorCanvas" width="1200" height="800" class="cursor-crosshair shadow-2xl"></canvas>
+  </div>
+</div>
+
+<!-- ПОДКЛЮЧЕНИЕ ЧИСТОЙ ООП-АРХИТЕКТУРЫ РЕДАКТОРА -->
+<script type="module" src="/static/js/map_editor/MapEditorApp.js"></script>
+{% endblock %}

@@ -22,27 +22,30 @@ function renderDmScreen() {
 
     const bannerSrc = m.banner_url || '';
     const avatarSrc = m.avatar_url || bannerSrc || '';
-    const bannerStyle = bannerSrc ? `background-image: url('${bannerSrc}'); background-size: cover; background-position: center;` : '';
+    const bannerStyle = bannerSrc
+      ? `background-image: linear-gradient(to top, rgba(20, 14, 10, 0.98) 0%, rgba(20, 14, 10, 0.45) 50%, rgba(20, 14, 10, 0.2) 100%), url('${bannerSrc}');`
+      : `background-image: linear-gradient(135deg, #1f140e 0%, #120a06 100%);`;
     const raceEmoji = getRaceEmoji(m.character_race);
 
     return `
-      <div class="rounded-xl border border-orange-950/80 bg-[#140e0a] overflow-hidden shadow-lg flex flex-col justify-between">
-        <div class="h-16 w-full relative bg-[#1a100a] flex items-end p-2.5" style="${bannerStyle}">
-          ${bannerSrc ? '<div class="absolute inset-0 bg-gradient-to-t from-[#140e0a] via-[#140e0a]/60 to-transparent"></div>' : ''}
-          <div class="relative z-10 flex items-center gap-2.5">
-            <div class="w-10 h-10 rounded-lg overflow-hidden border border-amber-500/50 bg-stone-900 shrink-0 flex items-center justify-center text-sm shadow">
+      <div class="rounded-2xl border border-orange-950/80 bg-[#140e0a] overflow-hidden shadow-xl flex flex-col justify-between hover:border-amber-500/40 transition-all">
+        <!-- Шапка с баннером игрока -->
+        <div class="h-24 sm:h-28 w-full relative bg-cover bg-center flex items-end p-3.5" style="${bannerStyle}">
+          <div class="relative z-10 flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl overflow-hidden border-2 border-amber-500/50 bg-stone-900 shrink-0 flex items-center justify-center text-lg shadow-2xl">
               ${avatarSrc ? `<img src="${avatarSrc}" class="w-full h-full object-cover">` : `<span>${raceEmoji}</span>`}
             </div>
             <div>
-              <span class="text-stone-300 text-[11px] font-serif block drop-shadow">Игрок: <strong>${m.username || 'Игрок'}</strong></span>
-              ${m.character_name ? `<span class="text-amber-200 font-serif font-bold text-sm drop-shadow">«${m.character_name}»</span>` : '<span class="text-stone-500 italic text-xs">Без героя</span>'}
+              <span class="text-stone-300 text-xs font-serif block drop-shadow">Игрок: <strong class="text-stone-100">${m.username || 'Игрок'}</strong></span>
+              ${m.character_name ? `<span class="text-amber-200 font-serif font-bold text-base drop-shadow">«${m.character_name}»</span>` : '<span class="text-stone-500 italic text-xs">Без героя</span>'}
             </div>
           </div>
         </div>
 
-        <div class="p-3.5 flex flex-wrap justify-between items-center gap-4">
-          <div class="text-stone-400 text-xs font-serif">
-            ${m.character_class || 'Класс не выбран'} • КД: <strong class="text-amber-300 font-mono">${m.character_ac || 10}</strong>
+        <!-- Контрольная панель DM -->
+        <div class="p-4 flex flex-wrap justify-between items-center gap-4 bg-[#0e0906]/95">
+          <div class="text-stone-300 text-xs font-serif">
+            ${m.character_class || 'Класс не выбран'} • КД: <strong class="text-amber-300 font-mono text-sm">${m.character_ac || 10}</strong>
           </div>
 
           ${m.character_id ? `
@@ -52,19 +55,19 @@ function renderDmScreen() {
                   <span class="text-stone-400">Хиты героя:</span>
                   <span class="font-bold text-amber-200" id="dmHpDisplay_${m.character_id}">${conf.text}</span>
                 </div>
-                <div class="w-full bg-black/80 h-2 rounded-full overflow-hidden border border-orange-950">
+                <div class="w-full bg-black/80 h-2.5 rounded-full overflow-hidden border border-orange-950 shadow-inner">
                   <div id="dmHpBar_${m.character_id}" class="h-full bg-gradient-to-r ${conf.colorClass} transition-all duration-300" style="width: ${conf.pct}%;"></div>
                 </div>
               </div>
 
               <div class="flex items-center gap-1 font-mono text-xs">
-                <button onclick="dmAdjustPlayerHp(${m.character_id}, -5)" class="px-2 py-0.5 rounded bg-rose-950/40 border border-rose-900 text-rose-300 hover:bg-rose-900">-5</button>
-                <button onclick="dmAdjustPlayerHp(${m.character_id}, -1)" class="px-2 py-0.5 rounded bg-rose-950/40 border border-rose-900 text-rose-300 hover:bg-rose-900">-1</button>
-                <button onclick="dmAdjustPlayerHp(${m.character_id}, 1)" class="px-2 py-0.5 rounded bg-emerald-950/40 border border-emerald-900 text-emerald-300 hover:bg-emerald-900">+1</button>
-                <button onclick="dmAdjustPlayerHp(${m.character_id}, 5)" class="px-2 py-0.5 rounded bg-emerald-950/40 border border-emerald-900 text-emerald-300 hover:bg-emerald-900">+5</button>
+                <button onclick="dmAdjustPlayerHp(${m.character_id}, -5)" class="px-2 py-1 rounded bg-rose-950/50 border border-rose-900 text-rose-300 hover:bg-rose-900 font-bold active:scale-95 transition-all">-5</button>
+                <button onclick="dmAdjustPlayerHp(${m.character_id}, -1)" class="px-2 py-1 rounded bg-rose-950/50 border border-rose-900 text-rose-300 hover:bg-rose-900 font-bold active:scale-95 transition-all">-1</button>
+                <button onclick="dmAdjustPlayerHp(${m.character_id}, 1)" class="px-2 py-1 rounded bg-emerald-950/50 border border-emerald-900 text-emerald-300 hover:bg-emerald-900 font-bold active:scale-95 transition-all">+1</button>
+                <button onclick="dmAdjustPlayerHp(${m.character_id}, 5)" class="px-2 py-1 rounded bg-emerald-950/50 border border-emerald-900 text-emerald-300 hover:bg-emerald-900 font-bold active:scale-95 transition-all">+5</button>
               </div>
 
-              <a href="/characters/${m.character_id}/sheet" class="px-3 py-1 rounded bg-[#1c130d] border border-orange-900/60 hover:border-amber-400 text-amber-200 text-xs font-serif shadow">
+              <a href="/characters/${m.character_id}/sheet" class="px-3.5 py-1.5 rounded-xl bg-[#1c130d] border border-orange-900/60 hover:border-amber-400 text-amber-200 text-xs font-serif shadow-md transition-all active:scale-95">
                 Лист &rarr;
               </a>
             </div>

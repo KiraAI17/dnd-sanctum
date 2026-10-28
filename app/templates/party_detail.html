@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 
+
 {% block content %}
 <style>
     :root {
@@ -34,7 +35,13 @@
       border-color: var(--party-border) !important;
       color: var(--party-accent) !important;
     }
+
+    .token-fog-hidden {
+      display: none !important;
+      pointer-events: none !important;
+    }
 </style>
+
 
 <div class="max-w-6xl mx-auto px-4 py-8 space-y-6">
     <!-- ШАПКА КАМПАНИИ С БАННЕРОМ СТОЛА -->
@@ -68,7 +75,8 @@
             <div class="flex items-center gap-3">
                 <!-- КНОПКА ЗАГРУЗКИ БАННЕРА ФАЙЛОМ (ВИДНА DM) -->
                 <div id="dmBannerUploadBtnBlock" class="hidden">
-                    <input type="file" id="partyBannerFileInput" accept="image/*" class="hidden" onchange="uploadPartyBannerFile(event)">
+                    <input type="file" id="partyBannerFileInput" accept="image/*" class="hidden"
+                           onchange="uploadPartyBannerFile(event)">
                     <button type="button" onclick="document.getElementById('partyBannerFileInput').click()"
                             class="px-3 py-1.5 rounded-xl bg-black/70 hover:bg-black/90 border border-amber-500/50 hover:border-amber-400 text-amber-200 text-xs font-serif font-bold shadow-lg flex items-center gap-1.5 backdrop-blur-sm transition-all active:scale-95"
                             title="Загрузить баннер стола с устройства">
@@ -81,7 +89,8 @@
                      class="fox-card px-3.5 py-2 rounded-xl border border-orange-950 bg-[#160f0b]/90 backdrop-blur flex items-center gap-3 text-xs font-serif shadow-md">
                     <span class="text-amber-400 text-sm">🎵</span>
                     <div>
-                        <span id="miniTrackTitle" class="font-bold text-amber-200 block text-[11px] max-w-[150px] truncate">Тишина</span>
+                        <span id="miniTrackTitle"
+                              class="font-bold text-amber-200 block text-[11px] max-w-[150px] truncate">Тишина</span>
                         <span id="miniTrackStatus" class="text-[9px] text-stone-400 font-mono">Пауза</span>
                     </div>
                     <button type="button" onclick="togglePartyAudioPlay()" id="btnMiniPlayToggle"
@@ -338,6 +347,11 @@
                 </div>
 
                 <div id="dmMapControls" class="hidden flex flex-wrap items-center gap-2">
+                    <a href="/map-editor" target="_blank"
+                       class="px-2.5 py-1.5 rounded-lg bg-stone-900 border border-stone-800 text-amber-300 text-xs font-bold hover:border-amber-400">
+                        🛠️ Конструктор
+                    </a>
+
                     <!-- Меню карт (Атлас Мастера) -->
                     <div class="flex items-center gap-1.5 bg-stone-900 border border-stone-800 rounded-lg p-1 text-xs">
                         <span class="text-stone-400 text-[10px] pl-1">Локация:</span>
@@ -357,14 +371,14 @@
                         </button>
                     </div>
 
-                    <!-- Загрузка фона карты файлом или ссылкой -->
+                    <!-- Загрузка фона карты -->
                     <label class="cursor-pointer px-2.5 py-1.5 rounded-lg bg-stone-900 border border-stone-800 hover:border-amber-400 text-amber-300 text-xs font-bold transition-all flex items-center gap-1">
                         📁 Загрузить карту
                         <input type="file" id="mapUploadFileInput" accept="image/*" onchange="uploadMapImageFile(event)"
                                class="hidden">
                     </label>
 
-                    <!-- Тонкая настройка размера сетки (от 20 до 150px) -->
+                    <!-- Тонкая настройка размера сетки -->
                     <div class="flex items-center gap-1.5 bg-stone-900 border border-stone-800 rounded-lg px-2 py-1 text-xs font-mono">
                         <span class="text-stone-400 text-[10px]">Сетка:</span>
                         <input type="number" id="mapGridCustomInput" value="50" min="20" max="150" step="5"
@@ -383,7 +397,83 @@
                         <span>⚔️</span> <span>Начать бой</span>
                     </button>
 
-                    <!-- Высадка и токены -->
+                    <!-- Туман войны и Освещение -->
+                    <button type="button" onclick="toggleFogOfWarMode()" id="btnToggleFog"
+                            class="px-2.5 py-1.5 rounded-lg bg-stone-900 border border-stone-800 text-stone-300 text-xs font-bold hover:border-amber-400"
+                            title="Переключить туман войны">
+                        🌫️ Туман
+                    </button>
+
+                    <!-- Переключатель 3 режимов тумана и настройка радиусов обзора -->
+                    <div id="fogModeSelectBlock"
+                         class="hidden flex flex-wrap items-center gap-2.5 bg-stone-900 border border-stone-800 rounded-xl p-1.5 text-xs font-mono">
+                        <!-- Выбор режима -->
+                        <div class="flex items-center gap-0.5">
+                            <button type="button" onclick="setFogMode('combat')" id="btnFogCombat"
+                                    class="px-2 py-1 rounded bg-amber-400 text-stone-950 font-bold"
+                                    title="Видно только текущий обзор">
+                                ⚔️ Боевой
+                            </button>
+                            <button type="button" onclick="setFogMode('vision')" id="btnFogVision"
+                                    class="px-2 py-1 rounded text-stone-300 hover:text-amber-200"
+                                    title="Обзор с памятью">
+                                👁️ Разведка
+                            </button>
+                            <button type="button" onclick="setFogMode('brush')" id="btnFogBrush"
+                                    class="px-2 py-1 rounded text-stone-300 hover:text-amber-200"
+                                    title="Ручная кисть Мастера">
+                                🖌️ Кисть
+                            </button>
+                        </div>
+
+                        <!-- Ползунки настройки радиуса обзора (клетки) -->
+                        <div id="fogVisionSlidersBlock"
+                             class="flex items-center gap-3 border-l border-stone-800 pl-2.5 text-[11px]">
+                            <!-- Обычное зрение -->
+                            <div class="flex items-center gap-1.5" title="Обычное зрение (клетки)">
+                                <span class="text-amber-300">☀️ Обычное:</span>
+                                <input type="range" id="sliderNormalVision" min="2" max="20" value="6" step="1"
+                                       oninput="changeVisionRadius('normal', this.value)"
+                                       class="w-16 accent-amber-400 cursor-pointer">
+                                <span id="labelNormalVision" class="text-stone-200 font-bold w-5 text-right">6</span>
+                                <span class="text-stone-500 text-[10px]">кл</span>
+                            </div>
+
+                            <!-- Тёмное зрение -->
+                            <div class="flex items-center gap-1.5" title="Тёмное зрение (клетки)">
+                                <span class="text-cyan-300">🌙 Тёмное:</span>
+                                <input type="range" id="sliderDarkVision" min="4" max="30" value="12" step="1"
+                                       oninput="changeVisionRadius('dark', this.value)"
+                                       class="w-16 accent-cyan-400 cursor-pointer">
+                                <span id="labelDarkVision" class="text-stone-200 font-bold w-5 text-right">12</span>
+                                <span class="text-stone-500 text-[10px]">кл</span>
+                            </div>
+                        </div>
+
+                        <!-- Тулбар для кисти Мастера (режим brush) -->
+                        <div id="fogBrushSubBar"
+                             class="hidden flex items-center gap-1.5 border-l border-stone-800 pl-2">
+                            <button type="button" onclick="setFogBrushAction('erase')" id="btnBrushErase"
+                                    class="px-2 py-0.5 rounded bg-emerald-600 text-white font-bold" title="Ластик">
+                                🧹 Стереть
+                            </button>
+                            <button type="button" onclick="setFogBrushAction('paint')" id="btnBrushPaint"
+                                    class="px-2 py-0.5 rounded bg-stone-800 text-stone-300" title="Кисть">
+                                🌑 Закрасить
+                            </button>
+                            <input type="range" id="fogBrushRadiusSlider" min="20" max="150" value="50"
+                                   oninput="changeFogBrushRadius(this.value)"
+                                   class="w-16 accent-amber-400 cursor-pointer" title="Радиус кисти">
+                        </div>
+                    </div>
+
+
+                    <button type="button" onclick="openAddInteractiveObjectModal()"
+                            class="px-2.5 py-1.5 rounded-lg bg-stone-900 border border-stone-800 text-stone-300 text-xs font-bold hover:border-amber-400"
+                            title="Поставить интерактивный предмет (дверь, сундук)">
+                        📦 Объект
+                    </button>
+
                     <button type="button" onclick="deployPartySquadToMap()"
                             class="px-2.5 py-1.5 rounded-lg bg-emerald-950 border border-emerald-800 text-emerald-300 text-xs font-bold hover:bg-emerald-900"
                             title="Выставить персонажей игроков на карту">
@@ -406,17 +496,8 @@
                             <strong class="text-amber-200 text-sm font-serif tracking-wide block">Режим боя: <span
                                     id="combatRoundDisplay" class="text-amber-400">Раунд 1</span></strong>
                             <span id="combatCurrentTurnDesc"
-                                  class="text-[10px] text-stone-400 font-mono">Ходит: ...</span>
+                                  class="text-[11px] text-stone-400 font-mono">Ходит: ...</span>
                         </div>
-                        <div class="flex items-center gap-2 pt-1 border-t border-orange-950/60 text-xs">
-                            <span id="combatCurrentTargetBadge"
-                                  class="hidden font-mono px-2 py-0.5 rounded bg-black/60 border border-rose-950 text-stone-300"></span>
-                            <button type="button" onclick="attackSelectedTarget()"
-                                    class="px-2.5 py-1 rounded bg-rose-950 border border-rose-800 text-rose-200 font-bold hover:bg-rose-900 shadow transition-all">
-                                ⚔️ Нанести урон цели
-                            </button>
-                        </div>
-
                     </div>
 
                     <div class="flex items-center gap-2">
@@ -439,152 +520,227 @@
                 </div>
 
                 <!-- Горизонтальная прокручиваемая лента участников боя -->
-                <div id="combatantsRibbon" class="flex gap-2 overflow-x-auto pb-1 items-center scrollbar-thin">
-                    <!-- Генерируется из partyCombat.js -->
-                </div>
+                <div id="combatantsRibbon" class="flex gap-2.5 overflow-x-auto py-1 items-center scrollbar-thin"></div>
             </div>
 
-            <!-- Вьюпорт карты со стилизованной контрастной сеткой -->
-            <div class="fox-card p-2 rounded-2xl border border-orange-950/80 bg-black/95 overflow-x-auto overflow-y-auto max-w-[95vw] sm:max-w-full touch-pan-x touch-pan-y relative min-h-[400px] max-h-[650px] flex items-start sm:items-center justify-start sm:justify-center"
-                 id="battleMapViewport">
-                <div id="battleMapCanvas"
-                     class="relative bg-stone-950 border border-stone-800 bg-cover bg-center transition-all select-none overflow-hidden"
-                     style="width: 1000px; height: 750px;">
+            <!-- ГЛАВНАЯ СЕТКА: КАРТА СЛЕВА + БОКОВАЯ ПАНЕЛЬ ХОДА СПРАВА -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
 
-                    <!-- Оверлей сетки: чёткие контрастные линии с тенью -->
-                    <div id="battleMapGridOverlay" class="absolute inset-0 pointer-events-none z-10"
-                         style="background-size: 50px 50px;
-                              background-image:
-                                linear-gradient(to right, rgba(255, 255, 255, 0.22) 1px, transparent 1px),
-                                linear-gradient(to bottom, rgba(255, 255, 255, 0.22) 1px, transparent 1px);
-                              filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));">
-                    </div>
+                <!-- Колонка карты -->
+                <div id="battleMapCol" class="lg:col-span-8 transition-all duration-300 space-y-2">
 
-                    <!-- SVG-слой линейки расстояния -->
-                    <svg id="battleMapRulerSvg" class="absolute inset-0 w-full h-full pointer-events-none z-40 hidden">
-                        <defs>
-                            <marker id="rulerArrow" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto">
-                                <path d="M0,0 L0,6 L9,3 z" fill="#f59e0b"/>
-                            </marker>
-                        </defs>
-                        <line id="rulerLine" x1="0" y1="0" x2="0" y2="0" stroke="#f59e0b" stroke-width="3"
-                              stroke-dasharray="6,4" marker-end="url(#rulerArrow)"/>
-                    </svg>
-                    <div id="rulerBadge"
-                         class="absolute hidden px-2 py-0.5 rounded-md bg-stone-950/90 border border-amber-500 text-amber-300 font-mono text-xs font-bold pointer-events-none z-50 shadow-xl"></div>
-
-                    <!-- Слой токенов поверх сетки -->
-                    <div id="battleMapTokensLayer" class="absolute inset-0 z-20 pointer-events-auto"></div>
-                </div>
-            </div>
-
-            <!-- РАСШИРЕННАЯ БОЕВАЯ КОНСОЛЬ ДЕЙСТВИЙ (COMBAT HUD) -->
-            <div id="combatActionBar"
-                 class="hidden fox-card p-4 rounded-2xl border border-amber-500/40 bg-[#120a07] space-y-4 font-serif shadow-2xl transition-all">
-                <div class="flex flex-wrap justify-between items-center border-b border-orange-950/80 pb-2.5 gap-2">
-                    <div class="flex items-center gap-2.5">
-                        <span class="text-xl" id="combatActorIcon">⚔️</span>
-                        <div>
-                            <strong id="combatActorTitle" class="text-amber-200 text-sm block">Ход: Персонаж</strong>
-                            <span id="combatActorSubtitle" class="text-[10px] text-stone-400 font-mono">Выберите действие, заклинание или фичу</span>
+                    <!-- Панель зума и масштабирования карты -->
+                    <div class="flex justify-between items-center px-2 text-[11px] font-mono text-stone-400">
+                        <span class="flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span>Поле боя 1000×750 px</span>
+                        </span>
+                        <div class="flex items-center gap-1 bg-black/60 p-1 rounded-lg border border-orange-950">
+                            <button type="button" onclick="zoomBattleMap(-0.1)"
+                                    class="px-2 py-0.5 rounded bg-stone-900 hover:bg-stone-800 text-stone-200 font-bold active:scale-95"
+                                    title="Уменьшить масштаб">-
+                            </button>
+                            <span id="mapZoomBadge" class="px-1.5 text-amber-300 font-bold select-none">100%</span>
+                            <button type="button" onclick="zoomBattleMap(0.1)"
+                                    class="px-2 py-0.5 rounded bg-stone-900 hover:bg-stone-800 text-stone-200 font-bold active:scale-95"
+                                    title="Увеличить масштаб">+
+                            </button>
+                            <button type="button" onclick="resetBattleMapZoom()"
+                                    class="px-2 py-0.5 rounded bg-stone-900 hover:bg-stone-800 text-amber-400 text-[10px] ml-1"
+                                    title="Сбросить масштаб">Сброс
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Индикатор выбранной цели -->
-                    <div id="combatTargetIndicatorBox"
-                         class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/60 border border-orange-950 transition-all">
-                        <span class="text-xs">🎯</span>
-                        <span class="text-xs text-stone-300">Цель: <strong id="combatTargetNameText"
-                                                                           class="text-rose-400">Не выбрана (клик по токену)</strong></span>
-                        <span id="combatTargetHpText" class="text-[10px] text-stone-400 font-mono"></span>
-                    </div>
-                </div>
+                    <!-- Вьюпорт карты со стилизованной сеткой -->
+                    <div class="fox-card p-2 rounded-2xl border border-orange-950/80 bg-black/95 overflow-x-auto overflow-y-auto max-w-[95vw] sm:max-w-full touch-pan-x touch-pan-y relative min-h-[440px] max-h-[720px]"
+                         id="battleMapViewport">
 
-                <!-- 1. СПАСБРОСКИ ОТ СМЕРТИ (ЕСЛИ HP <= 0) -->
-                <div id="deathSavesPanel"
-                     class="hidden p-3.5 rounded-xl bg-rose-950/30 border border-rose-600/60 space-y-2.5 animate-pulse">
-                    <div class="flex flex-wrap justify-between items-center gap-2">
-                        <div>
-                            <strong class="text-rose-300 text-xs block flex items-center gap-1.5">
-                                <span>💀</span> <span>ПЕРСОНАЖ ПРИ СМЕРТИ (0 HP)</span>
-                            </strong>
-                            <span class="text-[10px] text-stone-300">Совершите спасбросок от смерти в начале своего хода:</span>
-                        </div>
-                        <button type="button" onclick="rollDeathSave()"
-                                class="px-4 py-1.5 rounded-lg bg-gradient-to-r from-rose-700 to-rose-900 hover:brightness-110 text-amber-100 font-bold text-xs shadow-lg active:scale-95 transition-all">
-                            🎲 Спасбросок от смерти (d20)
-                        </button>
-                    </div>
+                        <!-- Обертка зума -->
+                        <div id="battleMapZoomWrapper" class="transition-transform duration-150 origin-top-left"
+                             style="transform: scale(1);">
+                            <div id="battleMapCanvas"
+                                 class="relative bg-stone-950 border border-stone-800 bg-cover bg-center transition-all select-none overflow-hidden shadow-2xl"
+                                 style="width: 1000px; height: 750px;">
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono pt-1">
-                        <div class="flex items-center justify-between p-2 rounded bg-black/60 border border-emerald-950">
-                            <span class="text-emerald-400 font-bold font-serif">Успехи (10+):</span>
-                            <div class="flex gap-2" id="deathSuccessesTrack">
-                                <span class="w-4 h-4 rounded-full border border-emerald-500 bg-transparent flex items-center justify-center text-[10px]"
-                                      id="dSuccess_1"></span>
-                                <span class="w-4 h-4 rounded-full border border-emerald-500 bg-transparent flex items-center justify-center text-[10px]"
-                                      id="dSuccess_2"></span>
-                                <span class="w-4 h-4 rounded-full border border-emerald-500 bg-transparent flex items-center justify-center text-[10px]"
-                                      id="dSuccess_3"></span>
+                                <!-- Оверлей сетки -->
+                                <div id="battleMapGridOverlay" class="absolute inset-0 pointer-events-none z-10"
+                                     style="background-size: 50px 50px;
+                                          background-image:
+                                            linear-gradient(to right, rgba(255, 255, 255, 0.22) 1px, transparent 1px),
+                                            linear-gradient(to bottom, rgba(255, 255, 255, 0.22) 1px, transparent 1px);
+                                          filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.8));">
+                                </div>
+
+                                <!-- Слой тумана войны -->
+                                <canvas id="fogOfWarCanvas" width="1000" height="750"
+                                        class="absolute inset-0 pointer-events-none z-30 opacity-95 transition-opacity"></canvas>
+
+                                <!-- SVG-слой линейки расстояния -->
+                                <svg id="battleMapRulerSvg"
+                                     class="absolute inset-0 w-full h-full pointer-events-none z-40 hidden">
+                                    <defs>
+                                        <marker id="rulerArrow" markerWidth="10" markerHeight="10" refX="6" refY="3"
+                                                orient="auto">
+                                            <path d="M0,0 L0,6 L9,3 z" fill="#f59e0b"/>
+                                        </marker>
+                                    </defs>
+                                    <line id="rulerLine" x1="0" y1="0" x2="0" y2="0" stroke="#f59e0b" stroke-width="3"
+                                          stroke-dasharray="6,4" marker-end="url(#rulerArrow)"/>
+                                </svg>
+                                <div id="rulerBadge"
+                                     class="absolute hidden px-2 py-0.5 rounded-md bg-stone-950/90 border border-amber-500 text-amber-300 font-mono text-xs font-bold pointer-events-none z-50 shadow-xl"></div>
+
+                                <!-- Слой токенов поверх сетки -->
+                                <div id="battleMapTokensLayer" class="absolute inset-0 z-20 pointer-events-auto"></div>
                             </div>
                         </div>
-                        <div class="flex items-center justify-between p-2 rounded bg-black/60 border border-rose-950">
-                            <span class="text-rose-400 font-bold font-serif">Провалы (1-9):</span>
-                            <div class="flex gap-2" id="deathFailuresTrack">
-                                <span class="w-4 h-4 rounded-full border border-rose-500 bg-transparent flex items-center justify-center text-[10px]"
-                                      id="dFailure_1"></span>
-                                <span class="w-4 h-4 rounded-full border border-rose-500 bg-transparent flex items-center justify-center text-[10px]"
-                                      id="dFailure_2"></span>
-                                <span class="w-4 h-4 rounded-full border border-rose-500 bg-transparent flex items-center justify-center text-[10px]"
-                                      id="dFailure_3"></span>
+
+                    </div>
+                </div>
+
+                <!-- Колонка панели хода (справа) -->
+                <div id="combatActionCol" class="lg:col-span-4 hidden space-y-3">
+                    <div id="combatActionBar"
+                         class="fox-card p-4 rounded-2xl border border-amber-500/40 bg-[#120a07] space-y-3 font-serif shadow-2xl transition-all">
+
+                        <div class="border-b border-orange-950/80 pb-2 space-y-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xl" id="combatActorIcon">⚔️</span>
+                                <div>
+                                    <strong id="combatActorTitle" class="text-amber-200 text-sm block leading-tight">Ход:
+                                        Персонаж</strong>
+                                    <span id="combatActorSubtitle" class="text-[10px] text-stone-400 font-mono">Раунд 1 • Инициатива 12</span>
+                                </div>
+                            </div>
+
+                            <!-- ИНДИКАТОРЫ ЭКОНОМИКИ ДЕЙСТВИЙ ХОДА -->
+                            <div class="flex items-center justify-between gap-1 p-1.5 rounded-xl bg-black/60 border border-orange-950 text-xs select-none">
+                                <span id="badgeEcoAction"
+                                      class="px-2 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-500 text-emerald-300 font-mono text-[10px] font-bold">🟢 Действие</span>
+                                <span id="badgeEcoBonus"
+                                      class="px-2 py-0.5 rounded-md bg-amber-950/80 border border-amber-500 text-amber-300 font-mono text-[10px] font-bold">🟡 Бонус</span>
+                                <span id="badgeEcoMove"
+                                      class="px-2 py-0.5 rounded-md bg-stone-900 border border-stone-800 text-amber-300 font-mono text-[10px] font-bold">👟 30/30 фт</span>
+                            </div>
+
+                            <!-- Индикатор выбранной цели -->
+                            <div id="combatTargetIndicatorBox"
+                                 class="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-black/60 border border-orange-950 transition-all text-xs">
+                                <div class="flex items-center gap-1.5 truncate">
+                                    <span>🎯</span>
+                                    <span class="text-stone-300 truncate">Цель: <strong id="combatTargetNameText"
+                                                                                        class="text-rose-400">Не выбрана</strong></span>
+                                </div>
+                                <span id="combatTargetHpText"
+                                      class="text-[10px] text-stone-400 font-mono shrink-0 ml-1"></span>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- 2. АРСЕНАЛ ИГРОКА (Действия, Оружие, Магия, Классовые фичи) -->
-                <div id="playerCombatActionsPanel" class="hidden space-y-3.5">
-                    <!-- Оружие и рукопашные атаки -->
-                    <div class="space-y-1.5">
-                    <span class="text-[11px] font-bold text-amber-400 flex items-center gap-1.5">
-                      <span>⚔️</span> <span>Оружие и Атаки:</span>
-                    </span>
-                        <div id="playerWeaponActionsList" class="flex flex-wrap gap-2 text-xs"></div>
-                    </div>
+                        <!-- 1. СПАСБРОСКИ ОТ СМЕРТИ (HP <= 0 ДЛЯ ГЕРОЕВ И МОНСТРОВ) -->
+                        <div id="deathSavesPanel"
+                             class="hidden p-3 rounded-xl bg-rose-950/30 border border-rose-600/60 space-y-2.5 animate-pulse">
+                            <div>
+                                <strong class="text-rose-300 text-xs block flex items-center gap-1">
+                                    <span>💀</span> <span>СУЩЕСТВО ПРИ СМЕРТИ (0 HP)</span>
+                                </strong>
+                                <span class="text-[10px] text-stone-300 block mt-0.5">Совершите 1 спасбросок в начале своего хода:</span>
+                            </div>
+                            <button type="button" id="btnRollDeathSave" onclick="rollDeathSave()"
+                                    class="w-full py-2 rounded-lg bg-gradient-to-r from-rose-700 to-rose-900 hover:brightness-110 text-amber-100 font-bold text-xs shadow-lg active:scale-95 transition-all">
+                                🎲 Бросок d20 от смерти
+                            </button>
 
-                    <!-- Классовые и расовые особенности (Ярость, Скрытая атака, Всплеск, Кара) -->
-                    <div id="playerClassFeaturesSection" class="space-y-1.5 border-t border-orange-950/60 pt-2.5">
-                    <span class="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
-                      <span>⚡</span> <span>Классовые и расовые приёмы:</span>
-                    </span>
-                        <div id="playerClassFeaturesList" class="flex flex-wrap gap-2 text-xs"></div>
-                    </div>
-
-                    <!-- Заклинания и магия (для заклинателей) -->
-                    <div id="playerSpellActionsSection" class="hidden space-y-2 border-t border-orange-950/60 pt-2.5">
-                        <div class="flex justify-between items-center">
-                      <span class="text-[11px] font-bold text-cyan-300 flex items-center gap-1.5">
-                        <span>✨</span> <span>Гримуар заклинаний:</span>
-                      </span>
-                            <span id="playerSpellSlotsDisplay" class="text-[10px] font-mono text-stone-400">Ячейки: 1 круг [2/2]</span>
+                            <div class="space-y-1.5 text-xs font-mono pt-1">
+                                <div class="flex items-center justify-between p-1.5 rounded bg-black/60 border border-emerald-950">
+                                    <span class="text-emerald-400 font-bold font-serif text-[11px]">Успехи (10+):</span>
+                                    <div class="flex gap-1.5" id="deathSuccessesTrack">
+                                        <span class="w-4 h-4 rounded-full border border-emerald-500 bg-transparent flex items-center justify-center text-[10px]"
+                                              id="dSuccess_1"></span>
+                                        <span class="w-4 h-4 rounded-full border border-emerald-500 bg-transparent flex items-center justify-center text-[10px]"
+                                              id="dSuccess_2"></span>
+                                        <span class="w-4 h-4 rounded-full border border-emerald-500 bg-transparent flex items-center justify-center text-[10px]"
+                                              id="dSuccess_3"></span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between p-1.5 rounded bg-black/60 border border-rose-950">
+                                    <span class="text-rose-400 font-bold font-serif text-[11px]">Провалы (1-9):</span>
+                                    <div class="flex gap-1.5" id="deathFailuresTrack">
+                                        <span class="w-4 h-4 rounded-full border border-rose-500 bg-transparent flex items-center justify-center text-[10px]"
+                                              id="dFailure_1"></span>
+                                        <span class="w-4 h-4 rounded-full border border-rose-500 bg-transparent flex items-center justify-center text-[10px]"
+                                              id="dFailure_2"></span>
+                                        <span class="w-4 h-4 rounded-full border border-rose-500 bg-transparent flex items-center justify-center text-[10px]"
+                                              id="dFailure_3"></span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div id="playerSpellActionsList" class="flex flex-wrap gap-2 text-xs"></div>
+
+                        <!-- 2. АРСЕНАЛ ИГРОКА -->
+                        <div id="playerCombatActionsPanel" class="hidden space-y-3">
+                            <!-- БЛОК СТАТОВ СВОЕГО ГЕРОЯ (КД, ХИТЫ, СКОРОСТЬ) -->
+                            <div id="playerCombatHeroStatblock"></div>
+
+                            <div class="space-y-1.5">
+                                <span class="text-[11px] font-bold text-amber-400 flex items-center gap-1.5">
+                                    <span>⚔️</span> <span>Оружие и Атаки:</span>
+                                </span>
+                                <div id="playerWeaponActionsList" class="flex flex-col gap-1.5 text-xs"></div>
+                            </div>
+
+                            <div id="playerClassFeaturesSection"
+                                 class="space-y-1.5 border-t border-orange-950/60 pt-2.5">
+                                <span class="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
+                                    <span>⚡</span> <span>Классовые и расовые приёмы:</span>
+                                </span>
+                                <div id="playerClassFeaturesList"
+                                     class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-1.5 text-xs"></div>
+                            </div>
+
+                            <div id="playerSpellActionsSection"
+                                 class="hidden space-y-1.5 border-t border-orange-950/60 pt-2.5">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-[11px] font-bold text-cyan-300 flex items-center gap-1.5">
+                                        <span>✨</span> <span>Заклинания:</span>
+                                    </span>
+                                    <span id="playerSpellSlotsDisplay"
+                                          class="text-[10px] font-mono text-stone-400"></span>
+                                </div>
+                                <div id="playerSpellActionsList" class="flex flex-col gap-1.5 text-xs"></div>
+                            </div>
+                        </div>
+
+                        <!-- 3. СТАТБЛОК МОНСТРА/НИПА ДЛЯ МАСТЕРА -->
+                        <div id="monsterCombatActionsPanel" class="hidden space-y-3">
+                            <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono text-stone-300 bg-black/40 p-2 rounded-xl border border-orange-950">
+                                <div><span class="text-[9px] text-stone-500 block">КД</span><strong
+                                        id="monsterAcDisplay" class="text-amber-300">12</strong></div>
+                                <div><span class="text-[9px] text-stone-500 block">Хиты</span><strong
+                                        id="monsterHpDisplay" class="text-emerald-400">15/15</strong></div>
+                                <div><span class="text-[9px] text-stone-500 block">Скорость</span><strong
+                                        id="monsterSpeedDisplay" class="text-stone-200">30 фт</strong></div>
+                            </div>
+                            <div class="space-y-1.5">
+                                <span class="text-[11px] font-bold text-rose-400 flex items-center gap-1">🩸 Действия существа:</span>
+                                <div id="monsterAttacksList" class="flex flex-col gap-1.5 text-xs"></div>
+                            </div>
+                        </div>
+
+                        <!-- КНОПКА ПЕРЕДАЧИ ХОДА -->
+                        <div class="pt-2 border-t border-orange-950/60">
+                            <button type="button" onclick="nextCombatTurn()" id="btnActionNextTurn"
+                                    class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-foxOrange-600 via-amber-500 to-amber-400 hover:brightness-110 text-stone-950 font-bold font-serif text-xs shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all">
+                                <span>Завершить ход</span>
+                                <span class="text-sm">➔</span>
+                            </button>
+                        </div>
+
                     </div>
                 </div>
 
-                <!-- 3. СТАТБЛОК МОНСТРА/НИПА ДЛЯ МАСТЕРА -->
-                <div id="monsterCombatActionsPanel" class="hidden space-y-3">
-                    <div class="flex flex-wrap gap-3 text-xs font-mono text-stone-300 bg-black/40 p-2.5 rounded-xl border border-orange-950">
-                        <span>КД: <strong id="monsterAcDisplay" class="text-amber-300">12</strong></span>
-                        <span>Хиты: <strong id="monsterHpDisplay" class="text-emerald-400">15 / 15</strong></span>
-                        <span>Скорость: <strong id="monsterSpeedDisplay" class="text-stone-200">30 фт</strong></span>
-                    </div>
-                    <div class="space-y-1.5">
-                        <span class="text-[11px] font-bold text-rose-400 flex items-center gap-1">🩸 Действия и атаки:</span>
-                        <div id="monsterAttacksList" class="flex flex-wrap gap-2 text-xs"></div>
-                    </div>
-                </div>
             </div>
+
 
             <!-- КОНТЕКСТНЫЙ ХУД ТОКЕНА (УРОН И СОСТОЯНИЯ) -->
             <div id="tokenActionHud"
@@ -1276,11 +1432,125 @@
     </div>
 </div>
 
-<script src="/static/js/party/partyCombat.js"></script>
+<!-- ГЛОБАЛЬНЫЙ СИНХРОННЫЙ МОСТ БОЯ (ЗАЩИТА ОТ РАССИНХРОНА МОДУЛЕЙ) -->
+<script>
+
+    let combatStartAttempts = 0;
+    window.startCombat = async function() {
+        if (window.combatEngine && typeof window.combatEngine.startCombat === 'function') {
+            await window.combatEngine.startCombat();
+        } else if (combatStartAttempts < 10) {
+            combatStartAttempts++;
+            console.warn("Боевой движок инициализируется...");
+            setTimeout(() => window.startCombat(), 200);
+        } else {
+            alert("Не удалось запустить боевой движок. Проверьте консоль браузера (F12) на наличие ошибок скриптов.");
+            combatStartAttempts = 0;
+        }
+    };
+
+    window.endCombat = async function() {
+        if (window.combatEngine && typeof window.combatEngine.endCombat === 'function') {
+            await window.combatEngine.endCombat();
+        }
+    };
+
+    window.nextCombatTurn = async function() {
+        if (window.combatEngine && typeof window.combatEngine.nextTurn === 'function') {
+            await window.combatEngine.nextTurn();
+        }
+    };
+
+    window.rollDeathSave = async function() {
+        if (window.combatEngine) {
+            const current = window.combatEngine.state.getCurrentCombatant();
+            if (!current) return;
+            const d20 = Math.floor(Math.random() * 20) + 1;
+            window.combatEngine.fx.showDiceModal("Спасбросок от смерти", d20, 0, d20, d20 >= 10 ? "УСПЕХ!" : "ПРОВАЛ!");
+        }
+    };
+
+    window.openAddInteractiveObjectModal = function() {
+        const choice = prompt("Установка интерактивного объекта:\n1. 🚪 Дверь (заперта/открыта)\n2. 📦 Сундук сокровищ\n3. ⚠️ Нажимная плита (ловушка)\n4. 🪨 Баррикада / Валун", "1");
+        if (!choice) return;
+
+        const dict = { "1": "🚪 Дверь", "2": "📦 Сундук", "3": "⚠️ Ловушка", "4": "🪨 Баррикада" };
+        const title = dict[choice] || "📦 Объект";
+
+        if (window.mapData) {
+            window.mapData.tokens = window.mapData.tokens || [];
+            const g = window.currentGridSize || 50;
+            window.mapData.tokens.push({
+                id: "obj_" + Date.now(),
+                name: title,
+                type: "neutral",
+                size: 1,
+                hp_current: 20,
+                hp_max: 20,
+                x: 3 * g + 3,
+                y: 3 * g + 3
+            });
+            apiFetch(`/parties/${partyId}/map`, { method: 'PATCH', body: { tokens: window.mapData.tokens } })
+                .then(() => { if (typeof renderBattleMap === 'function') renderBattleMap(); });
+        }
+    };
+
+    window.closeSpellDetailModal = function() {
+        const m = document.getElementById('spellDetailModal');
+        if (m) m.classList.add('hidden');
+    };
+</script>
+
+<!-- ПОДКЛЮЧЕНИЕ МОДУЛЕЙ И СКРИПТОВ -->
+<script type="module" src="/static/js/party/combat/main.js"></script>
 <script src="/static/js/party/partySocket.js"></script>
 <script src="/static/js/party/partyAudio.js"></script>
 <script src="/static/js/party/partyMap.js"></script>
 <script src="/static/js/party/partyChat.js"></script>
 <script src="/static/js/party/partyDm.js"></script>
 <script src="/static/js/party/partyApp.js"></script>
+
+<!-- МОДАЛКА: ПРОСМОТР ОПИСАНИЯ ЗАКЛИНАНИЯ В БОЮ -->
+<div id="spellDetailModal"
+     class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none font-serif">
+    <div class="fox-card border border-cyan-500/50 rounded-2xl max-w-md w-full p-5 space-y-3.5 bg-[#100d0a] text-xs shadow-2xl relative">
+        <div class="flex justify-between items-start border-b border-orange-950 pb-2">
+            <div>
+                <h3 id="modalSpellTitle" class="text-sm font-bold text-cyan-200">Название заклинания</h3>
+                <span id="modalSpellSub" class="text-[10px] text-stone-400 font-mono">1 круг, Воплощение</span>
+            </div>
+            <button type="button" onclick="closeSpellDetailModal()"
+                    class="text-stone-400 hover:text-cyan-300 text-lg font-bold">&times;
+            </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-[10px] font-mono bg-black/50 p-2 rounded-xl border border-orange-950">
+            <div><span class="text-stone-500">Время:</span> <strong id="modalSpellTime" class="text-stone-200">1
+                действ.</strong></div>
+            <div><span class="text-stone-500">Дистанция:</span> <strong id="modalSpellRange" class="text-stone-200">60
+                фт</strong></div>
+            <div><span class="text-stone-500">Длительность:</span> <strong id="modalSpellDuration"
+                                                                           class="text-stone-200">Мгновенная</strong>
+            </div>
+            <div><span class="text-stone-500">Урон/Кость:</span> <strong id="modalSpellDamage"
+                                                                         class="text-rose-400">—</strong></div>
+        </div>
+
+        <div id="modalSpellDesc"
+             class="text-stone-200 max-h-56 overflow-y-auto leading-relaxed text-[11px] whitespace-pre-line pr-1 scrollbar-thin">
+            Описание заклинания...
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-orange-950/60">
+            <button type="button" onclick="closeSpellDetailModal()"
+                    class="px-3.5 py-1.5 rounded-lg bg-stone-900 text-stone-300 hover:bg-stone-800">Закрыть
+            </button>
+            <button type="button" id="modalSpellCastBtn"
+                    class="px-4 py-1.5 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-cyan-100 font-bold shadow active:scale-95 transition-all">
+                Сотворить ✨
+            </button>
+        </div>
+    </div>
+</div>
 {% endblock %}
+
