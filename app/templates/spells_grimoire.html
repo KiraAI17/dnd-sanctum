@@ -1,34 +1,44 @@
 {% extends "base.html" %}
 
-{% block title %}Гримуар заклинаний D&D 5e{% endblock %}
+{% block title %}Гримуар заклинаний D&D 5e • Лисий Привал{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 py-6 space-y-6 font-serif">
-  <!-- Заголовок -->
-  <div class="flex flex-wrap justify-between items-center gap-4 border-b border-orange-950/80 pb-4">
+<div class="max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6 font-serif">
+  <!-- Заголовок и счётчик -->
+  <div class="flex flex-wrap justify-between items-center gap-3 border-b border-orange-950/80 pb-3">
     <div>
-      <h1 class="text-2xl font-bold text-amber-300 flex items-center gap-2">
+      <h1 class="text-xl sm:text-2xl font-bold text-amber-300 flex items-center gap-2">
         <span>✨</span> Гримуар заклинаний D&D 5e
       </h1>
-      <p class="text-xs text-stone-400 mt-1">Интерактивный справочник магии с фильтрами по кругам, школам и классам.</p>
+      <p class="text-xs text-stone-400 mt-0.5">Справочник магии с закладками, умной сортировкой и подсветкой классов.</p>
     </div>
-    <div class="text-xs font-mono text-stone-400 bg-black/60 px-3 py-1.5 rounded-xl border border-orange-950">
-      Найдено: <strong id="spellsCountDisplay" class="text-amber-400">0</strong> заклинаний
+
+    <div class="flex items-center gap-2">
+      <!-- Кнопка фильтра закладок -->
+      <button type="button" id="bookmarkFilterToggleBtn" onclick="toggleBookmarksOnlyFilter()"
+              class="px-3 py-1.5 rounded-xl border border-amber-500/40 bg-stone-900/90 hover:bg-amber-950/40 text-amber-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow active:scale-95">
+        <span id="bookmarkStarIcon">⭐</span>
+        <span>Только закладки (<strong id="bookmarksCountBadge">0</strong>)</span>
+      </button>
+
+      <div class="text-xs font-mono text-stone-400 bg-black/60 px-3 py-1.5 rounded-xl border border-orange-950">
+        Найдено: <strong id="spellsCountDisplay" class="text-amber-400">0</strong>
+      </div>
     </div>
   </div>
 
-  <!-- Панель фильтров и поиска (как на DnD.su) -->
-  <div class="fox-card p-4 rounded-2xl border border-amber-500/30 bg-[#140e0a] space-y-3 shadow-xl">
-    <!-- Поиск по названию -->
+  <!-- Панель фильтров, поиска и сортировки -->
+  <div class="fox-card p-3 sm:p-4 rounded-2xl border border-amber-500/30 bg-[#140e0a] space-y-3 shadow-xl">
+    <!-- Поисковая строка -->
     <div class="relative">
-      <input type="text" id="spellSearchInput" oninput="applySpellFilters()" placeholder="🔍 Поиск по названию (на русском или английском)..." 
-             class="w-full bg-black/70 border border-orange-900/70 rounded-xl px-4 py-2 text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500">
+      <input type="text" id="spellSearchInput" oninput="applySpellFilters()" placeholder="🔍 Поиск заклинания по названию (на русском или английском)..."
+             class="w-full bg-black/70 border border-orange-900/70 rounded-xl px-4 py-2 text-xs sm:text-sm text-stone-100 placeholder-stone-500 focus:outline-none focus:border-amber-500">
     </div>
 
     <!-- Кнопки фильтра по кругам -->
     <div>
-      <span class="text-[11px] font-bold text-stone-400 block mb-1.5 uppercase tracking-wider">Круг заклинания:</span>
-      <div class="flex flex-wrap gap-1.5" id="levelFilterButtons">
+      <span class="text-[10px] sm:text-[11px] font-bold text-stone-400 block mb-1 uppercase tracking-wider">Круг заклинания:</span>
+      <div class="flex flex-wrap gap-1" id="levelFilterButtons">
         <button type="button" onclick="filterByLevel('all', this)" class="spell-filter-btn active-btn px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-amber-400 text-stone-950">Все</button>
         <button type="button" onclick="filterByLevel(0, this)" class="spell-filter-btn px-2.5 py-1 rounded-lg text-xs font-mono bg-stone-900 border border-orange-950 text-stone-300 hover:text-amber-300">Заговор</button>
         <button type="button" onclick="filterByLevel(1, this)" class="spell-filter-btn px-2.5 py-1 rounded-lg text-xs font-mono bg-stone-900 border border-orange-950 text-stone-300 hover:text-amber-300">1</button>
@@ -43,25 +53,34 @@
       </div>
     </div>
 
-    <!-- Фильтры по Классу и Школе -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+    <!-- Селекты: Класс (с режимом полупрозрачности), Школа и Сортировка -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+      <!-- Класс и переключатель режима подсветки -->
       <div>
-        <label class="text-[11px] font-bold text-stone-400 block mb-1">Класс заклинателя:</label>
+        <div class="flex justify-between items-center mb-1">
+          <label class="text-[10px] sm:text-[11px] font-bold text-stone-400">Класс заклинателя:</label>
+          <label class="text-[9px] text-amber-400/90 flex items-center gap-1 cursor-pointer select-none" title="Если включено — чужие спеллы не скроются, а станут полупрозрачными">
+            <input type="checkbox" id="classGhostModeCheckbox" onchange="applySpellFilters()" checked class="rounded border-orange-900 text-amber-500 focus:ring-0">
+            <span>Полупрозрачность</span>
+          </label>
+        </div>
         <select id="classFilterSelect" onchange="applySpellFilters()" class="w-full bg-black/70 border border-orange-900/60 rounded-xl px-3 py-1.5 text-xs text-amber-200">
           <option value="all">Все классы</option>
-          <option value="бард">Бард</option>
-          <option value="жрец">Жрец</option>
-          <option value="друид">Друид</option>
-          <option value="волшебник">Волшебник</option>
-          <option value="чародей">Чародей</option>
-          <option value="колдун">Колдун</option>
-          <option value="паладин">Паладин</option>
-          <option value="следопыт">Следопыт</option>
-          <option value="изобретатель">Изобретатель</option>
+          <option value="волшебник">Волшебник (Wizard)</option>
+          <option value="жрец">Жрец (Cleric)</option>
+          <option value="колдун">Колдун (Warlock)</option>
+          <option value="чародей">Чародей (Sorcerer)</option>
+          <option value="бард">Бард (Bard)</option>
+          <option value="друид">Друид (Druid)</option>
+          <option value="паладин">Паладин (Paladin)</option>
+          <option value="следопыт">Следопыт (Ranger)</option>
+          <option value="изобретатель">Изобретатель (Artificer)</option>
         </select>
       </div>
+
+      <!-- Школа магии -->
       <div>
-        <label class="text-[11px] font-bold text-stone-400 block mb-1">Школа магии:</label>
+        <label class="text-[10px] sm:text-[11px] font-bold text-stone-400 block mb-1">Школа магии:</label>
         <select id="schoolFilterSelect" onchange="applySpellFilters()" class="w-full bg-black/70 border border-orange-900/60 rounded-xl px-3 py-1.5 text-xs text-amber-200">
           <option value="all">Все школы</option>
           <option value="Воплощение">Воплощение (Evocation)</option>
@@ -74,11 +93,22 @@
           <option value="Вызов">Вызов (Conjuration)</option>
         </select>
       </div>
+
+      <!-- Сортировка -->
+      <div>
+        <label class="text-[10px] sm:text-[11px] font-bold text-stone-400 block mb-1">Сортировать список:</label>
+        <select id="sortOrderSelect" onchange="applySpellFilters()" class="w-full bg-black/70 border border-orange-900/60 rounded-xl px-3 py-1.5 text-xs text-amber-200">
+          <option value="level_asc">По кругам (0 → 9)</option>
+          <option value="name_asc">По алфавиту (А → Я)</option>
+          <option value="name_desc">По алфавиту (Я → А)</option>
+          <option value="level_desc">По кругам (9 → 0)</option>
+        </select>
+      </div>
     </div>
   </div>
 
   <!-- Список заклинаний -->
-  <div id="spellsContainer" class="space-y-3 min-h-[400px]">
+  <div id="spellsContainer" class="space-y-2.5 min-h-[400px]">
     <div class="text-center py-12 text-stone-500 font-serif">Загрузка гримуара заклинаний...</div>
   </div>
 </div>
@@ -86,21 +116,76 @@
 <script>
 let allSpells = [];
 let selectedLevel = 'all';
+let showOnlyBookmarks = false;
+let bookmarkedSpellIds = new Set();
+
+// Загрузка сохранённых закладок из LocalStorage
+function loadSavedBookmarks() {
+  try {
+    const raw = localStorage.getItem('user_bookmarked_spells');
+    const parsed = raw ? JSON.parse(raw) : [];
+    bookmarkedSpellIds = new Set(parsed);
+  } catch(e) {
+    bookmarkedSpellIds = new Set();
+  }
+  updateBookmarksBadge();
+}
+
+function updateBookmarksBadge() {
+  const badge = document.getElementById('bookmarksCountBadge');
+  if (badge) badge.textContent = bookmarkedSpellIds.size;
+}
+
+function toggleBookmark(e, spellId) {
+  e.stopPropagation();
+  if (bookmarkedSpellIds.has(spellId)) {
+    bookmarkedSpellIds.delete(spellId);
+  } else {
+    bookmarkedSpellIds.add(spellId);
+  }
+
+  localStorage.setItem('user_bookmarked_spells', JSON.stringify(Array.from(bookmarkedSpellIds)));
+  updateBookmarksBadge();
+
+  // Обновляем иконку кнопки закладки
+  const btn = document.getElementById(`bookmarkBtn_${spellId}`);
+  if (btn) {
+    const isBookmarked = bookmarkedSpellIds.has(spellId);
+    btn.innerHTML = isBookmarked ? '⭐' : '☆';
+    btn.className = isBookmarked
+      ? 'text-amber-400 hover:text-amber-300 text-base p-1 transition-transform active:scale-125'
+      : 'text-stone-500 hover:text-amber-400 text-base p-1 transition-transform active:scale-125';
+  }
+
+  // Если включен режим показа только закладок — перерисовываем список
+  if (showOnlyBookmarks) {
+    applySpellFilters();
+  }
+}
+
+function toggleBookmarksOnlyFilter() {
+  showOnlyBookmarks = !showOnlyBookmarks;
+  const btn = document.getElementById('bookmarkFilterToggleBtn');
+  if (btn) {
+    if (showOnlyBookmarks) {
+      btn.className = "px-3 py-1.5 rounded-xl border border-amber-400 bg-amber-500 text-stone-950 text-xs font-bold transition-all flex items-center gap-1.5 shadow-lg active:scale-95";
+    } else {
+      btn.className = "px-3 py-1.5 rounded-xl border border-amber-500/40 bg-stone-900/90 hover:bg-amber-950/40 text-amber-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow active:scale-95";
+    }
+  }
+  applySpellFilters();
+}
 
 async function loadGrimoire() {
+  loadSavedBookmarks();
   try {
     const res = await fetch('/compendium/spells-list');
     if (res.ok) {
       allSpells = await res.json();
-      // Сортировка по кругу, затем по имени
-      allSpells.sort((a, b) => {
-        if (a.level !== b.level) return a.level - b.level;
-        return a.name.localeCompare(b.name, 'ru');
-      });
       applySpellFilters();
     }
   } catch (err) {
-    document.getElementById('spellsContainer').innerHTML = '<div class="text-center py-8 text-rose-400">Сбой загрузки spells.json</div>';
+    document.getElementById('spellsContainer').innerHTML = '<div class="text-center py-8 text-rose-400 font-serif">Сбой загрузки заклинаний. Проверьте spells.json</div>';
   }
 }
 
@@ -116,36 +201,58 @@ function filterByLevel(lvl, btn) {
 function applySpellFilters() {
   const query = document.getElementById('spellSearchInput').value.toLowerCase().trim();
   const chosenClass = document.getElementById('classFilterSelect').value.toLowerCase();
+  const ghostMode = document.getElementById('classGhostModeCheckbox').checked;
   const chosenSchool = document.getElementById('schoolFilterSelect').value;
+  const sortOrder = document.getElementById('sortOrderSelect').value;
 
-  const filtered = allSpells.filter(sp => {
-    // 1. Фильтр круга
+  // 1. Фильтрация
+  let filtered = allSpells.filter(sp => {
+    // Закладки
+    if (showOnlyBookmarks && !bookmarkedSpellIds.has(sp.id)) return false;
+
+    // Круг
     if (selectedLevel !== 'all' && sp.level !== parseInt(selectedLevel)) return false;
 
-    // 2. Фильтр класса
-    if (chosenClass !== 'all') {
-      const classes = (sp.classes || []).map(c => c.toLowerCase());
-      if (!classes.some(c => c.includes(chosenClass))) return false;
-    }
-
-    // 3. Фильтр школы
+    // Школа
     if (chosenSchool !== 'all' && sp.school !== chosenSchool) return false;
 
-    // 4. Поиск
+    // Поиск
     if (query) {
       const ruName = (sp.name || '').toLowerCase();
       const enName = (sp.name_en || '').toLowerCase();
       if (!ruName.includes(query) && !enName.includes(query)) return false;
     }
 
+    // Класс в режиме полного скрытия (если ghostMode выключен)
+    if (chosenClass !== 'all' && !ghostMode) {
+      const classes = (sp.classes || []).map(c => c.toLowerCase());
+      if (!classes.some(c => c.includes(chosenClass))) return false;
+    }
+
     return true;
   });
 
+  // 2. Сортировка
+  filtered.sort((a, b) => {
+    if (sortOrder === 'name_asc') {
+      return a.name.localeCompare(b.name, 'ru');
+    } else if (sortOrder === 'name_desc') {
+      return b.name.localeCompare(a.name, 'ru');
+    } else if (sortOrder === 'level_desc') {
+      if (b.level !== a.level) return b.level - a.level;
+      return a.name.localeCompare(b.name, 'ru');
+    } else {
+      // По умолчанию: level_asc
+      if (a.level !== b.level) return a.level - b.level;
+      return a.name.localeCompare(b.name, 'ru');
+    }
+  });
+
   document.getElementById('spellsCountDisplay').textContent = filtered.length;
-  renderSpellsList(filtered);
+  renderSpellsList(filtered, chosenClass, ghostMode);
 }
 
-function renderSpellsList(spells) {
+function renderSpellsList(spells, chosenClass, ghostMode) {
   const container = document.getElementById('spellsContainer');
   if (spells.length === 0) {
     container.innerHTML = '<div class="text-center py-12 text-stone-500 font-serif">Заклинаний по заданным фильтрам не найдено.</div>';
@@ -153,18 +260,51 @@ function renderSpellsList(spells) {
   }
 
   container.innerHTML = spells.map(sp => {
+    const isBookmarked = bookmarkedSpellIds.has(sp.id);
+    const starIcon = isBookmarked ? '⭐' : '☆';
+    const starClass = isBookmarked ? 'text-amber-400 hover:text-amber-300' : 'text-stone-500 hover:text-amber-400';
+
+    // Проверка соответствия классу
+    const classes = (sp.classes || []).map(c => c.toLowerCase());
+    const belongsToClass = (chosenClass === 'all') || classes.some(c => c.includes(chosenClass));
+
+    // Стили полупрозрачности для "чужих" заклинаний
+    let cardStyle = "border-orange-950/80 bg-[#120d09]";
+    let cardOpacity = "";
+
+    if (chosenClass !== 'all') {
+      if (belongsToClass) {
+        cardStyle = "border-amber-500/80 bg-amber-950/20 shadow-amber-950/40 ring-1 ring-amber-500/50";
+      } else if (ghostMode) {
+        cardOpacity = "opacity-35 grayscale hover:grayscale-0 hover:opacity-100 transition-all";
+      }
+    }
+
     const lvlText = sp.level === 0 ? "Заговор" : `${sp.level} круг`;
     const dmg = sp.damage_dice ? `<span class="text-rose-400 font-mono text-[11px] font-bold"> • ${sp.damage_dice}</span>` : '';
-    const classesBadges = (sp.classes || []).map(c => `<span class="px-1.5 py-0.5 rounded bg-black/60 border border-orange-950 text-stone-300 text-[10px]">${c}</span>`).join(' ');
+    const classesBadges = (sp.classes || []).map(c => {
+      const isCurrent = (chosenClass !== 'all' && c.toLowerCase().includes(chosenClass));
+      const badgeStyle = isCurrent ? "bg-amber-500 text-stone-950 font-bold border-amber-400" : "bg-black/60 text-stone-300 border-orange-950";
+      return `<span class="px-1.5 py-0.5 rounded border text-[10px] ${badgeStyle}">${c}</span>`;
+    }).join(' ');
 
     return `
-      <div class="fox-card rounded-xl border border-orange-950/80 bg-[#120d09] overflow-hidden shadow-lg transition-all">
-        <!-- Шапка карточки (клик для раскрытия) -->
-        <div onclick="toggleSpellCard('${sp.id}')" class="p-3.5 flex flex-wrap justify-between items-center gap-3 cursor-pointer hover:bg-amber-950/20 select-none">
+      <div class="fox-card rounded-xl border ${cardStyle} ${cardOpacity} overflow-hidden shadow-lg transition-all">
+        <!-- Шапка карточки -->
+        <div onclick="toggleSpellCard('${sp.id}')" class="p-3 sm:p-3.5 flex flex-wrap justify-between items-center gap-2.5 cursor-pointer hover:bg-amber-950/30 select-none">
           <div class="flex items-center gap-2.5">
+            <!-- Звезда-закладка -->
+            <button type="button" id="bookmarkBtn_${sp.id}" onclick="toggleBookmark(event, '${sp.id}')"
+                    title="${isBookmarked ? 'Удалить из закладок' : 'Добавить в закладки'}"
+                    class="${starClass} text-base p-1 transition-transform active:scale-125">
+              ${starIcon}
+            </button>
+
+            <!-- Круг заклинания -->
             <span class="w-7 h-7 rounded-lg bg-stone-900 border border-amber-500/40 text-amber-300 font-mono text-xs flex items-center justify-center shrink-0 font-bold">
               ${sp.level === 0 ? '0' : sp.level}
             </span>
+
             <div>
               <div class="flex items-center gap-2">
                 <strong class="text-amber-200 text-sm font-bold">${sp.name}</strong>
@@ -173,15 +313,15 @@ function renderSpellsList(spells) {
               <span class="text-[11px] text-stone-400 font-serif">${lvlText}, ${sp.school || 'Магия'}${dmg}</span>
             </div>
           </div>
-          
+
           <div class="flex items-center gap-2">
             <div class="hidden sm:flex gap-1">${classesBadges}</div>
             <span id="spellArrow_${sp.id}" class="text-stone-400 text-xs transition-transform">▼</span>
           </div>
         </div>
 
-        <!-- Тело заклинания (скрыто по умолчанию) -->
-        <div id="spellBody_${sp.id}" class="hidden p-4 border-t border-orange-950/70 bg-black/40 text-xs text-stone-300 space-y-2.5 leading-relaxed">
+        <!-- Тело описания заклинания -->
+        <div id="spellBody_${sp.id}" class="hidden p-3.5 sm:p-4 border-t border-orange-950/70 bg-black/40 text-xs text-stone-300 space-y-2.5 leading-relaxed">
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono bg-stone-950/70 p-2.5 rounded-xl border border-orange-950">
             <div><span class="text-stone-500 block">Время накл.:</span><strong class="text-stone-200">${sp.cast_time || '1 действие'}</strong></div>
             <div><span class="text-stone-500 block">Дистанция:</span><strong class="text-stone-200">${sp.range || 'На себя'}</strong></div>
@@ -215,3 +355,4 @@ function toggleSpellCard(id) {
 document.addEventListener('DOMContentLoaded', loadGrimoire);
 </script>
 {% endblock %}
+

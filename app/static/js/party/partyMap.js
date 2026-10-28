@@ -548,3 +548,37 @@ function toggleGridContrast() {
     linear-gradient(to bottom, ${color} 1px, transparent 1px)
   `;
 }
+
+async function uploadPartyBannerFile(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const res = await apiFetch(`/parties/${partyId}/banner`, {
+      method: "POST",
+      body: formData // apiFetch сам определит FormData и не будет ставить application/json
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      // Мгновенно обновляем фон шапки без перезагрузки страницы
+      const bannerEl = document.getElementById("partyBannerHeader");
+      if (bannerEl) {
+        bannerEl.style.backgroundImage = `linear-gradient(to top, rgba(12, 10, 9, 0.95) 0%, rgba(12, 10, 9, 0.4) 60%, transparent 100%), url('${data.banner_url}')`;
+      }
+      alert("Баннер кампании успешно обновлен!");
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.detail || "Ошибка при загрузке баннера");
+    }
+  } catch (e) {
+    console.error("Сбой загрузки баннера:", e);
+    alert("Не удалось загрузить изображение");
+  } finally {
+    event.target.value = ""; // сбрасываем инпут
+  }
+}
+

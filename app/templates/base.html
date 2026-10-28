@@ -103,52 +103,46 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body class="flex flex-col min-h-screen text-stone-200 antialiased selection:bg-foxOrange-600 selection:text-white">
-<header class="sticky top-0 z-40 bg-[#0c0a09]/92 backdrop-blur-md border-b border-orange-950/70 shadow-2xl px-4 py-3">
-    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+<header class="sticky top-0 z-40 bg-[#0c0a09]/95 backdrop-blur-md border-b border-orange-950/70 shadow-2xl px-3 py-2.5">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-2">
         <!-- Логотип -->
-        <a href="/" class="flex items-center space-x-3 group shrink-0">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 via-foxOrange-600/30 to-black border border-amber-500/40 flex items-center justify-center shadow-lg group-hover:border-foxOrange-400 group-hover:scale-105 transition-all">
-                <svg class="w-6 h-6 text-foxOrange-400 filter drop-shadow" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <a href="/" class="flex items-center space-x-2 group shrink-0">
+            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-500/20 via-foxOrange-600/30 to-black border border-amber-500/40 flex items-center justify-center shadow-lg">
+                <svg class="w-5 h-5 sm:w-6 sm:h-6 text-foxOrange-400 filter drop-shadow" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="1.8">
                     <path d="M4 4l3.5 6L12 7l4.5 3L20 4l-2 13-6 4-6-4L4 4z"/>
-                    <path d="M9 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM15 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
-                    <path d="M12 17v1"/>
                 </svg>
             </div>
             <div>
-                <span class="text-xl md:text-2xl font-black tracking-wider fox-embossed font-serif">SANCTUM D&D 5E</span>
-                <span class="text-[10px] uppercase tracking-[0.25em] text-amber-400/80 block -mt-1 font-serif">Лисий Привал</span>
+                <span class="text-base sm:text-xl md:text-2xl font-black tracking-wider fox-embossed font-serif">SANCTUM</span>
+                <span class="hidden sm:block text-[9px] uppercase tracking-[0.2em] text-amber-400/80 -mt-1 font-serif">Лисий Привал</span>
             </div>
         </a>
 
-        <!-- Навигация справа -->
-        <div class="flex items-center space-x-3">
-            <!-- Постоянная кнопка Гримуара -->
+        <!-- Меню справа -->
+        <div class="flex items-center space-x-1.5 sm:space-x-3">
             <a href="/spells"
-               class="px-3 py-1.5 rounded-lg border border-amber-500/40 bg-[#171412] hover:bg-amber-950/40 hover:border-amber-400 text-amber-200 hover:text-amber-100 text-xs font-serif font-bold transition-all flex items-center gap-1.5 shadow-md active:scale-95">
+               class="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-amber-500/40 bg-[#171412] text-amber-200 text-xs font-serif font-bold flex items-center gap-1 shadow">
                 <span>✨</span>
-                <span>Гримуар</span>
+                <span class="hidden xs:inline">Гримуар</span>
             </a>
 
-            <!-- Блок авторизованного пользователя -->
-            <div id="userInfo" class="hidden items-center space-x-3">
-                <div class="flex items-center gap-2.5 bg-[#171412]/90 border border-orange-900/50 rounded-full py-1.5 px-3 sm:px-4 shadow-inner">
+            <div id="userInfo" class="hidden items-center space-x-1.5 sm:space-x-2">
+                <div class="flex items-center gap-1.5 bg-[#171412] border border-orange-900/50 rounded-full py-1 px-2.5 sm:px-3">
                     <div class="w-2 h-2 rounded-full bg-foxOrange-500 animate-pulse"></div>
-                    <span id="userUsername" class="font-semibold text-xs sm:text-sm text-amber-100">...</span>
-                    <span id="userRoleBadge"
-                          class="text-[10px] font-serif uppercase tracking-widest px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/40">...</span>
+                    <span id="userUsername"
+                          class="font-semibold text-xs text-amber-100 max-w-[80px] sm:max-w-none truncate">...</span>
                 </div>
                 <button onclick="logout()"
-                        class="bg-[#171412] hover:bg-foxOrange-700 text-stone-300 hover:text-amber-100 font-serif text-xs uppercase tracking-wider py-1.5 px-3 rounded-lg border border-stone-700/80 hover:border-amber-500/50 transition-all shadow-md">
+                        class="text-stone-400 hover:text-amber-200 text-xs px-2 py-1 rounded border border-stone-800">
                     Выйти
                 </button>
             </div>
 
-            <!-- Блок гостя (если токена нет) -->
             <div id="guestInfo" class="flex items-center">
                 <a href="/auth"
-                   class="bg-gradient-to-r from-foxOrange-600 to-amber-500 hover:from-foxOrange-500 hover:to-amber-400 text-stone-950 font-serif font-bold text-xs uppercase tracking-wider py-1.5 px-3.5 rounded-lg shadow-md transition-all active:scale-95">
-                    Войти / Регистрация
+                   class="bg-gradient-to-r from-foxOrange-600 to-amber-500 text-stone-950 font-serif font-bold text-xs py-1 px-2.5 sm:px-3 rounded-lg shadow">
+                    Войти
                 </a>
             </div>
         </div>

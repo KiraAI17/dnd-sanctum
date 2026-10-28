@@ -7,7 +7,7 @@ class PartyCreateSchema(BaseModel):
     name: str = Field(..., min_length=2, max_length=100, description="Название стола/партии")
     description: Optional[str] = Field(None, max_length=1000)
     is_private: bool = Field(default=False)
-    password: Optional[str] = Field(None, min_length=1, max_length=100, description="Пароль для приватной группы")
+    password: Optional[str] = Field(None, max_length=100, description="Пароль для приватной группы")
     max_players: int = Field(default=6, ge=2, le=20)
     theme: str = Field(default="ember")
 

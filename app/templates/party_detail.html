@@ -65,22 +65,35 @@
                 <p id="partyDesc" class="text-xs text-stone-300 font-serif mt-1 max-w-2xl drop-shadow"></p>
             </div>
 
-            <!-- МИНИ-ПЛЕЕР В ШАПКЕ -->
-            <div id="miniAudioWidget"
-                 class="fox-card px-3.5 py-2 rounded-xl border border-orange-950 bg-[#160f0b]/90 backdrop-blur flex items-center gap-3 text-xs font-serif shadow-md">
-                <span class="text-amber-400 text-sm">🎵</span>
-                <div>
-                    <span id="miniTrackTitle" class="font-bold text-amber-200 block text-[11px] max-w-[150px] truncate">Тишина</span>
-                    <span id="miniTrackStatus" class="text-[9px] text-stone-400 font-mono">Пауза</span>
+            <div class="flex items-center gap-3">
+                <!-- КНОПКА ЗАГРУЗКИ БАННЕРА ФАЙЛОМ (ВИДНА DM) -->
+                <div id="dmBannerUploadBtnBlock" class="hidden">
+                    <input type="file" id="partyBannerFileInput" accept="image/*" class="hidden" onchange="uploadPartyBannerFile(event)">
+                    <button type="button" onclick="document.getElementById('partyBannerFileInput').click()"
+                            class="px-3 py-1.5 rounded-xl bg-black/70 hover:bg-black/90 border border-amber-500/50 hover:border-amber-400 text-amber-200 text-xs font-serif font-bold shadow-lg flex items-center gap-1.5 backdrop-blur-sm transition-all active:scale-95"
+                            title="Загрузить баннер стола с устройства">
+                        <span>🖼️</span> <span>Баннер</span>
+                    </button>
                 </div>
-                <button type="button" onclick="togglePartyAudioPlay()" id="btnMiniPlayToggle"
-                        class="w-7 h-7 rounded-lg bg-amber-400 text-stone-950 font-bold flex items-center justify-center hover:brightness-110">
-                    ▶
-                </button>
-                <audio id="globalAudioPlayer" loop></audio>
+
+                <!-- МИНИ-ПЛЕЕР В ШАПКЕ -->
+                <div id="miniAudioWidget"
+                     class="fox-card px-3.5 py-2 rounded-xl border border-orange-950 bg-[#160f0b]/90 backdrop-blur flex items-center gap-3 text-xs font-serif shadow-md">
+                    <span class="text-amber-400 text-sm">🎵</span>
+                    <div>
+                        <span id="miniTrackTitle" class="font-bold text-amber-200 block text-[11px] max-w-[150px] truncate">Тишина</span>
+                        <span id="miniTrackStatus" class="text-[9px] text-stone-400 font-mono">Пауза</span>
+                    </div>
+                    <button type="button" onclick="togglePartyAudioPlay()" id="btnMiniPlayToggle"
+                            class="w-7 h-7 rounded-lg bg-amber-400 text-stone-950 font-bold flex items-center justify-center hover:brightness-110">
+                        ▶
+                    </button>
+                    <audio id="globalAudioPlayer" loop></audio>
+                </div>
             </div>
         </div>
     </div>
+
 
     <!-- ВСПЛЫВАЮЩИЙ РЕЗУЛЬТАТ БРОСКА -->
     <div id="diceRollToast"
@@ -432,7 +445,7 @@
             </div>
 
             <!-- Вьюпорт карты со стилизованной контрастной сеткой -->
-            <div class="fox-card p-2 rounded-2xl border border-orange-950/80 bg-black/95 overflow-auto relative min-h-[500px] max-h-[720px] flex items-center justify-center cursor-crosshair"
+            <div class="fox-card p-2 rounded-2xl border border-orange-950/80 bg-black/95 overflow-x-auto overflow-y-auto max-w-[95vw] sm:max-w-full touch-pan-x touch-pan-y relative min-h-[400px] max-h-[650px] flex items-start sm:items-center justify-start sm:justify-center"
                  id="battleMapViewport">
                 <div id="battleMapCanvas"
                      class="relative bg-stone-950 border border-stone-800 bg-cover bg-center transition-all select-none overflow-hidden"
@@ -1263,81 +1276,7 @@
     </div>
 </div>
 
-<!-- МОДАЛКА: СОЗДАНИЕ БОЕВОГО ТОКЕНА ДЛЯ КАРТЫ (DM) -->
-<div id="addTokenModal"
-     class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4 font-serif">
-    <div class="fox-card border border-amber-500/40 rounded-2xl max-w-sm w-full p-5 space-y-3.5 bg-[#140e0a] text-xs shadow-2xl">
-        <div class="flex justify-between items-center border-b border-orange-950/80 pb-2">
-            <h3 class="text-sm font-bold text-amber-200">⚔️ Добавить боевой токен</h3>
-            <button onclick="closeAddTokenModal()" class="text-stone-400 hover:text-amber-300 text-xl font-bold">
-                &times;
-            </button>
-        </div>
-
-        <!-- Быстрый выбор из НИПов Мастера -->
-        <div id="quickNpcTokenSelectBlock" class="p-2.5 rounded-xl bg-black/60 border border-orange-950 space-y-1.5">
-            <label class="text-[10px] text-amber-400 font-bold block">Быстрый выбор из ваших НИПов:</label>
-            <select id="quickNpcTokenSelect" onchange="fillTokenFromNpc(this.value)"
-                    class="w-full bg-[#140e0a] border border-orange-900 rounded p-1.5 text-stone-200 text-xs">
-                <option value="">-- Создать вручную или выберите НИПа --</option>
-            </select>
-        </div>
-
-        <form onsubmit="submitNewMapToken(event)" class="space-y-2.5">
-            <div>
-                <label class="font-bold text-stone-300 block mb-1">Имя существа *:</label>
-                <input type="text" id="newTokenName" required placeholder="Гоблин-лучник, Огр..."
-                       class="w-full bg-black/60 border border-orange-900 rounded p-1.5 text-stone-100">
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-                <div>
-                    <label class="font-bold text-stone-300 block mb-1">Сторона / Рамка:</label>
-                    <select id="newTokenType"
-                            class="w-full bg-black/60 border border-orange-900 rounded p-1.5 text-stone-200">
-                        <option value="enemy">⚔️ Враг (Красный)</option>
-                        <option value="ally">🛡️ Союзник (Зеленый)</option>
-                        <option value="neutral">🟡 Нейтрал (Желтый)</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="font-bold text-stone-300 block mb-1">Размер существа:</label>
-                    <select id="newTokenSize"
-                            class="w-full bg-black/60 border border-orange-900 rounded p-1.5 text-stone-200">
-                        <option value="1">Средний (1x1 кл)</option>
-                        <option value="2">Большой (2x2 кл)</option>
-                        <option value="3">Огромный (3x3 кл)</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-                <div>
-                    <label class="font-bold text-stone-300 block mb-1">Макс. HP:</label>
-                    <input type="number" id="newTokenHp" value="15" min="1"
-                           class="w-full bg-black/60 border border-orange-900 rounded p-1.5 text-stone-100 font-mono">
-                </div>
-                <div>
-                    <label class="font-bold text-stone-300 block mb-1">Ссылка на арт (URL):</label>
-                    <input type="text" id="newTokenAvatar" placeholder="https://..."
-                           class="w-full bg-black/60 border border-orange-900 rounded p-1.5 text-stone-100 font-mono">
-                </div>
-            </div>
-
-            <div class="flex justify-end gap-2 pt-2 border-t border-orange-950/60">
-                <button type="button" onclick="closeAddTokenModal()"
-                        class="px-3 py-1.5 rounded bg-stone-900 text-stone-400">Отмена
-                </button>
-                <button type="submit"
-                        class="px-4 py-1.5 rounded bg-amber-400 text-stone-950 font-bold hover:brightness-110">Выставить
-                    на поле
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script src="{{ url_for('static', path='js/party/partyCombat.js') }}"></script>
+<script src="/static/js/party/partyCombat.js"></script>
 <script src="/static/js/party/partySocket.js"></script>
 <script src="/static/js/party/partyAudio.js"></script>
 <script src="/static/js/party/partyMap.js"></script>

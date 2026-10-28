@@ -607,6 +607,14 @@ async function initPartyDetail() {
       try { populateSettingsForm(); } catch (err) { console.error("Ошибка формы настроек:", err); }
     }
 
+    // Показываем кнопку баннера, если текущий пользователь — DM
+    if (partyData && partyData.is_current_user_dm) {
+      const dmBtn = document.getElementById('dmBannerUploadBtnBlock');
+      if (dmBtn) {
+        dmBtn.classList.remove('hidden');
+      }
+    }
+
     try {
       syncPartyAudio();
       setInterval(syncPartyAudio, 3000);
@@ -618,6 +626,39 @@ async function initPartyDetail() {
 
   } catch (e) {
     console.error("Глобальная ошибка инициализации стола:", e);
+  }
+}
+
+// Обработчик загрузки баннера стола
+async function uploadPartyBannerFile(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const res = await apiFetch(`/parties/${partyId}/banner`, {
+      method: "POST",
+      body: formData
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const bannerEl = document.getElementById("partyHeaderBanner");
+      if (bannerEl) {
+        bannerEl.style.backgroundImage = `url('${data.banner_url}')`;
+      }
+      alert("Баннер кампании успешно обновлен!");
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.detail || "Ошибка при загрузке баннера");
+    }
+  } catch (e) {
+    console.error("Сбой загрузки баннера:", e);
+    alert("Не удалось загрузить файл баннера");
+  } finally {
+    event.target.value = "";
   }
 }
 
