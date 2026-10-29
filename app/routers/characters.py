@@ -528,7 +528,7 @@ async def delete_character_equipment(
     return {"status": "ok", "starting_equipment": character.starting_equipment}
 
 
-@router.patch("/{character_id}/visual", summary="Обновить аватар и цветовую тему персонажа")
+@router.patch("/{character_id}/visual", summary="Обновить аватар, имя и цветовую тему персонажа")
 async def update_character_visual(
         character_id: int,
         payload: VisualThemeUpdateSchema,
@@ -541,17 +541,35 @@ async def update_character_visual(
     if not character:
         raise HTTPException(status_code=404, detail="Персонаж не найден")
 
-    # Строгая проверка: чужой профиль редактировать нельзя!
     _verify_character_owner(character, current_user)
 
-    character.avatar_url = payload.avatar_url.strip() if payload.avatar_url else None
-    character.banner_url = payload.banner_url.strip() if payload.banner_url else None
+    # 1. Обновляем имя, если передано
+    if payload.name and payload.name.strip():
+        character.name = payload.name.strip()
+
+    # 2. Обновляем аватарку и баннер, НЕ затирая уже загруженные файлы пустыми строками
+    if payload.avatar_url is not None:
+        val = payload.avatar_url.strip()
+        if val:
+            character.avatar_url = val
+        # Если пришла явно пустая строка, но ранее был загружен локальный файл — оставляем существующий
+        # (затираем только если передано специальное значение вроде "clear" или "null")
+
+    if payload.banner_url is not None:
+        val = payload.banner_url.strip()
+        if val:
+            character.banner_url = val
+
     character.visual_theme = payload.visual_theme or "ember"
     character.visual_custom = payload.visual_custom or {}
     flag_modified(character, "visual_custom")
+
     await db.commit()
+    await db.refresh(character)
+
     return {
         "status": "ok",
+        "name": character.name,
         "avatar_url": character.avatar_url,
         "banner_url": character.banner_url,
         "visual_theme": character.visual_theme,

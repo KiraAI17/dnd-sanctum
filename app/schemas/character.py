@@ -75,6 +75,7 @@ class EquipmentAddSchema(BaseModel):
 
 
 class VisualThemeUpdateSchema(BaseModel):
+    name: str | None = Field(default=None, max_length=100)
     avatar_url: str | None = Field(default=None, max_length=1000)
     banner_url: str | None = Field(default=None, max_length=1000)
     visual_theme: str = Field(default="ember", max_length=50)
@@ -119,6 +120,7 @@ class CharacterCreate(BaseModel):
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+
 class CharacterShortResponse(BaseModel):
     id: int
     user_id: int
@@ -126,6 +128,7 @@ class CharacterShortResponse(BaseModel):
     class_name: str
     level: int
     race: str
+    true_race: str | None = None
     is_npc: bool = Field(default=False)
     hp_current: int
     hp_max: int
@@ -144,7 +147,9 @@ class CharacterShortResponse(BaseModel):
 
     @model_validator(mode="after")
     def mask_changeling_disguise(self) -> "CharacterShortResponse":
-        """Автоматически подменяет race на disguise_race, если маскировка активна."""
+        # Запоминаем настоящую расу
+        self.true_race = self.race
+
         if "чейнджлинг" in (self.race or "").lower():
             vc = self.visual_custom or {}
             if isinstance(vc, str):
@@ -156,7 +161,6 @@ class CharacterShortResponse(BaseModel):
             if isinstance(vc, dict) and vc.get("disguise_active") and vc.get("disguise_race"):
                 self.race = vc["disguise_race"]
         return self
-
 
 class CharacterDetailResponse(CharacterShortResponse):
     hp_temp: int

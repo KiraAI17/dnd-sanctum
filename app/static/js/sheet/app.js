@@ -11,7 +11,6 @@ import { FighterController } from './modules/FighterController.js';
 import { RogueController } from './modules/RogueController.js';
 import { BardController } from './modules/BardController.js';
 
-
 class SheetApplication {
   constructor(charId) {
     this.charId = charId;
@@ -38,7 +37,6 @@ class SheetApplication {
 
   async init() {
     try {
-      // 1. Загрузка данных персонажа
       const [charData, meRes] = await Promise.all([
         this.api.getCharacter(),
         apiFetch('/auth/me')
@@ -47,10 +45,16 @@ class SheetApplication {
       this.state.set(charData);
       let currentUser = null;
       if (meRes.ok) currentUser = await meRes.json();
+      window.currentUserData = currentUser;
 
-      // Проверяем: владелец ли открыл страницу?
-      const isOwner = currentUser && (currentUser.id === charData.user_id);
-      this.isReadOnly = !isOwner;
+      const userRoleStr = String(currentUser?.role || '').toUpperCase();
+      const isDm = Boolean(currentUser?.is_dm || userRoleStr.includes('DM'));
+      const isOwner = Boolean(currentUser && (currentUser.id === charData.user_id));
+
+      // Лист доступен для редактирования как владельцу, так и Мастеру (DM):
+      this.isDm = isDm;
+      this.isOwner = isOwner;
+      this.isReadOnly = !isOwner && !isDm;
 
       if (this.isReadOnly) {
         this.applyReadOnlyMode();
@@ -69,7 +73,6 @@ class SheetApplication {
         } catch (e) {}
       }
 
-      // 2. Предзагрузка рас из компендиума для кастомных свойств
       if (!window.ALL_RACES_CACHE) {
         try {
           const rRes = await apiFetch('/compendium/races');
@@ -77,16 +80,12 @@ class SheetApplication {
         } catch (e) {}
       }
 
-      // 3. Экспорт инстансов в window для onclick атрибутов в HTML
       this.exportGlobals();
-
-      // 4. Отрисовка
       this.render();
       this.applyVisuals();
       this.loadCoins();
       this.loadArmorSelection();
 
-      // 5. Показ интерфейса
       document.getElementById('sheetLoading')?.classList.add('hidden');
       document.getElementById('sheetContent')?.classList.remove('hidden');
     } catch (err) {
@@ -104,6 +103,7 @@ class SheetApplication {
     window.deflectMissiles = () => this.monkKi.deflectMissiles();
     window.focusedAim = (pts) => this.monkKi.focusedAim(pts);
     window.sheetApp = this;
+    window.characterState = this.state;
     window.diceRoller = this.diceRoller;
     window.spellbook = this.spellbook;
     window.bloodHunter = this.bloodHunter;
@@ -111,6 +111,7 @@ class SheetApplication {
     window.fighterApp = this.fighter;
     window.rogueApp = this.rogue;
     window.bardApp = this.bard;
+
     window.openDisguiseModal = () => this.openDisguiseModal();
     window.closeDisguiseModal = () => document.getElementById('disguiseModal')?.classList.add('hidden');
     window.onDisguiseSelectChange = (val) => {
@@ -118,7 +119,9 @@ class SheetApplication {
     };
     window.applyDisguise = (isActive) => this.applyDisguise(isActive);
 
-    // Проброс глобальных хелперов для обратной совместимости с onclick
+    window.openDmRaceModal = () => this.openDmRaceModal();
+    window.submitDmRaceChange = () => this.submitDmRaceChange();
+
     window.switchSheetTab = (tab) => this.switchTab(tab);
     window.openLevelUpModal = () => this.levelUpModal.open();
     window.closeLevelUpModal = () => this.levelUpModal.close();
@@ -130,11 +133,10 @@ class SheetApplication {
     window.onSelectFeatInLevelUp = () => this.levelUpModal.onFeatChange();
 
     window.rollInitiative = () => {
-      const char = window.sheetApp.state.get();
+      const char = this.state.get();
       const cName = (char?.class_name || '').toLowerCase();
       const lvl = char?.level || 1;
 
-      // Бард 20 ур: Превосходное вдохновение (Superior Inspiration)
       if ((cName.includes('бард') || cName.includes('bard')) && lvl >= 20 && window.bardApp) {
         const maxInsp = window.bardApp.getMaxInspiration(char);
         const used = window.bardApp.getUsedInspiration(char.id);
@@ -150,7 +152,7 @@ class SheetApplication {
       }
 
       const mod = DndRules.getInitiativeMod(char);
-      window.diceRoller.rollCheck('⚡ Инициатива', mod, char);
+      this.diceRoller.rollCheck('⚡ Инициатива', mod, char);
     };
 
     window.rollCheck = (title, mod) => this.diceRoller.rollCheck(title, mod);
@@ -173,14 +175,10 @@ class SheetApplication {
     window.useBloodCurse = (name, amp) => this.bloodHunter.useBloodCurse(name, amp);
     window.restoreBloodCurses = () => this.bloodHunter.restoreBloodCurses();
 
-    window.spendKi = (amt, name) => this.monkKi.spendKi(amt, name);
-    window.restoreKiPoints = () => this.monkKi.restoreKiPoints();
-
     window.updateArmorSelection = () => this.updateArmorSelection();
     window.saveCoins = () => this.saveCoins();
     window.saveBackstory = () => this.saveBackstory();
 
-    // Инвентарь
     window.openItemModal = () => document.getElementById('itemModal')?.classList.remove('hidden');
     window.closeItemModal = () => document.getElementById('itemModal')?.classList.add('hidden');
     window.onItemCategoryChange = (val) => this.onItemCategoryChange(val);
@@ -189,23 +187,21 @@ class SheetApplication {
     window.changeItemQuantity = (idx, delta) => this.changeItemQuantity(idx, delta);
     window.usePotionEffect = (name, desc) => this.usePotionEffect(name, desc);
 
-    // Оружие
     window.openWeaponModal = () => document.getElementById('weaponModal')?.classList.remove('hidden');
     window.closeWeaponModal = () => document.getElementById('weaponModal')?.classList.add('hidden');
     window.handleCreateWeapon = (e) => this.handleCreateWeapon(e);
     window.deleteWeapon = (idx) => this.deleteWeapon(idx);
 
-    // Кастомизация
     window.applyPreset = (p) => this.applyPreset(p);
     window.previewCustomColors = () => this.previewCustomColors();
     window.submitVisualTheme = () => this.submitVisualTheme();
 
-    // ВОТ ЭТА СТРОКА:
     window.uploadCharacterFile = (event, type) => this.uploadFile(event, type);
   }
 
   applyReadOnlyMode() {
-    // 1. Показываем плашку «Режим просмотра DM»
+    if (this.isDm) return;
+
     const headerRow = document.querySelector('.flex.items-center.justify-between.border-b');
     if (headerRow) {
       const badge = document.createElement('div');
@@ -214,27 +210,19 @@ class SheetApplication {
       headerRow.appendChild(badge);
     }
 
-    // 2. Скрываем кнопки отдыха и повышения уровня
-    const restBtns = document.querySelectorAll('button[onclick*="handleRest"]');
-    restBtns.forEach(b => b.classList.add('hidden'));
-
+    document.querySelectorAll('button[onclick*="handleRest"]').forEach(b => b.classList.add('hidden'));
     const lvlUpBtn = document.querySelector('button[onclick*="openLevelUpModal"]');
     if (lvlUpBtn) lvlUpBtn.classList.add('hidden');
 
-    // 3. Блокируем изменение HP игрока прямо из шапки листа (у Мастера для этого есть Ширма на столе)
     const hpDeltaControls = document.getElementById('hpDeltaInput')?.parentElement;
     if (hpDeltaControls) hpDeltaControls.classList.add('hidden');
-    const hpButtons = document.querySelectorAll('button[onclick*="modifyHp"]');
-    hpButtons.forEach(b => b.classList.add('hidden'));
+    document.querySelectorAll('button[onclick*="modifyHp"]').forEach(b => b.classList.add('hidden'));
 
-    // 4. Отключаем интерактивные кнопки траты очков Ци, костей превосходства и ячеек
     setTimeout(() => {
-      // Все кнопки «Активировать», «Потратить», «Отдых» внутри вкладок классов
       const actionButtons = document.querySelectorAll(
         '#tabMonkKi button, #tabFighterManeuvers button, #tabBloodHunter button, #tabRogue button, #tabBard button'
       );
       actionButtons.forEach(btn => {
-        // Оставляем только броски дайсов/проверок, а трату ресурсов блокируем:
         const txt = btn.textContent.toLowerCase();
         if (txt.includes('активировать') || txt.includes('потратить') || txt.includes('отдых') || txt.includes('исцелиться') || txt.includes('принять')) {
           btn.disabled = true;
@@ -243,15 +231,13 @@ class SheetApplication {
         }
       });
 
-      // Скрываем добавление предметов и оружия
-      const addBtns = [
+      [
         document.querySelector('button[onclick*="openItemModal"]'),
         document.querySelector('button[onclick*="openWeaponModal"]'),
         document.querySelector('button[onclick*="openSpellModal"]'),
         document.getElementById('btnSaveBackstory'),
         document.getElementById('btnSaveVisual')
-      ];
-      addBtns.forEach(b => { if (b) b.classList.add('hidden'); });
+      ].forEach(b => { if (b) b.classList.add('hidden'); });
     }, 200);
   }
 
@@ -260,7 +246,6 @@ class SheetApplication {
     const sel = document.getElementById('disguiseRaceSelect');
     if (!modal || !sel) return;
 
-    // Подтягиваем все расы из базы компендиума
     if (!window.ALL_RACES_CACHE) {
       try {
         const res = await fetch('/compendium/races');
@@ -290,14 +275,14 @@ class SheetApplication {
     const isCustom = sel?.value === 'custom';
     const fakeRace = isCustom ? (customInp?.value.trim() || 'Человек') : (sel?.value || 'Людоящер');
 
-    // 1. Обновляем локальное хранилище для мгновенного отклика
+    // 1. Фиксируем в localStorage
     const disguiseData = {
       active: isActive,
-      fakeRace: isActive ? fakeRace : 'Чейнджлинг'
+      fakeRace: isActive ? fakeRace : null
     };
     localStorage.setItem(`char_${char.id}_disguise`, JSON.stringify(disguiseData));
 
-    // 2. Отправляем маску на бэкенд в visual_custom, чтобы весь стол видел Людоящера
+    // 2. Формируем visual_custom
     let visualCustom = {};
     try {
       visualCustom = typeof char.visual_custom === 'string'
@@ -309,15 +294,21 @@ class SheetApplication {
 
     visualCustom.disguise_active = isActive;
     visualCustom.disguise_race = isActive ? fakeRace : null;
+    char.visual_custom = visualCustom;
 
     try {
       const res = await this.api.patchVisual({
-        visual_theme: char.visual_theme || 'custom',
+        name: char.name,
+        avatar_url: char.avatar_url,
+        banner_url: char.banner_url,
+        visual_theme: char.visual_theme || 'ember',
         visual_custom: visualCustom
       });
 
       if (res.ok) {
         const updated = await res.json();
+        // Сохраняем true_race, чтобы фронтенд никогда не терял истинную расу
+        updated.true_race = char.true_race || 'Чейнджлинг';
         this.state.set(updated);
       }
     } catch (err) {
@@ -330,12 +321,59 @@ class SheetApplication {
 
     this.diceRoller.showToast(
       "🎭 Перевёртыш",
-      isActive ? `Облик изменён: ${fakeRace}` : "Вы вернулись в свой истинный облик Чейнджлинга!",
+      isActive ? `Облик изменён: ${fakeRace}` : "Вы вернулись в истинный облик Чейнджлинга!",
       "crit_success"
     );
   }
 
-    render() {
+  async openDmRaceModal() {
+    const modal = document.getElementById('dmRaceModal');
+    const sel = document.getElementById('dmNewRaceSelect');
+    if (!modal || !sel) return;
+
+    if (!window.ALL_RACES_CACHE) {
+      try {
+        const res = await fetch('/compendium/races');
+        if (res.ok) window.ALL_RACES_CACHE = await res.json();
+      } catch (e) {}
+    }
+
+    const races = window.ALL_RACES_CACHE || [];
+    let opts = '<option value="Чейнджлинг">🎭 Чейнджлинг</option>';
+    opts += races.map(r => `<option value="${r.name}">${window.getRaceEmoji(r.name)} ${r.name}</option>`).join('');
+    opts += '<option value="custom">✍️ Своя кастомная раса...</option>';
+    sel.innerHTML = opts;
+
+    modal.classList.remove('hidden');
+  }
+
+  async submitDmRaceChange() {
+    const sel = document.getElementById('dmNewRaceSelect');
+    const customInp = document.getElementById('dmCustomRaceInput');
+    const chosenRace = sel?.value === 'custom' ? (customInp?.value.trim() || 'Чейнджлинг') : (sel?.value || 'Чейнджлинг');
+
+    try {
+      const res = await apiFetch(`/characters/${this.charId}/race`, {
+        method: 'PATCH',
+        body: { race: chosenRace }
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        this.state.set(updated);
+        document.getElementById('dmRaceModal')?.classList.add('hidden');
+        this.render();
+        alert(`✅ Раса успешно изменена на «${chosenRace}»!`);
+      } else {
+        const err = await res.json();
+        alert("Ошибка: " + (err.detail || "Только DM может менять расу"));
+      }
+    } catch (e) {
+      alert("Сбой соединения с сервером");
+    }
+  }
+
+  render() {
     const c = this.state.get();
     if (!c) return;
 
@@ -348,37 +386,83 @@ class SheetApplication {
 
     document.getElementById('charLevelBadge').textContent = `Ур. ${c.level}`;
 
-    // Логика маскировки Чейнджлинга
-    const isChangeling = (c.race || '').toLowerCase().includes('чейнджлинг');
-    let displayRace = c.race;
+    // 1. Определение прав
+    const currentUserId = window.currentUserData?.id;
+    const userRoleStr = String(window.currentUserData?.role || '').toUpperCase();
+    const isDm = Boolean(window.currentUserData?.is_dm || userRoleStr.includes('DM') || this.isDm);
+    const isOwner = Boolean(currentUserId && (c.user_id === currentUserId));
 
-    if (isChangeling) {
-      const savedDisguise = localStorage.getItem(`char_${c.id}_disguise`);
-      if (savedDisguise) {
-        try {
-          const d = JSON.parse(savedDisguise);
-          if (d.active && d.fakeRace) displayRace = d.fakeRace;
-        } catch (e) {}
+    // 2. ЧЕСТНОЕ ОПРЕДЕЛЕНИЕ ЧЕЙНДЖЛИНГА
+    // Проверяем:
+    // - поле c.true_race (если пришло с бэкенда)
+    // - исходную расу c.race
+    // - флаг disguise_active в visual_custom
+    // - локальное хранилище браузера для этого персонажа
+    let isDisguiseActive = false;
+    let fakeRaceName = null;
+
+    try {
+      const vc = typeof c.visual_custom === 'string' ? JSON.parse(c.visual_custom) : (c.visual_custom || {});
+      if (vc.disguise_active) {
+        isDisguiseActive = true;
+        fakeRaceName = vc.disguise_race;
       }
+    } catch (e) {}
+
+    const localDisguise = localStorage.getItem(`char_${c.id}_disguise`);
+    if (localDisguise) {
+      try {
+        const d = JSON.parse(localDisguise);
+        if (d.active) {
+          isDisguiseActive = true;
+          if (d.fakeRace) fakeRaceName = d.fakeRace;
+        }
+      } catch (e) {}
+    }
+
+    const rawRaceStr = String(c.true_race || c.race || '').toLowerCase();
+    const isChangeling = rawRaceStr.includes('чейнджлинг') ||
+                         rawRaceStr.includes('перевертыш') ||
+                         isDisguiseActive;
+
+    // 3. Кнопка смены облика (видна владельцу персонажа и ДМу, если это чейнджлинг)
+    const btnMask = document.getElementById('btnChangelingMask');
+    if (btnMask) {
+      if (isChangeling && (isOwner || isDm)) {
+        btnMask.classList.remove('hidden');
+        if (isDisguiseActive && fakeRaceName) {
+          btnMask.innerHTML = `🎭 Маска: ${fakeRaceName} (сменить/сбросить)`;
+        } else {
+          btnMask.innerHTML = `🎭 Сменить облик`;
+        }
+      } else {
+        btnMask.classList.add('hidden');
+      }
+    }
+
+    // 4. Кнопка ДМа для смены расы (видна всегда, если зашел Мастер)
+    const btnDmRace = document.getElementById('btnDmChangeRace');
+    if (btnDmRace) {
+      if (isDm) {
+        btnDmRace.classList.remove('hidden');
+      } else {
+        btnDmRace.classList.add('hidden');
+      }
+    }
+
+    // 5. Какая раса пишется в подзаголовке листа
+    let displayRace = c.race;
+    if (isDisguiseActive && fakeRaceName) {
+      displayRace = fakeRaceName;
     }
 
     document.getElementById('charSubDisplay').textContent = c.subclass
       ? `${displayRace} • ${c.class_name} (${c.subclass})`
       : `${displayRace} • ${c.class_name}`;
 
-    // Кнопка перевёртыша видна только если персонаж — чейнджлинг
-    const maskBtn = document.getElementById('btnChangelingMask');
-    if (maskBtn) {
-      maskBtn.classList.toggle('hidden', !isChangeling);
-      if (isChangeling) {
-        maskBtn.textContent = (displayRace !== c.race) ? `🎭 Маска: ${displayRace}` : `🎭 Сменить облик`;
-      }
-    }
-
     const initEl = document.getElementById('statInitiative') || document.getElementById('statInit');
     if (initEl) {
-      const currentChar = this.state.get();
-      initEl.textContent = DndRules.formatMod(DndRules.getInitiativeMod(currentChar));
+      initEl.textContent = DndRules.formatMod(DndRules.getInitiativeMod(c));
     }
 
     const calculatedSpeed = DndRules.calculateSpeed(c);
@@ -419,7 +503,6 @@ class SheetApplication {
     const cName = (c.class_name || '').toLowerCase();
     const lvl = c.level || 1;
 
-    // Магия Крови (только Кровавый охотник)
     const isBH = cName.includes('охотник') || cName.includes('blood');
     const bhBtn = document.getElementById('tabBtnBloodHunter');
     if (bhBtn) {
@@ -427,7 +510,6 @@ class SheetApplication {
       if (isBH) this.bloodHunter.renderTab();
     }
 
-    // Энергия Ци (только Монах со 2 ур.)
     const isMonk = (cName.includes('монах') || cName.includes('monk')) && lvl >= 2;
     const monkBtn = document.getElementById('tabBtnMonkKi');
     if (monkBtn) {
@@ -435,7 +517,6 @@ class SheetApplication {
       if (isMonk) this.monkKi.renderTab();
     }
 
-    // Боевые приёмы (только Воин)
     const isFighter = cName.includes('воин') || cName.includes('fighter');
     const ftrBtn = document.getElementById('tabBtnFighterManeuvers');
     if (ftrBtn) {
@@ -457,14 +538,12 @@ class SheetApplication {
       if (isBard) this.bard.renderTab();
     }
 
-    // Книга Заклинаний (только заклинатели)
     const isCaster = DndRules.isSpellcaster(c);
     const spellsBtn = document.getElementById('tabBtnSpells');
     if (spellsBtn) {
       spellsBtn.classList.toggle('hidden', !isCaster);
     }
   }
-
 
   switchTab(tab) {
     const tabs = ['Stats', 'Combat', 'BloodHunter', 'MonkKi', 'FighterManeuvers', 'Rogue', 'Bard', 'Spells', 'Inventory', 'Features', 'Bio', 'Settings'];
@@ -488,8 +567,6 @@ class SheetApplication {
 
     this.updateSpecialTabsVisibility();
   }
-
-  // --- ЗДОРОВЬЕ И ОТДЫХ ---
 
   async modifyHp(delta) {
     const c = this.state.get();
@@ -519,20 +596,15 @@ class SheetApplication {
       current.spell_slots = updated.spell_slots;
       this.state.set(current);
 
-      // Получаем актуального персонажа для проверки классов
       const char = current;
       const cName = (char?.class_name || '').toLowerCase();
       const lvl = char?.level || 1;
 
-      // 1. Бард:
-      // В длинный отдых вдохновение восстанавливается всегда.
-      // В короткий — начиная с 5-го уровня («Источник вдохновения»).
       const isBard = cName.includes('бард') || cName.includes('bard');
       if (isBard && (type === 'long' || lvl >= 5)) {
         if (this.bard) this.bard.restoreInspiration();
       }
 
-      // Напоминание о Песне отдыха союзникам при коротком отдыхе
       if (isBard && lvl >= 2 && type === 'short') {
         const songDie = DndRules.getSongOfRestDie(lvl);
         this.diceRoller.showToast(
@@ -542,7 +614,6 @@ class SheetApplication {
         );
       }
 
-      // 2. Сброс ресурсов остальных классов
       if (this.bloodHunter) this.bloodHunter.restoreBloodCurses();
       if (this.monkKi) this.monkKi.restoreKiPoints();
       if (this.fighter) this.fighter.restoreDice();
@@ -552,9 +623,6 @@ class SheetApplication {
       alert(`Отдых завершён. Здоровье, заклинания и классовые ресурсы восстановлены!`);
     }
   }
-
-
-  // --- ИНВЕНТАРЬ И КОШЕЛЬ ---
 
   loadCoins() {
     const raw = localStorage.getItem(`char_${this.charId}_coins`);
@@ -722,8 +790,6 @@ class SheetApplication {
     }
   }
 
-  // --- ОРУЖИЕ ---
-
   loadWeapons() {
     const raw = localStorage.getItem(`char_${this.charId}_weapons`);
     if (raw) {
@@ -780,10 +846,10 @@ class SheetApplication {
               <button type="button" onclick="window.diceRoller.rollFormula('Атака пси-клинком', '1d20${DndRules.formatMod(atkMod)}')" class="px-2.5 py-1 rounded bg-[#1e1124] border border-purple-700 text-purple-300 font-mono font-bold hover:border-purple-400">
                 Атака (${DndRules.formatMod(atkMod)})
               </button>
-              <button type="button" onclick="window.diceRoller.rollFormula('Урон пси-клинка (осн.)', '1d6${DndRules.formatMod(dmgMod)}')" class="px-2 py-1 rounded bg-purple-700 text-purple-100 font-mono font-bold hover:bg-purple-600">
+              <button type="button" onclick="window.diceRoller.rollFormula('Урон пси-клинка (осн.)', '1d6${DndRules.formatMod(dmgMod)}')" class="px-2.5 py-1 rounded bg-purple-700 text-purple-100 font-mono font-bold hover:bg-purple-600">
                 1d6 Урон
               </button>
-              <button type="button" onclick="window.diceRoller.rollFormula('Урон пси-клинка (бонус)', '1d4${DndRules.formatMod(dmgMod)}')" class="px-2 py-1 rounded bg-purple-900 text-purple-200 font-mono font-bold hover:bg-purple-800" title="Второй клинок бонусным действием">
+              <button type="button" onclick="window.diceRoller.rollFormula('Урон пси-клинка (бонус)', '1d4${DndRules.formatMod(dmgMod)}')" class="px-2.5 py-1 rounded bg-purple-900 text-purple-200 font-mono font-bold hover:bg-purple-800" title="Второй клинок бонусным действием">
                 1d4 Бон.
               </button>
             </div>
@@ -792,21 +858,14 @@ class SheetApplication {
       }
     }
 
-    // Если монах — всегда выводим «Безоружный удар» с актуальной костью и бонусами
     if (cName.includes('монах') || cName.includes('monk')) {
       const dexMod = DndRules.calcMod(stats.dex || 10);
       const strMod = DndRules.calcMod(stats.str || 10);
-      const attackMod = Math.max(dexMod, strMod); // Ловкость или Сила
+      const attackMod = Math.max(dexMod, strMod);
       const totalAtk = prof + attackMod;
       const dieSides = DndRules.getMartialArtsDie(lvl);
       const dmgFormula = `1d${dieSides}${DndRules.formatMod(attackMod)}`;
       const atkFormula = `1d20${DndRules.formatMod(totalAtk)}`;
-
-      const initMod = DndRules.getInitiativeMod(char);
-      const initEl = document.getElementById('statInitiative');
-      if (initEl) {
-        initEl.textContent = DndRules.formatMod(initMod);
-      }
 
       html += `
         <div class="p-3 bg-gradient-to-r from-[#18110a] to-[#0e0907] border border-amber-500/50 rounded-lg flex flex-wrap justify-between items-center text-xs gap-2 shadow">
@@ -837,7 +896,6 @@ class SheetApplication {
       return;
     }
 
-    // Рендер обычного оружия из инвентаря:
     html += this.customWeapons.map((w, idx) => {
       const isFinesseOrRanged = (w.props || '').toLowerCase().includes('фехт') ||
                                 (w.props || '').toLowerCase().includes('дальн') ||
@@ -862,7 +920,6 @@ class SheetApplication {
               Урон (${w.dmg})
             </button>
 
-            <!-- КНОПКА СОВМЕСТНОГО БРОСКА С СКРЫТОЙ АТАКОЙ ДЛЯ ПЛУТА -->
             ${isRogue && isFinesseOrRanged ? `
               <button type="button" onclick="window.diceRoller.rollFormula('Критический укол (${w.name} + Скрытая атака)', '${w.dmg} + ${sneakDice}')"
                       class="px-2.5 py-1 rounded bg-rose-950 border border-rose-800 text-rose-200 font-mono font-bold hover:bg-rose-900 shadow"
@@ -879,7 +936,6 @@ class SheetApplication {
 
     list.innerHTML = html;
   }
-
 
   handleCreateWeapon(e) {
     e.preventDefault();
@@ -903,8 +959,6 @@ class SheetApplication {
     this.saveWeapons();
     this.renderWeaponsTab();
   }
-
-  // --- БРОНЯ И ЩИТ ---
 
   updateArmorSelection() {
     const sel = document.getElementById('armorTypeSelect');
@@ -933,32 +987,9 @@ class SheetApplication {
     let baseAc = 10 + dexMod;
     let descArmor = "Без доспеха (10 + Ловкость)";
 
-    // Природный доспех Людоящера (13 + Ловкость)
     if (val === 'none' && isLizard) {
       baseAc = 13 + dexMod;
       descArmor = `Природный доспех (13 + ${dexMod} ЛОВ)`;
-    }
-
-    if (val === 'leather') { baseAc = 11 + dexMod; descArmor = "Кожаный (11 + Ловкость)"; }
-    else if (val === 'studded') { baseAc = 12 + dexMod; descArmor = "Проклепанная кожа (12 + Ловкость)"; }
-    else if (val === 'chain_shirt') { baseAc = 13 + Math.min(2, dexMod); descArmor = "Кольчужная рубашка (13 + Ловкость [макс 2])"; }
-    else if (val === 'breastplate') { baseAc = 14 + Math.min(2, dexMod); descArmor = "Нагрудник (14 + Ловкость [макс 2])"; }
-    else if (val === 'plate') { baseAc = 18; descArmor = "Латы (18, без ловкости)"; }
-    else if (val === 'custom') {
-      const customText = document.getElementById('customArmorText')?.value || '';
-      const match = customText.match(/кд\s*(\d+)/i);
-      if (match) {
-        baseAc = parseInt(match[1]);
-        descArmor = customText;
-      }
-    }
-
-    const isShield = shieldToggle?.checked || false;
-
-    // Монах: Защита без доспехов ТОЛЬКО если нет доспехов И нет щита
-    if (val === 'none' && !isShield && (cName.includes('000') || cName.includes('000'))) {
-      baseAc = 10 + dexMod + wisMod;
-      descArmor = `Защита без доспехов (10 + ${dexMod} ЛОВ + ${wisMod} МУД)`;
     } else if (val === 'leather') {
       baseAc = 11 + dexMod;
       descArmor = "Кожаный (11 + Ловкость)";
@@ -974,28 +1005,33 @@ class SheetApplication {
     } else if (val === 'plate') {
       baseAc = 18;
       descArmor = "Латы (18, без ловкости)";
+    } else if (val === 'custom') {
+      const customText = document.getElementById('customArmorText')?.value || '';
+      const match = customText.match(/кд\s*(\d+)/i);
+      if (match) {
+        baseAc = parseInt(match[1]);
+        descArmor = customText;
+      }
+    }
+
+    const isShield = shieldToggle?.checked || false;
+
+    if (val === 'none' && !isShield && (cName.includes('монах') || cName.includes('monk'))) {
+      baseAc = 10 + dexMod + wisMod;
+      descArmor = `Защита без доспехов (10 + ${dexMod} ЛОВ + ${wisMod} МУД)`;
+    } else if (val === 'none' && !isShield && sub.includes('борец')) {
+      baseAc = 10 + dexMod + conMod;
+      descArmor = `Стальное телосложение (10 + ${dexMod} ЛОВ + ${conMod} ТЕЛ)`;
     }
 
     let finalAc = baseAc + (isShield ? 2 : 0);
 
-    // Ликантроп бонус
     const isLycan = (typeof window.bloodHunter?.isLycanActive === 'function')
       ? window.bloodHunter.isLycanActive()
       : false;
     if (isLycan && val !== 'plate') {
       finalAc += 1;
       descArmor += ' + 1 (Звериная форма)';
-    }
-
-    // 1. Монах без доспехов: 10 + DEX + WIS
-    if (val === 'none' && !isShield && (cName.includes('монах') || cName.includes('monk'))) {
-      baseAc = 10 + dexMod + wisMod;
-      descArmor = `Защита без доспехов (10 + ${dexMod} ЛОВ + ${wisMod} МУД)`;
-    }
-    // 2. Альт Воин (Борец): 10 + DEX + CON (без доспехов) или CON вместо DEX в легких/средних
-    else if (val === 'none' && !isShield && sub.includes('борец')) {
-      baseAc = 10 + dexMod + conMod;
-      descArmor = `Стальное телосложение (10 + ${dexMod} ЛОВ + ${conMod} ТЕЛ)`;
     }
 
     const statAc = document.getElementById('statAc');
@@ -1009,7 +1045,6 @@ class SheetApplication {
       shield: isShield
     }));
 
-    // Скорость могла измениться из-за снятия/надевания брони монахом
     const speedEl = document.getElementById('statSpeed');
     if (speedEl) speedEl.textContent = `${DndRules.calculateSpeed(char)} фт`;
   }
@@ -1030,8 +1065,6 @@ class SheetApplication {
     this.updateArmorSelection();
   }
 
-  // --- ОСОБЕННОСТИ И РАСА ---
-
   async renderFeaturesTab() {
     const cont = document.getElementById('featsListContainer');
     if (!cont) return;
@@ -1040,7 +1073,6 @@ class SheetApplication {
 
     let html = '';
 
-    // Расовые свойства
     let raceTraits = c.traits || c.race_traits || [];
     if (raceTraits.length === 0 && c.race) {
       if (!window.ALL_RACES_CACHE) {
@@ -1077,7 +1109,6 @@ class SheetApplication {
     }
     html += `</div>`;
 
-    // Архетип
     if (c.subclass) {
       html += `
         <div class="space-y-2 pt-2">
@@ -1095,7 +1126,6 @@ class SheetApplication {
       `;
     }
 
-    // Классовые умения
     let classFeatures = c.features || c.class_features || [];
     if (classFeatures.length === 0) {
       try {
@@ -1156,7 +1186,6 @@ class SheetApplication {
     }
     html += `</div>`;
 
-    // Черты
     const feats = c.feats || [];
     if (feats.length > 0) {
       html += `
@@ -1179,8 +1208,6 @@ class SheetApplication {
 
     cont.innerHTML = html;
   }
-
-  // --- КВЕНТА И ВИЗУАЛ ---
 
   renderBioTab() {
     const c = this.state.get();
@@ -1220,7 +1247,6 @@ class SheetApplication {
 
     if (avatarPh) {
       avatarPh.classList.remove('hidden');
-      // Берем расу с учетом маскировки
       let effRace = c.race;
       try {
         const d = JSON.parse(localStorage.getItem(`char_${c.id}_disguise`) || '{}');
@@ -1297,34 +1323,47 @@ class SheetApplication {
   }
 
   async submitVisualTheme() {
-    const name = document.getElementById('settingsCharName')?.value.trim();
-    const avatar = document.getElementById('visualAvatarInput')?.value.trim();
-    const banner = document.getElementById('visualBannerInput')?.value.trim();
+    const char = this.state.get();
+    const charId = this.charId;
 
-    const accent = document.getElementById('pickerAccent')?.value;
-    const border = document.getElementById('pickerBorder')?.value;
-    const cardBg = document.getElementById('pickerCardBg')?.value;
-    const textColor = document.getElementById('pickerText')?.value;
+    const nameVal = document.getElementById('settingsCharName')?.value?.trim() || char.name;
+    const avatarVal = document.getElementById('visualAvatarInput')?.value?.trim() || char.avatar_url;
+    const bannerVal = document.getElementById('visualBannerInput')?.value?.trim() || char.banner_url;
 
     const payload = {
-      name: name || this.state.get()?.name,
-      avatar_url: avatar || null,
-      banner_url: banner || null,
-      visual_theme: 'custom',
-      visual_custom: { accent, border, cardBg, textColor }
+      name: nameVal,
+      avatar_url: avatarVal,
+      banner_url: bannerVal,
+      visual_theme: char.visual_theme || 'ember',
+      visual_custom: char.visual_custom || {}
     };
 
     try {
-      const res = await this.api.patchVisual(payload);
+      const res = await apiFetch(`/characters/${charId}/visual`, {
+        method: 'PATCH',
+        body: payload
+      });
+
       if (res.ok) {
         const updated = await res.json();
-        this.state.set(updated);
-        this.render();
+        char.name = updated.name || char.name;
+        char.avatar_url = updated.avatar_url;
+        char.banner_url = updated.banner_url;
+        char.visual_theme = updated.visual_theme;
+        char.visual_custom = updated.visual_custom;
+
+        const nameEl = document.getElementById('charNameDisplay');
+        if (nameEl) nameEl.textContent = char.name;
+
+        this.state.set(char);
         this.applyVisuals();
-        alert("Кастомизация успешно сохранена!");
+        alert("✅ Настройки и внешность персонажа сохранены!");
+      } else {
+        const err = await res.json();
+        alert("Ошибка сохранения: " + (err.detail || "Сбой"));
       }
-    } catch (err) {
-      alert("Ошибка сохранения: " + err.message);
+    } catch (e) {
+      console.error("Ошибка при сохранении визуала:", e);
     }
   }
 
@@ -1335,15 +1374,9 @@ class SheetApplication {
     const formData = new FormData();
     formData.append('file', file);
 
-    const token = localStorage.getItem('token') || localStorage.getItem('access_token') || sessionStorage.getItem('token') || sessionStorage.getItem('access_token');
-    const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token.replace(/^Bearer\s+/i, '')}`;
-
     try {
-      const res = await fetch(`/characters/${this.charId}/${type}/upload`, {
+      const res = await apiFetch(`/characters/${this.charId}/${type}/upload`, {
         method: 'POST',
-        headers: headers,
-        credentials: 'include',
         body: formData
       });
 
@@ -1377,7 +1410,6 @@ class SheetApplication {
   }
 }
 
-// Запуск при загрузке документа
 function startSheetApp() {
   const charId = window.CHARACTER_ID || (window.location.pathname.match(/\/characters\/(\d+)/) || [])[1];
   if (charId) {
