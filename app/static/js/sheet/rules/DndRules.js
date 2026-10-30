@@ -132,6 +132,14 @@ export class DndRules {
       }
     }
 
+    // Волшебник: Песнь клинка (+10 фт при активной стойке)
+    if (sub.includes('песнь клинка') || sub.includes('bladesing')) {
+      const isBladesongActive = localStorage.getItem(`char_${character.id}_bladesong_active`) === 'true';
+      if (isBladesongActive) {
+        totalSpeed += 10;
+      }
+    }
+
     return totalSpeed;
   }
 
@@ -244,6 +252,12 @@ export class DndRules {
     if ((sub.includes('сумрачный') || sub.includes('gloom')) && lvl >= 3) {
       const wisMod = this.calcMod(character.stats?.wis || 10);
       total += Math.max(0, wisMod);
+    }
+
+    // Военная магия (War Magic) и Хронургия (Chronurgy): Интеллект к инициативе!
+    if (sub.includes('военная') || sub.includes('war magic') || sub.includes('хронург') || sub.includes('chronurgy')) {
+      const intMod = this.calcMod(character.stats?.int || 10);
+      total += Math.max(0, intMod);
     }
 
     return total;

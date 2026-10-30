@@ -11,6 +11,7 @@ import { FighterController } from './modules/FighterController.js';
 import { RogueController } from './modules/RogueController.js';
 import { BardController } from './modules/BardController.js';
 import { RangerController } from './modules/RangerController.js';
+import { WizardController } from './modules/WizardController.js';
 
 class SheetApplication {
   constructor(charId) {
@@ -27,6 +28,7 @@ class SheetApplication {
     this.rogue = new RogueController(this.state, this.api, this.diceRoller);
     this.bard = new BardController(this.state, this.api, this.diceRoller);
     this.ranger = new RangerController(this.state, this.api, this.diceRoller);
+    this.wizard = new WizardController(this.state, this.api, this.diceRoller);
 
     this.levelUpModal = new LevelUpModal(this.state, this.api, (updatedChar) => {
       this.state.set(updatedChar);
@@ -114,6 +116,7 @@ class SheetApplication {
     window.rogueApp = this.rogue;
     window.bardApp = this.bard;
     window.rangerApp = this.ranger;
+    window.wizardApp = this.wizard;
 
     window.openDisguiseModal = () => this.openDisguiseModal();
     window.closeDisguiseModal = () => document.getElementById('disguiseModal')?.classList.add('hidden');
@@ -480,8 +483,28 @@ class SheetApplication {
 
     document.getElementById('hpCurrentDisplay').textContent = c.hp_current;
     document.getElementById('hpMaxDisplay').textContent = c.hp_max;
+
+    // Динамическая полоска здоровья
     const hpPercent = Math.max(0, Math.min(100, Math.round((c.hp_current / (c.hp_max || 1)) * 100)));
-    document.getElementById('hpProgressBar').style.width = `${hpPercent}%`;
+    const hpBar = document.getElementById('hpProgressBar');
+    if (hpBar) {
+      hpBar.style.width = `${hpPercent}%`;
+
+      // Динамический градиент в зависимости от состояния здоровья
+      if (hpPercent > 50) {
+        // Здоровый: сочный изумрудно-янтарный градиент
+        hpBar.style.background = 'linear-gradient(90deg, #10b981, #059669)';
+        hpBar.style.boxShadow = '0 0 12px rgba(16, 185, 129, 0.45)';
+      } else if (hpPercent > 20) {
+        // Пораненный: тёплый янтарно-оранжевый градиент
+        hpBar.style.background = 'linear-gradient(90deg, #f59e0b, #ea580c)';
+        hpBar.style.boxShadow = '0 0 12px rgba(245, 158, 11, 0.45)';
+      } else {
+        // Критическое состояние: пульсирующий кроваво-алый
+        hpBar.style.background = 'linear-gradient(90deg, #ef4444, #b91c1c)';
+        hpBar.style.boxShadow = '0 0 14px rgba(239, 68, 68, 0.6)';
+      }
+    }
 
     for (const [key, val] of Object.entries(stats)) {
       const scoreEl = document.getElementById(`score-${key}`);
@@ -548,6 +571,13 @@ class SheetApplication {
       if (isRanger) this.ranger.renderTab();
     }
 
+    const isWizard = cName.includes('волшебник') || cName.includes('wizard');
+    const wizBtn = document.getElementById('tabBtnWizard');
+    if (wizBtn) {
+      wizBtn.classList.toggle('hidden', !isWizard);
+      if (isWizard) this.wizard.renderTab();
+    }
+
     const isCaster = DndRules.isSpellcaster(c);
     const spellsBtn = document.getElementById('tabBtnSpells');
     if (spellsBtn) {
@@ -556,7 +586,7 @@ class SheetApplication {
   }
 
   switchTab(tab) {
-    const tabs = ['Stats', 'Combat', 'BloodHunter', 'MonkKi', 'FighterManeuvers', 'Rogue', 'Bard', 'Ranger', 'Spells', 'Inventory', 'Features', 'Bio', 'Settings'];
+    const tabs = ['Stats', 'Combat', 'BloodHunter', 'MonkKi', 'FighterManeuvers', 'Rogue', 'Bard', 'Ranger', 'Wizard', 'Spells', 'Inventory', 'Features', 'Bio', 'Settings'];
     tabs.forEach(t => {
       const el = document.getElementById(`tab${t}`);
       const btn = document.getElementById(`tabBtn${t}`);
@@ -622,6 +652,10 @@ class SheetApplication {
           `Вы и союзники восстанавливаете дополнительно +1${songDie} хитов при трате Костей Хитов!`,
           "normal"
         );
+      }
+
+      if (type === 'long' && this.wizard) {
+        this.wizard.restoreAllWizardResources();
       }
 
       if (this.bloodHunter) this.bloodHunter.restoreBloodCurses();
@@ -1084,6 +1118,7 @@ class SheetApplication {
 
     let html = '';
 
+    // Расовые свойства
     let raceTraits = c.traits || c.race_traits || [];
     if (raceTraits.length === 0 && c.race) {
       if (!window.ALL_RACES_CACHE) {
@@ -1098,9 +1133,9 @@ class SheetApplication {
 
     html += `
       <div class="space-y-2">
-        <div class="flex items-center gap-2 border-b border-orange-950/80 pb-1">
-          <span class="text-sm">🧬</span>
-          <h4 class="font-serif font-bold text-amber-200 text-sm">Расовые особенности: ${c.race}</h4>
+        <div class="flex items-center gap-2 border-b border-amber-900/60 pb-1.5">
+          <span class="text-base">🧬</span>
+          <h4 style="color: #fde68a;" class="font-serif font-bold text-sm">Расовые особенности: ${c.race}</h4>
         </div>
     `;
 
@@ -1109,34 +1144,36 @@ class SheetApplication {
         const name = typeof t === 'string' ? t.split(':')[0].trim() : t.name;
         const desc = typeof t === 'string' ? (t.split(':')[1] || '').trim() : (t.description || t.desc || '');
         html += `
-          <div class="p-3 bg-[#0d0a08] border border-orange-950 rounded-xl space-y-1 shadow">
-            <strong class="text-amber-300 text-xs font-serif block">${name}</strong>
-            ${desc ? `<p class="text-stone-300 text-xs font-serif leading-relaxed whitespace-pre-line">${desc}</p>` : ''}
+          <div style="background-color: #120c08; border: 1px solid rgba(245, 158, 11, 0.25);" class="p-3.5 rounded-xl space-y-1 shadow">
+            <strong style="color: #fbbf24; font-size: 0.85rem;" class="font-serif block font-bold">${name}</strong>
+            ${desc ? `<p style="color: #d6d3d1; line-height: 1.5;" class="text-xs font-serif leading-relaxed whitespace-pre-line">${desc}</p>` : ''}
           </div>
         `;
       });
     } else {
-      html += `<div class="p-3 bg-[#0d0a08] border border-orange-950/60 rounded-xl text-stone-400 text-xs font-serif">Стандартные свойства расы ${c.race}.</div>`;
+      html += `<div style="background-color: #120c08; border: 1px solid rgba(120, 113, 108, 0.3);" class="p-3 rounded-xl text-stone-400 text-xs font-serif">Стандартные свойства расы ${c.race}.</div>`;
     }
     html += `</div>`;
 
+    // Архетип
     if (c.subclass) {
       html += `
-        <div class="space-y-2 pt-2">
-          <div class="flex items-center justify-between border-b border-purple-950/80 pb-1">
+        <div class="space-y-2 pt-3">
+          <div class="flex items-center justify-between border-b border-purple-900/60 pb-1.5">
             <div class="flex items-center gap-2">
-              <span class="text-sm">👑</span>
-              <h4 class="font-serif font-bold text-purple-300 text-sm">Специализация: ${c.subclass}</h4>
+              <span class="text-base">👑</span>
+              <h4 style="color: #e9d5ff;" class="font-serif font-bold text-sm">Специализация: ${c.subclass}</h4>
             </div>
-            <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-950/60 border border-purple-800 text-purple-200">Архетип</span>
+            <span style="background-color: rgba(88, 28, 135, 0.4); border: 1px solid rgba(168, 85, 247, 0.4); color: #d8b4fe;" class="text-[10px] font-mono px-2 py-0.5 rounded font-bold">Архетип</span>
           </div>
-          <div class="p-3 bg-[#130b18] border border-purple-950/80 rounded-xl text-stone-300 text-xs font-serif">
-            Способности и ритуалы подкласса активны и доступны в вашем листе.
+          <div style="background-color: #150d1a; border: 1px solid rgba(168, 85, 247, 0.25);" class="p-3.5 rounded-xl text-stone-300 text-xs font-serif leading-relaxed">
+            Способности и ритуалы специализации активны и отображаются в вашей классовой вкладке.
           </div>
         </div>
       `;
     }
 
+    // Классовые умения
     let classFeatures = c.features || c.class_features || [];
     if (classFeatures.length === 0) {
       try {
@@ -1158,13 +1195,13 @@ class SheetApplication {
     }
 
     html += `
-      <div class="space-y-2 pt-2">
-        <div class="flex items-center justify-between border-b border-orange-950/80 pb-1">
+      <div class="space-y-2 pt-3">
+        <div class="flex items-center justify-between border-b border-amber-900/60 pb-1.5">
           <div class="flex items-center gap-2">
-            <span class="text-sm">⚔️</span>
-            <h4 class="font-serif font-bold text-amber-200 text-sm">Классовые умения: ${c.class_name}</h4>
+            <span class="text-base">⚔️</span>
+            <h4 style="color: #fde68a;" class="font-serif font-bold text-sm">Классовые умения: ${c.class_name}</h4>
           </div>
-          <span class="text-[10px] font-mono text-stone-400">До ${c.level || 1} уровня</span>
+          <span style="color: #fb923c;" class="text-[11px] font-mono font-bold">До ${c.level || 1} уровня</span>
         </div>
     `;
 
@@ -1185,32 +1222,33 @@ class SheetApplication {
         }
 
         html += `
-          <div class="p-3 bg-[#0d0a08] border border-orange-950 rounded-xl space-y-1 shadow">
+          <div style="background-color: #120c08; border: 1px solid rgba(245, 158, 11, 0.25);" class="p-3.5 rounded-xl space-y-1 shadow">
             <div class="flex justify-between items-start gap-2">
-              <strong class="text-amber-300 text-xs font-serif block">${name}</strong>
-              ${lvl ? `<span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/60 border border-orange-900 text-amber-400 shrink-0">${lvl}</span>` : ''}
+              <strong style="color: #fbbf24; font-size: 0.85rem;" class="font-serif block font-bold">${name}</strong>
+              ${lvl ? `<span style="background-color: rgba(67, 20, 7, 0.6); border: 1px solid rgba(245, 158, 11, 0.3); color: #fb923c;" class="text-[10px] font-mono px-2 py-0.5 rounded shrink-0 font-bold">${lvl}</span>` : ''}
             </div>
-            ${desc ? `<p class="text-stone-300 text-xs font-serif leading-relaxed whitespace-pre-line">${desc}</p>` : ''}
+            ${desc ? `<p style="color: #d6d3d1; line-height: 1.5;" class="text-xs font-serif leading-relaxed whitespace-pre-line">${desc}</p>` : ''}
           </div>
         `;
       });
     }
     html += `</div>`;
 
+    // Черты
     const feats = c.feats || [];
     if (feats.length > 0) {
       html += `
-        <div class="space-y-2 pt-2">
-          <div class="flex items-center gap-2 border-b border-orange-950/80 pb-1">
-            <span class="text-sm">✨</span>
-            <h4 class="font-serif font-bold text-amber-200 text-sm">Черты и таланты (Feats)</h4>
+        <div class="space-y-2 pt-3">
+          <div class="flex items-center gap-2 border-b border-amber-900/60 pb-1.5">
+            <span class="text-base">✨</span>
+            <h4 style="color: #fde68a;" class="font-serif font-bold text-sm">Черты и таланты (Feats)</h4>
           </div>
       `;
       feats.forEach(f => {
         html += `
-          <div class="p-3 bg-[#0d0a08] border border-orange-950 rounded-xl space-y-1 shadow">
-            <strong class="text-amber-300 text-xs font-serif block">${f.name}</strong>
-            ${f.description ? `<p class="text-stone-300 text-xs font-serif leading-relaxed whitespace-pre-line">${f.description}</p>` : ''}
+          <div style="background-color: #120c08; border: 1px solid rgba(245, 158, 11, 0.25);" class="p-3.5 rounded-xl space-y-1 shadow">
+            <strong style="color: #fbbf24; font-size: 0.85rem;" class="font-serif block font-bold">${f.name}</strong>
+            ${f.description ? `<p style="color: #d6d3d1; line-height: 1.5;" class="text-xs font-serif leading-relaxed whitespace-pre-line">${f.description}</p>` : ''}
           </div>
         `;
       });

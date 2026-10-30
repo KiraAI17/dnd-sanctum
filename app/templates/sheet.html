@@ -52,66 +52,64 @@
             </div>
 
             <div class="p-6 pt-0 relative -mt-16 sm:-mt-20 space-y-4">
-                <div class="flex flex-col sm:flex-row items-center sm:items-end justify-between gap-4">
-                    <div class="flex flex-col sm:flex-row items-center sm:items-end gap-4 text-center sm:text-left">
-                        <div id="heroAvatarBox"
-                             class="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden border-2 dynamic-border shadow-2xl bg-[#140e0a] shrink-0 relative">
-                            <img id="charAvatarImg" src="" class="w-full h-full object-cover hidden" alt="Аватар">
-                            <div id="charAvatarPlaceholder"
-                                 class="w-full h-full flex items-center justify-center text-4xl">🦊
-                            </div>
-                        </div>
-
-                        <div class="space-y-1">
-                            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
-                                <h1 id="charNameDisplay"
-                                    class="text-2xl sm:text-3xl font-black text-amber-100 tracking-wide">...</h1>
-                                <span id="charLevelBadge"
-                                      class="bg-gradient-to-r from-foxOrange-700 to-foxEmber-950 text-amber-200 text-xs font-black px-2.5 py-1 rounded-md border border-amber-500/40">Ур. 1</span>
-                                <button type="button" onclick="openLevelUpModal()"
-                                        class="bg-gradient-to-r from-foxOrange-600 to-amber-500 hover:from-foxOrange-500 text-stone-950 font-bold text-xs py-1 px-3 rounded-lg shadow-md transition-all active:scale-95 flex items-center gap-1 cursor-pointer">
-                                    <span>＋</span> <span>Уровень</span>
-                                </button>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <p id="charSubDisplay"
-                                   class="text-xs sm:text-sm dynamic-accent tracking-wider uppercase font-semibold">
-                                    Человек • Волшебник</p>
-                                <button onclick="switchSheetTab('settings')" id="btnDmChangeRace"
-                                        class="text-amber-400 hover:text-amber-200 text-xs px-1.5 py-0.5 rounded bg-black/40 border border-orange-950/60"
-                                        title="Настройки">⚙️
-                                </button>
-                                <button type="button" id="btnChangelingMask" onclick="window.openDisguiseModal()"
-                                        class="hidden text-amber-300 hover:text-amber-100 text-xs px-2 py-0.5 rounded bg-black/50 border border-purple-500/60 shadow"
-                                        title="Перевёртыш: принять облик любой расы или сбросить маску">
-                                    🎭 Сменить облик
-                                </button>
-                            </div>
+                <!-- 1. Аватарка и имя -->
+                <div class="flex flex-col sm:flex-row items-center sm:items-end gap-4 text-center sm:text-left">
+                    <div id="heroAvatarBox"
+                         class="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden border-2 dynamic-border shadow-2xl bg-[#140e0a] shrink-0 relative">
+                        <img id="charAvatarImg" src="" class="w-full h-full object-cover hidden" alt="Аватар">
+                        <div id="charAvatarPlaceholder"
+                             class="w-full h-full flex items-center justify-center text-4xl">🦊
                         </div>
                     </div>
 
-                    <!-- Блок КД, Инициативы, Скорости и Мастерства -->
-                    <div class="grid grid-cols-4 gap-2 text-center w-full sm:w-auto font-mono">
-                        <div class="bg-[#0e0907]/90 dynamic-border border rounded-xl p-2.5 flex flex-col items-center justify-center">
-                            <span class="text-[9px] uppercase tracking-widest text-stone-400">КД (AC)</span>
-                            <span id="statAc" class="text-lg sm:text-xl font-black dynamic-accent">10</span>
+                    <div class="space-y-1">
+                        <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
+                            <h1 id="charNameDisplay"
+                                class="text-2xl sm:text-3xl font-black text-amber-100 tracking-wide">...</h1>
+                            <span id="charLevelBadge"
+                                  class="bg-gradient-to-r from-foxOrange-700 to-foxEmber-950 text-amber-200 text-xs font-black px-2.5 py-1 rounded-md border border-amber-500/40">Ур. 1</span>
+                            <button type="button" onclick="openLevelUpModal()"
+                                    class="bg-gradient-to-r from-foxOrange-600 to-amber-500 hover:from-foxOrange-500 text-stone-950 font-bold text-xs py-1 px-3 rounded-lg shadow-md transition-all active:scale-95 flex items-center gap-1 cursor-pointer">
+                                <span>＋</span> <span>Уровень</span>
+                            </button>
                         </div>
-                        <!-- Плашка Инициативы (адаптивная, не вылезает за рамки) -->
-                        <div class="bg-[#0e0907]/90 dynamic-border border rounded-xl p-2 sm:p-2.5 flex flex-col items-center justify-center cursor-pointer hover:border-amber-400/60 transition-all group overflow-hidden"
-                             onclick="window.rollInitiative()"
-                             title="Нажмите, чтобы бросить инициативу в бой">
-                            <span class="text-[8px] sm:text-[9px] uppercase tracking-tighter sm:tracking-widest text-stone-400 font-serif block group-hover:text-amber-300 truncate w-full text-center">Инициатива</span>
-                            <strong id="statInitiative"
-                                    class="text-lg sm:text-xl font-black font-mono text-amber-300 leading-tight">+0</strong>
+                        <div class="flex items-center gap-2">
+                            <p id="charSubDisplay"
+                               class="text-xs sm:text-sm dynamic-accent tracking-wider uppercase font-semibold">
+                                Человек • Волшебник</p>
+                            <button onclick="switchSheetTab('settings')" id="btnDmChangeRace"
+                                    class="text-amber-400 hover:text-amber-200 text-xs px-1.5 py-0.5 rounded bg-black/40 border border-orange-950/60"
+                                    title="Настройки">⚙️
+                            </button>
+                            <button type="button" id="btnChangelingMask" onclick="window.openDisguiseModal()"
+                                    class="hidden text-amber-300 hover:text-amber-100 text-xs px-2 py-0.5 rounded bg-black/50 border border-purple-500/60 shadow"
+                                    title="Перевёртыш: принять облик любой расы или сбросить маску">
+                                🎭 Сменить облик
+                            </button>
                         </div>
-                        <div class="bg-[#0e0907]/90 dynamic-border border rounded-xl p-2.5 flex flex-col items-center justify-center">
-                            <span class="text-[9px] uppercase tracking-widest text-stone-400">Скорость</span>
-                            <span id="statSpeed" class="text-lg sm:text-xl font-black dynamic-accent">30 фт</span>
-                        </div>
-                        <div class="bg-[#0e0907]/90 dynamic-border border rounded-xl p-2.5 flex flex-col items-center justify-center">
-                            <span class="text-[9px] uppercase tracking-widest text-stone-400">Мастер.</span>
-                            <span id="statProf" class="text-lg sm:text-xl font-black dynamic-accent">+2</span>
-                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Плашки параметров: идут строго под шапкой, не наползая на баннер -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center font-mono pt-2">
+                    <div class="bg-[#0e0907]/90 dynamic-border border rounded-xl p-2.5 flex flex-col items-center justify-center shadow">
+                        <span class="text-[9px] uppercase tracking-widest text-stone-400">КД (AC)</span>
+                        <span id="statAc" class="text-lg sm:text-xl font-black dynamic-accent">10</span>
+                    </div>
+                    <div class="bg-[#0e0907]/90 dynamic-border border rounded-xl p-2.5 flex flex-col items-center justify-center cursor-pointer hover:border-amber-400/60 transition-all group overflow-hidden shadow"
+                         onclick="window.rollInitiative()"
+                         title="Бросить инициативу в бой">
+                        <span class="text-[9px] uppercase tracking-widest text-stone-400 font-serif block group-hover:text-amber-300">⚡ Инициатива</span>
+                        <strong id="statInitiative"
+                                class="text-lg sm:text-xl font-black font-mono text-amber-300 leading-tight">+0</strong>
+                    </div>
+                    <div class="bg-[#0e0907]/90 dynamic-border border rounded-xl p-2.5 flex flex-col items-center justify-center shadow">
+                        <span class="text-[9px] uppercase tracking-widest text-stone-400">Скорость</span>
+                        <span id="statSpeed" class="text-lg sm:text-xl font-black dynamic-accent">30 фт</span>
+                    </div>
+                    <div class="bg-[#0e0907]/90 dynamic-border border rounded-xl p-2.5 flex flex-col items-center justify-center shadow">
+                        <span class="text-[9px] uppercase tracking-widest text-stone-400">Мастерство</span>
+                        <span id="statProf" class="text-lg sm:text-xl font-black dynamic-accent">+2</span>
                     </div>
                 </div>
 
@@ -126,10 +124,10 @@
                                 <span id="hpMaxDisplay" class="text-stone-400 font-bold">10</span>
                             </div>
                         </div>
-                        <div class="w-full bg-stone-900 h-3 rounded-full overflow-hidden border border-stone-800">
+                        <div class="w-full bg-black/80 h-3.5 rounded-full overflow-hidden border border-orange-950/80 p-0.5 shadow-inner">
                             <div id="hpProgressBar"
-                                 class="h-full bg-gradient-to-r from-foxOrange-600 via-amber-500 to-emerald-500 transition-all duration-500"
-                                 style="width: 100%"></div>
+                                 class="h-full rounded-full transition-all duration-500 shadow-md"
+                                 style="width: 100%; background: linear-gradient(90deg, #ea580c, #f59e0b, #10b981);"></div>
                         </div>
                     </div>
 
@@ -184,30 +182,36 @@
 
             <!-- Вкладка Воина и альт версии (только для воина и альт. версии) -->
             <button type="button" id="tabBtnFighterManeuvers" onclick="window.switchSheetTab('FighterManeuvers')"
-                    class="pb-2 px-1 text-xs font-bold border-b-2 border-transparent text-stone-400 hover:text-amber-200 whitespace-nowrap border-b-2 border-transparent">
+                    class="py-3 px-4 font-bold border-b-2 border-transparent text-stone-400 hover:text-amber-200 whitespace-nowrap border-b-2 border-transparent">
                 ⚔️ Приёмы воина
             </button>
 
             <button type="button" id="tabBtnRogue" onclick="window.switchSheetTab('Rogue')"
-                    class="pb-2 px-1 text-xs font-bold border-b-2 border-transparent text-stone-400 hover:text-amber-200 whitespace-nowrap border-b-2 border-transparent">
+                    class="py-3 px-4 font-bold border-b-2 border-transparent text-stone-400 hover:text-amber-200 whitespace-nowrap border-b-2 border-transparent">
                 <span>🗡️</span> <span>Скрытность и Трюки</span>
             </button>
 
             <!-- Вкладка Монаха (только для Монаха со 2 уровня) -->
             <button id="tabBtnMonkKi" onclick="switchSheetTab('monkki')"
-                    class="hidden py-3 px-4 font-bold text-xs sm:text-sm text-amber-300 hover:text-amber-100 whitespace-nowrap border-b-2 border-transparent">
+                    class="hidden py-3 px-4 font-bold sm:text-sm text-amber-300 hover:text-amber-100 whitespace-nowrap border-b-2 border-transparent">
                 ☯️ Энергия Ци
             </button>
 
             <button type="button" id="tabBtnBard" onclick="window.switchSheetTab('Bard')"
-                    class="pb-2 px-1 text-xs font-bold border-b-2 border-transparent text-stone-400 hover:text-amber-200 whitespace-nowrap hidden font-serif">
+                    class="py-3 px-4 font-bold border-b-2 border-transparent text-stone-400 hover:text-amber-200 whitespace-nowrap hidden font-serif">
                 <span>🪕</span> <span>Вдохновение и Музыка</span>
             </button>
 
             <!-- Вкладка Следопыта (только для Следопыта) -->
             <button type="button" id="tabBtnRanger" onclick="window.switchSheetTab('Ranger')"
-                    class="hidden pb-2 px-1 text-xs font-bold border-b-2 border-transparent text-emerald-400 hover:text-emerald-200 whitespace-nowrap font-serif">
+                    class="hidden py-3 px-4 font-bold font-bold border-b-2 border-transparent text-emerald-400 hover:text-emerald-200 whitespace-nowrap font-serif">
                 <span>🏹</span> <span>Тропы Следопыта</span>
+            </button>
+
+            <!-- Вкладка Волшебника (только для Волшебника) -->
+            <button type="button" id="tabBtnWizard" onclick="window.switchSheetTab('Wizard')"
+                    class="hidden py-3 px-4 font-bold border-b-2 border-transparent text-amber-300 hover:text-amber-100 whitespace-nowrap font-serif">
+                <span>🔮</span> <span>Гримуар & Традиции</span>
             </button>
 
             <!-- Вкладка магии (только для заклинателей) -->
@@ -1332,6 +1336,222 @@
             </div>
         </div>
 
+        <!-- 10. ПОЛНАЯ ВКЛАДКА: ВОЛШЕБНИК (ГРИМУАР И МАГИЧЕСКИЕ ТРАДИЦИИ) -->
+        <div id="tabWizard" class="space-y-6 hidden font-serif">
+            <div class="fox-card dynamic-card rounded-2xl p-5 border border-amber-950/80 bg-[#120d09] space-y-4 shadow-2xl">
+                <div class="flex flex-wrap justify-between items-center border-b border-orange-950/60 pb-3 gap-3">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-2xl animate-pulse">🔮</span>
+                        <div>
+                            <h3 class="text-base font-bold text-amber-200 tracking-wide">Магические традиции и Тайные
+                                формулы</h3>
+                            <span class="text-[10px] text-stone-400 block font-mono">Классовые умения школ магии D&D 5e</span>
+                        </div>
+                    </div>
+
+                    <!-- Индикаторы Волшебника -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono text-center text-xs w-full sm:w-auto">
+                        <div class="p-2 bg-black/60 rounded-xl border border-orange-950/80">
+                            <span class="text-[9px] uppercase tracking-widest text-stone-400 block font-serif">Сл спасброска</span>
+                            <strong id="wizSpellDcDisplay" class="text-amber-300 text-sm font-bold">13</strong>
+                        </div>
+                        <div class="p-2 bg-black/60 rounded-xl border border-orange-950/80">
+                            <span class="text-[9px] uppercase tracking-widest text-stone-400 block font-serif">Мод. Интеллекта</span>
+                            <strong id="wizIntModDisplay" class="text-amber-400 text-sm font-bold">+3</strong>
+                        </div>
+                        <div class="p-2 bg-black/60 rounded-xl border border-orange-950/80">
+                            <span class="text-[9px] uppercase tracking-widest text-stone-400 block font-serif">Подготовка заклинаний</span>
+                            <strong id="wizPrepCountDisplay" class="text-foxOrange-400 text-sm font-bold">4</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- КАРТОЧКИ БАЗОВЫХ УМЕНИЙ ВОЛШЕБНИКА -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <!-- Магическое восстановление -->
+                    <div id="wizArcaneRecoveryCard"
+                         class="p-3.5 rounded-xl bg-black/40 border border-orange-950 space-y-2 flex flex-col justify-between">
+                        <div>
+                            <strong class="text-amber-300 block">📖 Магическое восстановление</strong>
+                            <p class="text-stone-300 text-[11px] leading-relaxed">В короткий отдых восстановите до <span
+                                    id="wizArcaneRecMaxDisplay" class="text-amber-400 font-bold">1</span> ячеек
+                                заклинаний (не выше 5-го круга).</p>
+                        </div>
+                        <div class="flex items-center justify-between pt-2 border-t border-orange-950/60">
+                            <span id="wizArcaneRecStatus" class="font-mono text-stone-400 text-[11px]">Доступно</span>
+                            <button type="button" id="btnWizArcaneRecovery"
+                                    onclick="window.wizardApp.useArcaneRecovery()"
+                                    class="px-2.5 py-1 rounded bg-amber-950 border border-amber-600/70 text-amber-200 text-xs font-bold hover:bg-amber-900">
+                                Применить
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Мастерство заклинателя -->
+                    <div id="wizSpellMasteryCard"
+                         class="hidden p-3.5 rounded-xl bg-black/40 border border-orange-950 space-y-1.5">
+                        <strong class="text-amber-300 block">👑 Мастерство заклинателя (18 ур.)</strong>
+                        <p class="text-stone-300 text-[11px] leading-relaxed">Одно заклинание 1-го и одно 2-го круга из
+                            вашей книги накладываются неограниченно без траты ячеек.</p>
+                    </div>
+
+                    <!-- Фирменные заклинания -->
+                    <div id="wizSignatureSpellsCard"
+                         class="hidden p-3.5 rounded-xl bg-black/40 border border-orange-950 space-y-1.5">
+                        <strong class="text-amber-300 block">✨ Фирменные заклинания (20 ур.)</strong>
+                        <p class="text-stone-300 text-[11px] leading-relaxed">Два заклинания 3-го круга всегда
+                            подготовлены бесплатно и сотворяются по 1 разу без ячеек за отдых.</p>
+                    </div>
+                </div>
+
+                <!-- 1. ВОПЛОЩЕНИЕ -->
+                <div id="wizEvocationPanel"
+                     class="hidden p-4 rounded-xl bg-[#140b08] border border-orange-900/60 space-y-2 text-xs">
+                    <strong class="text-amber-200 text-sm flex items-center gap-1.5"><span>💥</span> <span>Школа Воплощения</span></strong>
+                    <p class="text-stone-300 text-[11px]"><strong>Построение заклинаний:</strong> Ваши союзники
+                        автоматически преуспевают в спасбросках и не получают урона от ваших заклинаний Воплощения по
+                        площади.</p>
+                    <div id="wizOverchannelBlock"
+                         class="hidden p-2 rounded bg-rose-950/40 border border-rose-900 text-rose-200 text-[11px]">
+                        ⚡ <strong>Перегрузка (14 ур.):</strong> Заклинание 1–5 круга наносит максимально возможный урон!
+                    </div>
+                </div>
+
+                <!-- 2. ВЫЗОВ -->
+                <div id="wizConjurationPanel"
+                     class="hidden p-4 rounded-xl bg-[#0a1214] border border-cyan-900/60 space-y-2 text-xs">
+                    <strong class="text-cyan-200 text-sm flex items-center gap-1.5"><span>🌀</span>
+                        <span>Школа Вызова</span></strong>
+                    <p class="text-stone-300 text-[11px]"><strong>Малый вызов:</strong> Действием создайте немагический
+                        предмет до 3 фт и 10 фунтов, который вы видели.</p>
+                    <div id="wizBenignTransBlock"
+                         class="hidden p-2 rounded bg-black/40 border border-cyan-900 text-cyan-200 text-[11px]">
+                        🚀 <strong>Безопасное перемещение:</strong> Телепортация на 30 фт или смена местами с союзником
+                        действием.
+                    </div>
+                </div>
+
+                <!-- 3. ИЛЛЮЗИЯ -->
+                <div id="wizIllusionPanel"
+                     class="hidden p-4 rounded-xl bg-[#120a16] border border-purple-900/60 space-y-2 text-xs">
+                    <strong class="text-purple-200 text-sm flex items-center gap-1.5"><span>🎭</span>
+                        <span>Школа Иллюзии</span></strong>
+                    <p class="text-stone-300 text-[11px]">«Малая иллюзия» издает звук и визуальный образ одновременно.
+                        Пластичные иллюзии меняют активные эффекты действием.</p>
+                    <div id="wizIllusoryRealityBlock"
+                         class="hidden p-2 rounded bg-black/40 border border-purple-900 text-purple-200 text-[11px]">
+                        ✨ <strong>Иллюзорная реальность (14 ур.):</strong> Бонусным действием сделайте объект иллюзии
+                        реальным на 1 минуту.
+                    </div>
+                </div>
+
+                <!-- 4. НЕКРОМАНТИЯ -->
+                <div id="wizNecromancyPanel"
+                     class="hidden p-4 rounded-xl bg-[#0d100d] border border-emerald-900/60 space-y-2 text-xs">
+                    <strong class="text-emerald-200 text-sm flex items-center gap-1.5"><span>💀</span> <span>Школа Некромантии</span></strong>
+                    <p class="text-stone-300 text-[11px]"><strong>Мрачная жатва:</strong> Убийство заклинанием исцеляет
+                        вас на (Круг × 2) или (Круг × 3 для Некромантии). Поднятая нежить получает +Хиты от уровня и
+                        +Урон от БМ.</p>
+                </div>
+
+                <!-- 5. ОГРАЖДЕНИЕ -->
+                <div id="wizAbjurationPanel"
+                     class="hidden p-4 rounded-xl bg-[#09121a] border border-blue-900/60 space-y-3 text-xs">
+                    <div class="flex justify-between items-center border-b border-blue-950 pb-2">
+                        <strong class="text-blue-200 text-sm flex items-center gap-1.5"><span>🛡️</span> <span>Школа Ограждения</span></strong>
+                        <span class="font-mono text-blue-300 font-bold">Барьер: <span id="wizArcaneWardHpDisplay">10 / 10</span> HP</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="window.wizardApp.modifyArcaneWard(-5)"
+                                class="px-2.5 py-1 rounded bg-stone-900 border border-rose-900 text-rose-300 text-xs font-bold">
+                            -5 HP урона
+                        </button>
+                        <button type="button" onclick="window.wizardApp.modifyArcaneWard(4)"
+                                class="px-2.5 py-1 rounded bg-stone-900 border border-blue-900 text-blue-300 text-xs font-bold">
+                            +4 HP чары
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 8. ПРОРИЦАНИЕ -->
+                <div id="wizDivinationPanel"
+                     class="hidden p-4 rounded-xl bg-[#161208] border border-amber-900/60 space-y-3 text-xs">
+                    <div class="flex justify-between items-center border-b border-amber-950 pb-2">
+                        <strong class="text-amber-200 text-sm flex items-center gap-1.5"><span>🔮</span> <span>Школа Прорицания (Знамение)</span></strong>
+                        <button type="button" onclick="window.wizardApp.rollPortentDice()"
+                                class="px-2.5 py-1 rounded bg-amber-950 border border-amber-600 text-amber-200 font-bold text-xs">
+                            Бросить кубы отдыха
+                        </button>
+                    </div>
+                    <p class="text-stone-300 text-[11px]">Нажмите на куб, чтобы заменить бросок d20 (свой или
+                        врага/союзника):</p>
+                    <div id="wizPortentContainer" class="flex gap-2 items-center pt-1"></div>
+                </div>
+
+                <!-- 9. ВОЕННАЯ МАГИЯ -->
+                <div id="wizWarMagicPanel"
+                     class="hidden p-4 rounded-xl bg-[#160c08] border border-orange-900/60 space-y-3 text-xs">
+                    <div class="flex justify-between items-center border-b border-orange-950 pb-2">
+                        <strong class="text-amber-200 text-sm flex items-center gap-1.5"><span>⚔️🛡️</span> <span>Военная магия</span></strong>
+                        <div id="wizPowerSurgeBlock" class="flex items-center gap-2">
+                            <span class="font-mono text-stone-400 text-xs">Всплеск мощи: <strong
+                                    id="wizPowerSurgeDisplay" class="text-amber-300">1 / 3</strong></span>
+                            <button type="button" onclick="window.wizardApp.spendPowerSurge()"
+                                    class="px-2.5 py-1 rounded bg-foxOrange-700 text-stone-950 font-bold text-xs">Урон
+                                силовым полем
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-stone-300 text-[11px]"><strong>Магическое отражение:</strong> Реакцией +2 к КД или +4
+                        к спасброску! Интеллект прибавлен к инициативе.</p>
+                </div>
+
+                <!-- 10. ХРОНУРГИЯ -->
+                <div id="wizChronurgyPanel"
+                     class="hidden p-4 rounded-xl bg-[#120d18] border border-purple-900/60 space-y-3 text-xs">
+                    <div class="flex justify-between items-center border-b border-purple-950 pb-2">
+                        <strong class="text-purple-200 text-sm flex items-center gap-1.5"><span>⏳</span> <span>Магия Хронургии</span></strong>
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono text-stone-400 text-xs">Хроно-сдвиг: <strong
+                                    id="wizChronalShiftDisplay" class="text-purple-300">2 / 2</strong></span>
+                            <button type="button" onclick="window.wizardApp.useChronalShift()"
+                                    class="px-2.5 py-1 rounded bg-purple-950 border border-purple-700 text-purple-200 font-bold text-xs">
+                                Переброс куба
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-stone-300 text-[11px]">Интеллект прибавлен к инициативе. На 10 ур. сжатие заклинания
+                        до 4 круга в бусину для союзника.</p>
+                </div>
+
+                <!-- 12. ОРДЕН ПИСЦОВ -->
+                <div id="wizOrderOfScribesPanel"
+                     class="hidden p-4 rounded-xl bg-[#12110c] border border-stone-800 space-y-2 text-xs">
+                    <strong class="text-amber-200 text-sm flex items-center gap-1.5"><span>📜</span>
+                        <span>Орден Писцов</span></strong>
+                    <p class="text-stone-300 text-[11px]">Копирование 2 мин/круг. Замена типа урона заклинания на любой
+                        другой тип того же круга из книги! Ритуалы без прибавки времени.</p>
+                </div>
+
+                <!-- 13. ПЕСНЬ КЛИНКА -->
+                <div id="wizBladesingingPanel"
+                     class="hidden p-4 rounded-xl bg-[#091512] border border-emerald-900/60 space-y-3 text-xs">
+                    <div class="flex justify-between items-center border-b border-emerald-950 pb-2">
+                        <strong class="text-emerald-200 text-sm flex items-center gap-1.5"><span>🗡️✨</span> <span>Песнь клинка (Bladesinging)</span></strong>
+                        <span class="font-mono text-emerald-300 text-xs">Заряды стойки: <strong
+                                id="wizBladesongUsesDisplay">2 / 2</strong></span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <button type="button" id="btnToggleBladesong" onclick="window.wizardApp.toggleBladesong()"
+                                class="px-3 py-1.5 rounded-lg bg-foxOrange-700 text-stone-950 font-bold text-xs hover:bg-foxOrange-600">
+                            ✨ Активировать Песнь клинка
+                        </button>
+                        <span class="text-stone-400 text-[11px]">+Интеллект к КД и концентрации, +10 фт скорости.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
 
         <!-- 4. ВКЛАДКА: КНИГА ЗАКЛИНАНИЙ С ИНТЕРАКТИВНЫМИ ЯЧЕЙКАМИ -->
         <div id="tabSpells" class="space-y-6 hidden">
@@ -1366,6 +1586,19 @@
                     </button>
                     <button onclick="selectSpellCircle(5)" id="sc_tab_5"
                             class="px-3 py-1 rounded-lg bg-stone-900 text-stone-400 text-xs">5 круг
+                    </button>
+                    <!-- КРУГИ ВЫСШЕЙ МАГИИ (ДЛЯ 11+ УРОВНЯ) -->
+                    <button onclick="selectSpellCircle(6)" id="sc_tab_6"
+                            class="px-3 py-1 rounded-lg bg-stone-900 text-stone-400 text-xs">6 круг
+                    </button>
+                    <button onclick="selectSpellCircle(7)" id="sc_tab_7"
+                            class="px-3 py-1 rounded-lg bg-stone-900 text-stone-400 text-xs">7 круг
+                    </button>
+                    <button onclick="selectSpellCircle(8)" id="sc_tab_8"
+                            class="px-3 py-1 rounded-lg bg-stone-900 text-stone-400 text-xs">8 круг
+                    </button>
+                    <button onclick="selectSpellCircle(9)" id="sc_tab_9"
+                            class="px-3 py-1 rounded-lg bg-stone-900 text-stone-400 text-xs">9 круг
                     </button>
                 </div>
 

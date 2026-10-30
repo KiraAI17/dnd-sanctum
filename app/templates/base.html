@@ -13,31 +13,6 @@
     <!-- Базовый локальный Tailwind -->
     <link rel="stylesheet" href="{{ url_for('static', path='css/tailwind.min.css') }}">
 
-    <!-- Если tailwind.play.js рабочий, он дополнит стили, но не сломает верстку при падении -->
-    <script src="{{ url_for('static', path='js/tailwind.play.js') }}"></script>
-    <script>
-        if (typeof tailwind !== 'undefined') {
-          tailwind.config = {
-            theme: {
-              extend: {
-                fontFamily: {
-                  serif: ['Cinzel', 'Georgia', 'serif'],
-                  sans: ['Inter', 'system-ui', 'sans-serif'],
-                },
-                colors: {
-                  foxOrange: {
-                    50: '#fff7ed', 100: '#ffedd5', 200: '#fed7aa', 300: '#fdba74',
-                    400: '#fb923c', 500: '#f97316', 600: '#ea580c', 700: '#c2410c',
-                    800: '#9a3412', 900: '#7c2d12', 950: '#431407',
-                  },
-                  foxEmber: { 800: '#9a3412', 900: '#7c2d12', 950: '#2b0a03' }
-                }
-              }
-            }
-          };
-        }
-    </script>
-
     <!-- ПОЛНЫЙ ДИЗАЙН-КОМПЛЕКТ SANCTUM (гарантирует визуал как на эталоне) -->
     <style>
         body {
@@ -146,6 +121,186 @@
         ::-webkit-scrollbar-track { background: #0c0a09; }
         ::-webkit-scrollbar-thumb { background: #4a2810; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #ea580c; }
+
+        /* 1. Исправление плашек статов в шапке листа */
+        .header-stats-grid,
+        div[class*="grid-cols-4"] {
+          display: grid !important;
+          grid-template-columns: repeat(4, minmax(68px, 1fr)) !important;
+          gap: 0.25rem !important;
+        }
+        div[class*="grid-cols-4"] span,
+        div[class*="grid-cols-4"] label {
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+          font-size: 8.5px !important;
+          letter-spacing: 0.05em !important;
+        }
+        div[class*="grid-cols-4"] strong,
+        div[class*="grid-cols-4"] span.font-bold {
+          font-size: 1rem !important;
+          color: #fde68a !important;
+        }
+
+        /* 2. Плавный горизонтальный скролл для строки вкладок */
+        .sheet-tabs-nav,
+        nav[class*="border-b"],
+        div[class*="overflow-x-auto"] {
+          display: flex !important;
+          overflow-x: auto !important;
+          white-space: nowrap !important;
+          gap: 1rem !important;
+          scrollbar-width: none !important; /* Firefox */
+          -ms-overflow-style: none !important; /* IE/Edge */
+        }
+        .sheet-tabs-nav::-webkit-scrollbar {
+          display: none !important; /* Chrome/Safari */
+        }
+        .sheet-tabs-nav button {
+          flex-shrink: 0 !important;
+          padding-bottom: 0.5rem !important;
+        }
+
+        /* 3. Оформление плашек показателей Волшебника и Следопыта */
+        #tabWizard .bg-black\/60,
+        #tabRanger .bg-black\/60 {
+          background: linear-gradient(160deg, rgba(28, 20, 16, 0.85) 0%, rgba(14, 10, 8, 0.95) 100%) !important;
+          border: 1px solid rgba(245, 158, 11, 0.3) !important;
+          border-radius: 0.75rem !important;
+          padding: 0.5rem 0.75rem !important;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+        }
+        #tabWizard .bg-black\/60 span,
+        #tabRanger .bg-black\/60 span {
+          color: #a8a29e !important;
+          font-size: 8.5px !important;
+          letter-spacing: 0.1em !important;
+        }
+        #tabWizard .bg-black\/60 strong,
+        #tabRanger .bg-black\/60 strong {
+          color: #fbbf24 !important;
+          text-shadow: 0 0 10px rgba(245, 158, 11, 0.3) !important;
+        }
+
+        /* ========================================================
+        1. ЯЧЕЙКИ ЗАКЛИНАНИЙ (ТРЕКЕРЫ СЛОТОВ)
+        ======================================================== */
+        /* Активная неиспользованная ячейка — сочный оранжево-янтарный цвет */
+        .slot-dot,
+        .spell-slot-dot,
+        div[class*="bg-foxOrange"],
+        div[class*="bg-amber-500"]:not(.fox-card),
+        button[class*="bg-amber-500"],
+        .slot-pill.active {
+          background-color: #ea580c !important;
+          border-color: #f59e0b !important;
+          box-shadow: 0 0 8px rgba(234, 88, 12, 0.6) !important;
+        }
+
+        /* Потраченная (использованная) ячейка — затемненная, полупрозрачная с серым контуром */
+        .slot-dot.used,
+        .spell-slot-dot.used,
+        .slot-pill.used,
+        div[class*="bg-stone-800"],
+        div[class*="bg-stone-900\/50"] {
+          background-color: #171412 !important;
+          border: 1px dashed rgba(120, 113, 108, 0.5) !important;
+          box-shadow: none !important;
+          opacity: 0.45 !important;
+        }
+
+        /* Карточки трекеров кругов заклинаний */
+        #slotsTrackerGrid > div {
+          background-color: #120d09 !important;
+          border: 1px solid rgba(245, 158, 11, 0.35) !important;
+        }
+        #slotsTrackerGrid strong {
+          color: #fde68a !important;
+        }
+
+        /* ========================================================
+           2. КНИГА ЗАКЛИНАНИЙ (РАЗДЕЛЕНИЕ НАЗВАНИЙ И ОПИСАНИЙ)
+           ======================================================== */
+        /* Названия заклинаний — яркие янтарно-золотые */
+        #spellsContainer h4,
+        #spellsContainer strong,
+        .spell-card h4,
+        .spell-card strong,
+        .spell-title {
+          color: #fbbf24 !important;
+          font-weight: 700 !important;
+        }
+
+        /* Школа и круг заклинания (плашка/тег) */
+        .spell-card span[class*="font-mono"],
+        #spellsContainer span[class*="text-stone-400"] {
+          color: #f97316 !important;
+        }
+
+        /* Описание заклинания — мягкий пепельно-серый, чтобы не сливалось с заголовком */
+        #spellsContainer p,
+        .spell-card p,
+        .spell-desc {
+          color: #a8a29e !important;
+          line-height: 1.5 !important;
+        }
+
+        /* ========================================================
+           3. ВЫПАДАЮЩИЕ СПИСКИ (<select>) И ПОЛЯ ВВОДА (<input>)
+           ======================================================== */
+        /* Исправляет белое на белом: глубокий тёмный фон и контрастный светлый текст */
+        select,
+        select option,
+        input[type="text"],
+        input[type="number"],
+        textarea {
+          background-color: #140e0a !important;
+          color: #fef3c7 !important;
+          border-color: rgba(154, 52, 18, 0.7) !important;
+        }
+
+        /* Цвет выпадающего списка вариантов */
+        select option {
+          background-color: #140e0a !important;
+          color: #fde68a !important;
+        }
+
+        select:focus,
+        input:focus,
+        textarea:focus {
+          border-color: #f59e0b !important;
+          outline: none !important;
+          box-shadow: 0 0 8px rgba(245, 158, 11, 0.3) !important;
+        }
+
+        /* ========================================================
+           4. ОСОБЕННОСТИ КЛАССА, РАСЫ И АРХЕТИПА
+           ======================================================== */
+        /* Карточки умений */
+        #featsListContainer > div,
+        #featsListContainer .p-3 {
+          background-color: #120d09 !important;
+          border: 1px solid rgba(67, 20, 7, 0.85) !important;
+        }
+
+        /* Заголовки умений — золотистые */
+        #featsListContainer strong,
+        #featsListContainer h4 {
+          color: #fcd34d !important;
+        }
+
+        /* Описания умений — читаемые пепельно-белые */
+        #featsListContainer p {
+          color: #d6d3d1 !important;
+        }
+
+        /* Круглые бейджи уровня умения (например, "До 11 ур.") */
+        #featsListContainer span[class*="font-mono"] {
+          background-color: rgba(67, 20, 7, 0.6) !important;
+          border: 1px solid rgba(245, 158, 11, 0.3) !important;
+          color: #fb923c !important;
+        }
     </style>
 
     {% block extra_head %}{% endblock %}

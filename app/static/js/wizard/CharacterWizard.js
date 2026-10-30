@@ -29,6 +29,9 @@ export class CharacterWizard {
     this.maxSpellsAllowed = 2;
     this.selectedCantrips = new Set();
     this.selectedSpells = new Set();
+    this.allCompendiumSpells = [];
+    this.bookmarkedSpells = [];
+    this.activeSpellSubTab = 'cantrips'; // 'cantrips' | 'level1' | 'bookmarks'
 
     // Состояние персонажа
     this.state = {
@@ -446,7 +449,13 @@ export class CharacterWizard {
       `;
       this.onLvl1SubclassSelected(document.getElementById('lvl1SubclassSelect').value);
       this.initSpellbookTome(2, 2, "Колдун");
-    } else if (cName === 'Волшебник') {
+    } else if (cName === 'Волшебник' || cName.toLowerCase().includes('wizard')) {
+      subBlock.classList.remove('hidden');
+      document.getElementById('lvl1SubclassLabel').textContent = "Особенности 1-го уровня Волшебника:";
+      document.getElementById('lvl1SubclassSelect').innerHTML = `
+        <option value="Книга заклинаний">Книга заклинаний (6 заклинаний 1-го круга в гримуаре)</option>
+      `;
+      document.getElementById('lvl1SubclassInfo').textContent = "Ритуальное колдовство прямо из книги без подготовки и Магическое восстановление ячеек в короткий отдых.";
       this.initSpellbookTome(3, 6, "Волшебник");
     } else if (cName === 'Бард') {
       this.initSpellbookTome(2, 4, "Бард");
@@ -460,20 +469,6 @@ export class CharacterWizard {
   onLvl1SubclassSelected(val) {
     this.state.subclass = val;
     this.updateSummary();
-  }
-
-  initSpellbookTome(cantripsLimit, spellsLimit, className) {
-    const spellTome = document.getElementById('spellbookTomeBlock');
-    if (!spellTome) return;
-    spellTome.classList.remove('hidden');
-    this.maxCantripsAllowed = cantripsLimit;
-    this.maxSpellsAllowed = spellsLimit;
-    this.selectedCantrips.clear();
-    this.selectedSpells.clear();
-
-    document.getElementById('spellbookClassNotice').textContent = `Гримуар класса ${className}: выберите ${cantripsLimit} заговора и ${spellsLimit} заклинаний 1-го круга.`;
-    this.renderSpellTomePages();
-    this.updateSpellCounters();
   }
 
   renderSpellTomePages() {
@@ -520,10 +515,106 @@ export class CharacterWizard {
     });
   }
 
+  async initSpellbookTome(cantripsLimit, spellsLimit, className) {
+    const spellTome = document.getElementById('spellbookTomeBlock');
+    if (!spellTome) return;
+    spellTome.classList.remove('hidden');
+    this.maxCantripsAllowed = cantripsLimit;
+    this.maxSpellsAllowed = spellsLimit;
+    this.selectedCantrips.clear();
+    this.selectedSpells.clear();
+
+    try {
+      const rawBm = localStorage.getItem('user_bookmarked_spells');
+      const bmIds = new Set();
+      if (rawBm) {
+        JSON.parse(rawBm).forEach(x => bmIds.add(String(x).toLowerCase().trim()));
+      }
+
+      if (!this.allCompendiumSpells || this.allCompendiumSpells.length === 0) {
+        const res = await fetch('/compendium/spells-list');
+        if (res.ok) this.allCompendiumSpells = await res.json();
+      }
+
+      const normClass = (className || '').toLowerCase().trim();
+      this.bookmarkedSpells = (this.allCompendiumSpells || []).filter(sp => {
+        const spId = String(sp.id || '').toLowerCase().trim();
+        const spName = String(sp.name || '').toLowerCase().trim();
+        if (!bmIds.has(spId) && !bmIds.has(spName)) return false;
+
+        // В конструкторе 1 уровня нужны только заговоры (0) и 1 круг
+        if (sp.level !== 0 && sp.level !== 1) return false;
+
+        const classes = (sp.classes || []).map(c => String(c).toLowerCase().trim());
+        return classes.some(c => c.includes(normClass) || normClass.includes(c));
+      });
+    } catch(e) {
+      console.warn("Сбой загрузки закладок:", e);
+      this.bookmarkedSpells = [];
+    }
+
+    document.getElementById('spellbookClassNotice').textContent = `Гримуар класса ${className}: выберите ${cantripsLimit} заговора и ${spellsLimit} заклинаний 1-го круга.`;
+    this.activeSpellSubTab = 'cantrips';
+    this.renderSpellTabButtons();
+    this.renderSpellTomePages();
+    this.updateSpellCounters();
+  }
+
+  renderBookmarksPage() {
+    const pageBm = document.getElementById('tomeBookmarksPage');
+    if (!pageBm) return;
+    pageBm.innerHTML = '';
+
+    if (!this.bookmarkedSpells || this.bookmarkedSpells.length === 0) {
+      pageBm.innerHTML = `
+        <div class="col-span-full text-center py-6 text-stone-400 text-xs font-serif italic">
+          В гримуаре пока нет закладок 0–1 круга для класса ${this.selectedClass?.name || ''}.<br>
+          <span class="text-[10px] text-stone-500">Закрепите звёздочкой ⭐ нужные заклинания в разделе «Гримуар».</span>
+        </div>
+      `;
+      return;
+    }
+
+    this.bookmarkedSpells.forEach(s => {
+      const isCantrip = (s.level === 0);
+      const sName = s.name;
+      const isSel = isCantrip ? this.selectedCantrips.has(sName) : this.selectedSpells.has(sName);
+
+      const card = document.createElement('div');
+      card.className = `p-2.5 rounded-lg border cursor-pointer transition-all flex flex-col justify-between ${
+        isSel
+          ? 'border-amber-400 bg-amber-950/60 ring-1 ring-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.4)]'
+          : 'border-orange-950 bg-[#120d09] hover:border-amber-500/50'
+      }`;
+      card.onclick = () => this.toggleSpellSelection(sName, isCantrip ? 'cantrip' : 'spell');
+
+      card.innerHTML = `
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <span class="font-bold text-amber-200 text-xs flex items-center gap-1">
+              <span class="text-amber-400">⭐</span> ${sName}
+            </span>
+            <span class="text-[9px] font-mono px-1 rounded bg-black/50 text-stone-300 border border-orange-950">
+              ${isCantrip ? 'Заговор' : '1 круг'}
+            </span>
+          </div>
+          <p class="text-[10px] text-stone-400 leading-tight line-clamp-2 font-serif">${s.description || ''}</p>
+        </div>
+        <div class="mt-1 flex justify-between items-center text-[9px] font-mono text-amber-400/80">
+          <span>${s.school || 'Магия'}</span>
+          <span>${s.cast_time || '1 действ.'}</span>
+        </div>
+      `;
+      pageBm.appendChild(card);
+    });
+  }
+
   toggleSpellSelection(name, type) {
+    if (!name) return;
     if (type === 'cantrip') {
-      if (this.selectedCantrips.has(name)) this.selectedCantrips.delete(name);
-      else {
+      if (this.selectedCantrips.has(name)) {
+        this.selectedCantrips.delete(name);
+      } else {
         if (this.selectedCantrips.size >= this.maxCantripsAllowed) {
           alert(`Максимум заговоров для вашего класса: ${this.maxCantripsAllowed}`);
           return;
@@ -531,8 +622,9 @@ export class CharacterWizard {
         this.selectedCantrips.add(name);
       }
     } else {
-      if (this.selectedSpells.has(name)) this.selectedSpells.delete(name);
-      else {
+      if (this.selectedSpells.has(name)) {
+        this.selectedSpells.delete(name);
+      } else {
         if (this.selectedSpells.size >= this.maxSpellsAllowed) {
           alert(`Максимум заклинаний 1-го круга: ${this.maxSpellsAllowed}`);
           return;
@@ -540,8 +632,12 @@ export class CharacterWizard {
         this.selectedSpells.add(name);
       }
     }
+
     this.state.spells = [...Array.from(this.selectedCantrips), ...Array.from(this.selectedSpells)];
     this.renderSpellTomePages();
+    if (this.activeSpellSubTab === 'bookmarks') {
+      this.renderBookmarksPage();
+    }
     this.updateSpellCounters();
   }
 
@@ -552,23 +648,81 @@ export class CharacterWizard {
     if (sEl) sEl.textContent = `1 Круг: ${this.selectedSpells.size} / ${this.maxSpellsAllowed}`;
   }
 
+  renderSpellTabButtons() {
+    const header = document.querySelector('#spellbookTomeBlock .flex.border-b') || document.getElementById('tabSpellsCantrips')?.parentElement;
+    if (!header) return;
+
+    const bmCount = this.bookmarkedSpells.length;
+    header.innerHTML = `
+      <button type="button" id="tabSpellsCantrips" onclick="window.wizard.switchSpellTab('cantrips')"
+              class="px-3 py-1 rounded-t-lg ${this.activeSpellSubTab === 'cantrips' ? 'bg-foxOrange-600 text-stone-950' : 'text-stone-400 hover:text-amber-200'} font-bold text-xs font-serif">
+        Заговоры
+      </button>
+      <button type="button" id="tabSpellsLevel1" onclick="window.wizard.switchSpellTab('level1')"
+              class="px-3 py-1 rounded-t-lg ${this.activeSpellSubTab === 'level1' ? 'bg-foxOrange-600 text-stone-950' : 'text-stone-400 hover:text-amber-200'} font-bold text-xs font-serif">
+        1 Круг
+      </button>
+      <button type="button" id="tabSpellsBookmarks" onclick="window.wizard.switchSpellTab('bookmarks')"
+              class="px-3 py-1 rounded-t-lg ${this.activeSpellSubTab === 'bookmarks' ? 'bg-amber-400 text-stone-950' : 'text-amber-400/80 hover:text-amber-200'} font-bold text-xs font-serif flex items-center gap-1">
+        <span>⭐ Избранные</span>
+        <span class="text-[10px] px-1 rounded-full bg-black/40 font-mono">${bmCount}</span>
+      </button>
+    `;
+  }
+
   switchSpellTab(tab) {
-    const btnC = document.getElementById('tabSpellsCantrips');
-    const btnS = document.getElementById('tabSpellsLevel1');
+    this.activeSpellSubTab = tab;
+    this.renderSpellTabButtons();
+
     const pageC = document.getElementById('tomeCantripsPage');
     const pageS = document.getElementById('tomeLevel1Page');
+    let pageBm = document.getElementById('tomeBookmarksPage');
 
-    if (tab === 'cantrips') {
-      btnC.className = "px-3 py-1 rounded-t-lg bg-foxOrange-600 text-stone-950 font-bold text-xs font-serif";
-      btnS.className = "px-3 py-1 rounded-t-lg text-stone-400 hover:text-amber-200 font-bold text-xs font-serif";
-      pageC.classList.remove('hidden');
-      pageS.classList.add('hidden');
-    } else {
-      btnS.className = "px-3 py-1 rounded-t-lg bg-foxOrange-600 text-stone-950 font-bold text-xs font-serif";
-      btnC.className = "px-3 py-1 rounded-t-lg text-stone-400 hover:text-amber-200 font-bold text-xs font-serif";
-      pageS.classList.remove('hidden');
-      pageC.classList.add('hidden');
+    if (!pageBm && pageC && pageC.parentElement) {
+      pageBm = document.createElement('div');
+      pageBm.id = 'tomeBookmarksPage';
+      pageBm.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 p-2 max-h-72 overflow-y-auto hidden';
+      pageC.parentElement.appendChild(pageBm);
     }
+
+    if (pageC) pageC.classList.toggle('hidden', tab !== 'cantrips');
+    if (pageS) pageS.classList.toggle('hidden', tab !== 'level1');
+    if (pageBm) pageBm.classList.toggle('hidden', tab !== 'bookmarks');
+
+    if (tab === 'bookmarks') {
+      this.renderBookmarksPage();
+    }
+  }
+
+    this.bookmarkedSpells.forEach(s => {
+      const isCantrip = s.level === 0;
+      const isSel = isCantrip ? this.selectedCantrips.has(s.name) : this.selectedSpells.has(s.name);
+
+      const card = document.createElement('div');
+      card.className = `p-2.5 rounded-lg border cursor-pointer transition-all flex flex-col justify-between ${
+        isSel
+          ? 'border-amber-400 bg-amber-950/60 ring-1 ring-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.4)]'
+          : 'border-orange-950 bg-[#120d09] hover:border-amber-500/50'
+      }`;
+      card.onclick = () => this.toggleSpellSelection(s.name, isCantrip ? 'cantrip' : 'spell');
+
+      card.innerHTML = `
+        <div>
+          <div class="flex justify-between items-center mb-1">
+            <span class="font-bold text-amber-200 text-xs flex items-center gap-1">
+              <span class="text-amber-400">⭐</span> ${s.name}
+            </span>
+            <span class="text-[9px] font-mono px-1 rounded bg-black/50 text-stone-300 border border-orange-950">${isCantrip ? 'Заговор' : '1 круг'}</span>
+          </div>
+          <p class="text-[10px] text-stone-400 leading-tight line-clamp-2 font-serif">${s.description || ''}</p>
+        </div>
+        <div class="mt-1 flex justify-between items-center text-[9px] font-mono text-amber-400/80">
+          <span>${s.school || 'Магия'}</span>
+          <span>${s.cast_time || '1 действие'}</span>
+        </div>
+      `;
+      pageBm.appendChild(card);
+    });
   }
 
   // --- ШАГ 3: ХАРАКТЕРИСТИКИ ---
