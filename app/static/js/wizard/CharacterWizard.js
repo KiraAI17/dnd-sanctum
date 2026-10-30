@@ -382,6 +382,37 @@ export class CharacterWizard {
       if (fSel) this.state.fighting_style = fSel.value;
     }
 
+        const isRanger = cName.toLowerCase().includes('следопыт') || cName.toLowerCase().includes('ranger');
+
+    if (isRanger) {
+      subBlock.classList.remove('hidden');
+      document.getElementById('lvl1SubclassLabel').textContent = "Избранный враг Следопыта (1 уровень):";
+      document.getElementById('lvl1SubclassSelect').innerHTML = `
+        <option value="Нежить">Нежить (Язык: Загробный / Некротический)</option>
+        <option value="Исчадия">Исчадия (Язык: Бездны или Инфернальный)</option>
+        <option value="Драконы">Драконы (Язык: Драконий)</option>
+        <option value="Аберрации">Аберрации (Язык: Глубинная речь)</option>
+        <option value="Звери">Звери (Охота и повадки)</option>
+        <option value="Феи">Феи (Язык: Сильван)</option>
+        <option value="Гуманоиды (Орки и Гоблины)">Гуманоиды (Орки и Гоблины)</option>
+      `;
+      document.getElementById('lvl1SubclassInfo').textContent = "Преимущество на выслеживание (Выживание) и знания (Интеллект), а также изучение языка врага.";
+      this.state.favored_enemy = document.getElementById('lvl1SubclassSelect').value;
+
+      // Выводим также блок боевого стиля, так как стиль выбирается со 2 уровня, но игроки могут подготовить его заранее
+      fightBlock.classList.remove('hidden');
+      const fSel = document.getElementById('lvl1FightingStyleSelect');
+      if (fSel) {
+        fSel.innerHTML = `
+          <option value="Стрельба">Стрельба (+2 к атакам дальнобойным оружием)</option>
+          <option value="Оборона">Оборона (+1 к КД при ношении брони)</option>
+          <option value="Дуэлянт">Дуэлянт (+2 к урону одноручным оружием)</option>
+          <option value="Сражение двумя оружиями">Сражение двумя оружиями (модификатор ко 2-й руке)</option>
+        `;
+        this.state.fighting_style = fSel.value;
+      }
+    }
+
     // Подклассы 1-го уровня и заклинатели
     if (cName === 'Жрец') {
       subBlock.classList.remove('hidden');

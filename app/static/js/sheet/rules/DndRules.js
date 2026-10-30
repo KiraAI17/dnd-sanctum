@@ -228,7 +228,7 @@ export class DndRules {
     const lvl = character.level || 1;
     const sub = (character.subclass || '').toLowerCase();
 
-    // Бард 2+ ур: Мастер на все руки (половина бонуса мастерства к инициативе!)
+    // Бард 2+ ур: Мастер на все руки (половина бонуса мастерства к инициативе)
     if ((cName.includes('бард') || cName.includes('bard')) && lvl >= 2) {
       const halfProf = Math.floor(this.getProficiencyBonus(lvl) / 2);
       total += halfProf;
@@ -240,6 +240,12 @@ export class DndRules {
       total += Math.max(0, chaMod);
     }
 
+    // Сумрачный охотник (Gloom Stalker) 3+ ур: Мудрость к инициативе!
+    if ((sub.includes('сумрачный') || sub.includes('gloom')) && lvl >= 3) {
+      const wisMod = this.calcMod(character.stats?.wis || 10);
+      total += Math.max(0, wisMod);
+    }
+
     return total;
   }
 
@@ -249,8 +255,16 @@ export class DndRules {
   static getSkillMod(skillKey, statKey, character) {
     if (!character) return 0;
     const stats = character.stats || {};
-    const statMod = this.calcMod(stats[statKey] || 10);
+    let statMod = this.calcMod(stats[statKey] || 10);
     const profBonus = this.getProficiencyBonus(character.level || 1);
+    const sub = (character.subclass || '').toLowerCase();
+    const lvl = character.level || 1;
+
+    // Странник фей (Fey Wanderer) 3+ ур: добавляет Мудрость к проверкам Харизмы
+    if (statKey === 'cha' && (sub.includes('фей') || sub.includes('fey')) && lvl >= 3) {
+      const wisMod = this.calcMod(stats.wis || 10);
+      statMod += Math.max(1, wisMod);
+    }
 
     const profs = (character.skills || []).map(s => String(s).toLowerCase());
     const isProf = profs.includes(String(skillKey).toLowerCase());
@@ -262,9 +276,7 @@ export class DndRules {
       return statMod + profBonus;
     }
 
-    // Бард 2+ ур: Мастер на все руки (Jack of All Trades) ко всем навыкам без владения
     const cName = (character.class_name || '').toLowerCase();
-    const lvl = character.level || 1;
     if ((cName.includes('бард') || cName.includes('bard')) && lvl >= 2) {
       return statMod + Math.floor(profBonus / 2);
     }

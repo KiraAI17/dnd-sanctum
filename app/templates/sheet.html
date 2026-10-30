@@ -204,6 +204,12 @@
                 <span>🪕</span> <span>Вдохновение и Музыка</span>
             </button>
 
+            <!-- Вкладка Следопыта (только для Следопыта) -->
+            <button type="button" id="tabBtnRanger" onclick="window.switchSheetTab('Ranger')"
+                    class="hidden pb-2 px-1 text-xs font-bold border-b-2 border-transparent text-emerald-400 hover:text-emerald-200 whitespace-nowrap font-serif">
+                <span>🏹</span> <span>Тропы Следопыта</span>
+            </button>
+
             <!-- Вкладка магии (только для заклинателей) -->
             <button id="tabBtnSpells" onclick="switchSheetTab('spells')"
                     class="hidden py-3 px-4 font-bold text-xs sm:text-sm text-stone-400 hover:text-stone-200 whitespace-nowrap">
@@ -1080,6 +1086,252 @@
             </div>
         </div>
 
+        <!-- 9. ПОЛНАЯ ВКЛАДКА: СЛЕДОПЫТ (ТРОПЫ И АРХЕТИПЫ) -->
+        <div id="tabRanger" class="space-y-6 hidden font-serif">
+            <div class="fox-card dynamic-card rounded-2xl p-5 border border-emerald-950/80 bg-[#0a110d] space-y-4 shadow-2xl">
+                <div class="flex flex-wrap justify-between items-center border-b border-emerald-950/60 pb-3 gap-3">
+                    <div class="flex items-center gap-2.5">
+                        <span class="text-2xl animate-pulse">🏹</span>
+                        <div>
+                            <h3 class="text-base font-bold text-emerald-200 tracking-wide">Искусство выслеживания и
+                                Первозданная магия</h3>
+                            <span class="text-[10px] text-stone-400 block font-mono">Классовые способности и архетипы Следопыта</span>
+                        </div>
+                    </div>
+
+                    <!-- Индикаторы Следопыта -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono text-center text-xs w-full sm:w-auto">
+                        <div class="p-2 bg-black/60 rounded-xl border border-emerald-950/80">
+                            <span class="text-[9px] uppercase tracking-widest text-stone-400 block font-serif">Сл магии природы</span>
+                            <strong id="rangerSpellDcDisplay" class="text-amber-300 text-sm font-bold">13</strong>
+                        </div>
+                        <div class="p-2 bg-black/60 rounded-xl border border-emerald-950/80">
+                            <span class="text-[9px] uppercase tracking-widest text-stone-400 block font-serif">Мод. Мудрости</span>
+                            <strong id="rangerWisModDisplay" class="text-emerald-400 text-sm font-bold">+2</strong>
+                        </div>
+                        <div class="p-2 bg-black/60 rounded-xl border border-emerald-950/80">
+                            <span class="text-[9px] uppercase tracking-widest text-stone-400 block font-serif">Кость хитов</span>
+                            <strong class="text-foxOrange-400 text-sm font-bold">d10</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- КАРТОЧКИ БАЗОВЫХ УМЕНИЙ СЛЕДОПЫТА -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div id="rangerPrimevalCard"
+                         class="hidden p-3.5 rounded-xl bg-black/40 border border-emerald-950 space-y-1.5">
+                        <strong class="text-emerald-300 block">✨ Первозданная осведомлённость (3 ур.)</strong>
+                        <p class="text-stone-300 text-[11px] leading-relaxed">Потратьте ячейку заклинаний: на 1 мин за
+                            круг ячейки вы чувствуете аберраций, драконов, исчадий, небожителей, нежить, фей и
+                            элементалей в 1 миле (6 миль в избранной местности).</p>
+                    </div>
+                    <div id="rangerLandStrideCard"
+                         class="hidden p-3.5 rounded-xl bg-black/40 border border-emerald-950 space-y-1.5">
+                        <strong class="text-emerald-300 block">🌿 Тропами земли (8 ур.)</strong>
+                        <p class="text-stone-300 text-[11px] leading-relaxed">Немагическая трудная местность не требует
+                            лишнего движения. Преимущество против магических растений.</p>
+                    </div>
+                    <div id="rangerVanishCard"
+                         class="hidden p-3.5 rounded-xl bg-black/40 border border-emerald-950 space-y-1.5">
+                        <strong class="text-emerald-300 block">🌫️ Исчезновение (14 ур.)</strong>
+                        <p class="text-stone-300 text-[11px] leading-relaxed">Действие «Засада» совершается бонусным
+                            действием. Вас невозможно выследить немагически.</p>
+                    </div>
+                </div>
+
+                <!-- 1. ПАНЕЛЬ: ОХОТНИК (HUNTER) -->
+                <div id="rangerHunterPanel"
+                     class="hidden p-4 rounded-xl bg-[#0c140f] border border-emerald-900/60 space-y-3 text-xs">
+                    <div class="flex justify-between items-center border-b border-emerald-950 pb-2">
+                        <strong class="text-emerald-200 text-sm flex items-center gap-1.5">
+                            <span>⚔️</span> <span>Архетип: Охотник (Hunter)</span>
+                        </strong>
+                        <button type="button" onclick="window.rangerApp.rollColossusSlayer()"
+                                class="px-3 py-1 rounded bg-emerald-950 border border-emerald-700 text-emerald-200 font-bold hover:bg-emerald-900">
+                            🎲 Убийца колоссов (+1к8)
+                        </button>
+                    </div>
+                    <div id="hunterDefTacticsBlock"
+                         class="hidden p-2.5 rounded bg-black/50 border border-emerald-950 text-stone-300 text-[11px]">
+                        🛡️ <strong>Оборонительная тактика (7 ур.):</strong> +4 к КД против повторных атак врага или
+                        помеха на провоцированные атаки по вам.
+                    </div>
+                    <div id="hunterMultiattackBlock"
+                         class="hidden p-2.5 rounded bg-black/50 border border-emerald-950 text-stone-300 text-[11px]">
+                        🌪️ <strong>Мультиатака (11 ур.):</strong> Вихревая атака по всем врагам в 5 фт или Залп
+                        дальнобойными атаками по области 10 фт.
+                    </div>
+                </div>
+
+                <!-- 2. ПАНЕЛЬ: ПОВЕЛИТЕЛЬ ЗВЕРЕЙ (BEAST MASTER) -->
+                <div id="rangerBeastMasterPanel"
+                     class="hidden p-4 rounded-xl bg-[#0e1610] border border-emerald-900/60 space-y-3 text-xs">
+                    <div class="flex justify-between items-center border-b border-emerald-950 pb-2">
+                        <strong class="text-emerald-200 text-sm flex items-center gap-1.5">
+                            <span>🐾</span> <span>Архетип: Повелитель зверей</span>
+                        </strong>
+                        <span class="font-mono text-emerald-300 font-bold">Хиты зверя: <span id="rangerBeastHpDisplay">12 / 12</span></span>
+                    </div>
+                    <p class="text-stone-300 text-[11px]">Зверь действует в ваш ход. Команды атаки отдаются бонусным
+                        действием или взамен одной из ваших атак.</p>
+                    <div id="beastTraining7Block"
+                         class="hidden p-2 bg-black/50 rounded border border-emerald-950 text-amber-300 text-[11px]">
+                        ✨ Атаки зверя считаются магическими. Рывок/Отход/Помощь бонусным действием.
+                    </div>
+                </div>
+
+                <!-- 3. ПАНЕЛЬ: СТРАННИК ГОРИЗОНТА (HORIZON WALKER) -->
+                <div id="rangerHorizonWalkerPanel"
+                     class="hidden p-4 rounded-xl bg-[#0a1218] border border-cyan-900/60 space-y-3 text-xs">
+                    <div class="flex justify-between items-center border-b border-cyan-950 pb-2">
+                        <strong class="text-cyan-200 text-sm flex items-center gap-1.5">
+                            <span>🌌</span> <span>Архетип: Странник горизонта</span>
+                        </strong>
+                        <div class="flex gap-2">
+                            <button type="button" onclick="window.rangerApp.usePlanarWarrior()"
+                                    class="px-3 py-1 rounded bg-cyan-950 border border-cyan-700 text-cyan-200 font-bold hover:bg-cyan-900">
+                                ⚡ Планарный воин (<span id="horizonPlanarDiceDisplay">1d8</span>)
+                            </button>
+                            <button type="button" onclick="window.rangerApp.useEtherealStep()"
+                                    class="px-2.5 py-1 rounded bg-stone-900 text-stone-300 hover:text-white">
+                                👻 Эфирный шаг
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-stone-300 text-[11px]">Планарный воин превращает весь урон атаки в урон силовым полем
+                        и добавляет кость урона.</p>
+                </div>
+
+                <!-- 4. ПАНЕЛЬ: СУМРАЧНЫЙ ОХОТНИК (GLOOM STALKER) -->
+                <div id="rangerGloomStalkerPanel"
+                     class="hidden p-4 rounded-xl bg-[#0d0914] border border-purple-900/60 space-y-3 text-xs">
+                    <div class="flex justify-between items-center border-b border-purple-950 pb-2">
+                        <strong class="text-purple-200 text-sm flex items-center gap-1.5">
+                            <span>🌑</span> <span>Архетип: Сумрачный охотник</span>
+                        </strong>
+                        <button type="button" onclick="window.rangerApp.rollDreadAmbusher()"
+                                class="px-3 py-1 rounded bg-purple-950 border border-purple-700 text-purple-200 font-bold hover:bg-purple-900">
+                            🎲 Угроза из засады (+1к8)
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-stone-300">
+                        <div class="p-2 rounded bg-black/50 border border-purple-950">
+                            👁️ <strong>Теневой взор:</strong> Тёмное зрение 60 фт (+30 фт). Полная невидимость во тьме
+                            от чужого тёмного зрения!
+                        </div>
+                        <div class="p-2 rounded bg-black/50 border border-purple-950">
+                            ⚡ <strong>Первый раунд:</strong> +10 фт скорости и дополнительная атака с бонусом +1к8
+                            урона.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. ПАНЕЛЬ: УБИЙЦА ЧУДОВИЩ (MONSTER SLAYER) -->
+                <div id="rangerMonsterSlayerPanel"
+                     class="hidden p-4 rounded-xl bg-[#140e0a] border border-amber-900/60 space-y-3 text-xs">
+                    <div class="flex justify-between items-center border-b border-amber-950 pb-2">
+                        <strong class="text-amber-200 text-sm flex items-center gap-1.5">
+                            <span>👁️🎯</span> <span>Архетип: Убийца чудовищ</span>
+                        </strong>
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono text-stone-400">Чувства: <strong id="monsterSenseTracker"
+                                                                                    class="text-amber-300">2 / 2</strong></span>
+                            <button type="button" onclick="window.rangerApp.useHuntersSense()"
+                                    class="px-2 py-1 rounded bg-amber-950 border border-amber-700 text-amber-200 font-bold hover:bg-amber-900">
+                                Анализ врага
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between p-2 rounded bg-black/50 border border-amber-950">
+                        <div>
+                            <span class="text-stone-400 text-[10px] block">Метка «Добыча убийцы» (+1к6 урона):</span>
+                            <strong id="slayerPreyTargetBadge" class="text-amber-300 text-xs">Нет цели</strong>
+                        </div>
+                        <div class="flex gap-1.5">
+                            <button type="button" onclick="window.rangerApp.setSlayersPrey()"
+                                    class="px-2 py-1 rounded bg-stone-900 border border-stone-800 text-stone-300 text-[11px]">
+                                Сменить цель
+                            </button>
+                            <button type="button" onclick="window.rangerApp.rollSlayersPreyDamage()"
+                                    class="px-2.5 py-1 rounded bg-foxOrange-700 text-stone-950 font-bold text-[11px]">
+                                +1к6 Урон
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. ПАНЕЛЬ: СТРАННИК ФЕЙ (FEY WANDERER) -->
+                <div id="rangerFeyWandererPanel"
+                     class="hidden p-4 rounded-xl bg-[#091410] border border-teal-900/60 space-y-3 text-xs">
+                    <div class="flex justify-between items-center border-b border-teal-950 pb-2">
+                        <strong class="text-teal-200 text-sm flex items-center gap-1.5">
+                            <span>🧚</span> <span>Архетип: Странник фей</span>
+                        </strong>
+                        <button type="button" onclick="window.rangerApp.rollDreadfulStrikes()"
+                                class="px-3 py-1 rounded bg-teal-950 border border-teal-700 text-teal-200 font-bold hover:bg-teal-900">
+                            🎲 Ужасающие удары (<span id="feyDreadfulDiceDisplay">1d4</span>)
+                        </button>
+                    </div>
+                    <p class="text-stone-300 text-[11px]">Модификатор Мудрости автоматически прибавлен ко всем проверкам
+                        Харизмы (Обман, Убеждение, Выступление)!</p>
+                </div>
+
+                <!-- 7. ПАНЕЛЬ: ХРАНИТЕЛЬ РОЯ (SWARMKEEPER) -->
+                <div id="rangerSwarmkeeperPanel"
+                     class="hidden p-4 rounded-xl bg-[#121108] border border-yellow-900/60 space-y-3 text-xs">
+                    <div class="flex justify-between items-center border-b border-yellow-950 pb-2">
+                        <strong class="text-amber-200 text-sm flex items-center gap-1.5">
+                            <span>🐝</span> <span>Архетип: Хранитель роя</span>
+                        </strong>
+                        <span class="text-stone-400 font-mono text-[11px]">1 раз за ход после попадания</span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <button type="button" onclick="window.rangerApp.useSwarmEffect('damage')"
+                                class="p-2 rounded bg-stone-900 border border-yellow-900/60 hover:border-amber-400 text-left">
+                            <strong class="text-amber-300 block">💥 Урон роя</strong>
+                            <span class="text-[10px] text-stone-400">+<span id="swarmDamageDiceDisplay">1d6</span> колющего урона</span>
+                        </button>
+                        <button type="button" onclick="window.rangerApp.useSwarmEffect('push')"
+                                class="p-2 rounded bg-stone-900 border border-yellow-900/60 hover:border-amber-400 text-left">
+                            <strong class="text-amber-300 block">💨 Толчок врага</strong>
+                            <span class="text-[10px] text-stone-400">Спасбросок Силы: толчок на 15 фт</span>
+                        </button>
+                        <button type="button" onclick="window.rangerApp.useSwarmEffect('move')"
+                                class="p-2 rounded bg-stone-900 border border-yellow-900/60 hover:border-amber-400 text-left">
+                            <strong class="text-amber-300 block">🌀 Сдвиг персонажа</strong>
+                            <span class="text-[10px] text-stone-400">Смещение на 5 фт без провокаций</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 8. ПАНЕЛЬ: НАЕЗДНИК НА ДРЕЙКЕ (DRAKEWARDEN) -->
+                <div id="rangerDrakewardenPanel"
+                     class="hidden p-4 rounded-xl bg-[#160a0a] border border-rose-900/60 space-y-3 text-xs">
+                    <div class="flex justify-between items-center border-b border-rose-950 pb-2">
+                        <strong class="text-rose-200 text-sm flex items-center gap-1.5">
+                            <span>🐲</span> <span>Архетип: Наездник на дрейке</span>
+                        </strong>
+                        <span class="font-mono text-rose-300 font-bold">Стихия: <span
+                                id="drakeTypeBadge">Огонь</span></span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <select id="drakeEssenceSelect" onchange="window.rangerApp.setDrakeType(this.value)"
+                                class="bg-[#1f0d0d] border border-rose-900 rounded p-1 text-xs text-rose-200">
+                            <option value="Огонь">🔥 Огонь</option>
+                            <option value="Холод">❄️ Холод</option>
+                            <option value="Кислота">🧪 Кислота</option>
+                            <option value="Электричество">⚡ Электричество</option>
+                            <option value="Яд">☠️ Яд</option>
+                        </select>
+                        <button type="button" onclick="window.rangerApp.rollDrakeBreath()"
+                                class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-rose-700 to-amber-600 text-stone-950 font-bold text-xs shadow">
+                            🔥 Дыхание дрейка (<span id="drakeBreathDmgDisplay">8d6</span>)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
 
         <!-- 4. ВКЛАДКА: КНИГА ЗАКЛИНАНИЙ С ИНТЕРАКТИВНЫМИ ЯЧЕЙКАМИ -->
         <div id="tabSpells" class="space-y-6 hidden">
@@ -1226,7 +1478,8 @@
                                    class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100 font-mono">
                             <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-900 border border-stone-800 hover:border-amber-400 text-amber-300 text-xs font-bold transition-all">
                                 📁 Загрузить файл с устройства
-                                <input type="file" id="avatarFileInput" accept="image/*" onchange="window.uploadCharacterFile(event, 'avatar')" class="hidden">
+                                <input type="file" id="avatarFileInput" accept="image/*"
+                                       onchange="window.uploadCharacterFile(event, 'avatar')" class="hidden">
                             </label>
                         </div>
                         <div class="space-y-1.5">
@@ -1235,7 +1488,8 @@
                                    class="w-full bg-[#0a0705] border border-orange-900 rounded p-2 text-stone-100 font-mono">
                             <label class="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-900 border border-stone-800 hover:border-amber-400 text-amber-300 text-xs font-bold transition-all">
                                 📁 Загрузить файл с устройства
-                                <input type="file" id="bannerFileInput" accept="image/*" onchange="window.uploadCharacterFile(event, 'banner')" class="hidden">
+                                <input type="file" id="bannerFileInput" accept="image/*"
+                                       onchange="window.uploadCharacterFile(event, 'banner')" class="hidden">
                             </label>
                         </div>
                     </div>
@@ -1413,7 +1667,8 @@
             </div>
 
             <!-- ВЫБОР ПРАКТИК МОНАХА (Стихии / Кэнсэй) -->
-            <div id="lvlMonkDisciplineBlock" class="hidden space-y-2 p-3.5 bg-[#0d0907] border border-amber-500/40 rounded-xl font-serif">
+            <div id="lvlMonkDisciplineBlock"
+                 class="hidden space-y-2 p-3.5 bg-[#0d0907] border border-amber-500/40 rounded-xl font-serif">
                 <div class="flex justify-between items-center border-b border-orange-950/60 pb-1.5">
                     <label class="font-bold text-amber-300 flex items-center gap-1.5">
                         <span>☯️</span> <span id="lvlMonkDisciplineTitle">Практика монастырской традиции:</span>
@@ -1427,7 +1682,8 @@
                         class="w-full bg-[#140e0a] border border-orange-900 rounded-lg p-2 text-stone-100 text-xs font-serif focus:border-amber-400 focus:outline-none">
                     <option value="">-- Выберите практику --</option>
                 </select>
-                <div id="lvlMonkDisciplinePreview" class="p-2.5 rounded-lg bg-[#140e0a] border border-orange-950/80 text-[11px] text-stone-300 hidden"></div>
+                <div id="lvlMonkDisciplinePreview"
+                     class="p-2.5 rounded-lg bg-[#140e0a] border border-orange-950/80 text-[11px] text-stone-300 hidden"></div>
             </div>
 
             <!-- ВЫБОР КОМПЕТЕНТНОСТИ НА 6 УРОВНЕ (ПЛУТ) -->
@@ -1724,13 +1980,16 @@
 </div>
 
 <!-- МОДАЛКА ПЕРЕВЁРТЫША (СМЕНА РАСЫ И ОБЛИКА) -->
-<div id="disguiseModal" class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4 font-serif">
+<div id="disguiseModal"
+     class="fixed inset-0 z-50 hidden bg-black/85 backdrop-blur-md flex items-center justify-center p-4 font-serif">
     <div class="fox-card border border-purple-500/60 rounded-2xl max-w-sm w-full p-5 space-y-4 bg-[#120a17] text-xs shadow-2xl">
         <div class="flex justify-between items-center border-b border-purple-900/60 pb-2">
             <h3 class="text-sm font-bold text-purple-200 flex items-center gap-1.5">
                 <span>🎭</span> <span>Способность «Перевёртыш»</span>
             </h3>
-            <button type="button" onclick="window.closeDisguiseModal()" class="text-stone-400 hover:text-white text-xl font-bold">&times;</button>
+            <button type="button" onclick="window.closeDisguiseModal()"
+                    class="text-stone-400 hover:text-white text-xl font-bold">&times;
+            </button>
         </div>
 
         <p class="text-stone-300 text-[11px] leading-relaxed">

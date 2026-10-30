@@ -10,52 +10,51 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap"
           rel="stylesheet">
 
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Базовый локальный Tailwind -->
+    <link rel="stylesheet" href="{{ url_for('static', path='css/tailwind.min.css') }}">
+
+    <!-- Если tailwind.play.js рабочий, он дополнит стили, но не сломает верстку при падении -->
+    <script src="{{ url_for('static', path='js/tailwind.play.js') }}"></script>
     <script>
-        tailwind.config = {
-          theme: {
-            extend: {
-              fontFamily: {
-                serif: ['Cinzel', 'Georgia', 'serif'],
-                sans: ['Inter', 'system-ui', 'sans-serif'],
-              },
-              colors: {
-                foxCharcoal: '#0c0a09',
-                foxStone: '#171412',
-                foxCard: '#1f1a17',
-                foxOrange: {
-                  400: '#fb923c',
-                  500: '#f97316',
-                  600: '#ea580c',
-                  700: '#c2410c',
+        if (typeof tailwind !== 'undefined') {
+          tailwind.config = {
+            theme: {
+              extend: {
+                fontFamily: {
+                  serif: ['Cinzel', 'Georgia', 'serif'],
+                  sans: ['Inter', 'system-ui', 'sans-serif'],
                 },
-                foxAmber: {
-                  300: '#fde68a',
-                  400: '#fcd34d',
-                  500: '#f59e0b',
-                  600: '#d97706',
-                },
-                foxEmber: {
-                  800: '#9a3412',
-                  900: '#7c2d12',
-                  950: '#431407',
+                colors: {
+                  foxOrange: {
+                    50: '#fff7ed', 100: '#ffedd5', 200: '#fed7aa', 300: '#fdba74',
+                    400: '#fb923c', 500: '#f97316', 600: '#ea580c', 700: '#c2410c',
+                    800: '#9a3412', 900: '#7c2d12', 950: '#431407',
+                  },
+                  foxEmber: { 800: '#9a3412', 900: '#7c2d12', 950: '#2b0a03' }
                 }
               }
             }
-          }
+          };
         }
     </script>
 
+    <!-- ПОЛНЫЙ ДИЗАЙН-КОМПЛЕКТ SANCTUM (гарантирует визуал как на эталоне) -->
     <style>
         body {
-          background-color: #0c0a09;
+          background-color: #0c0a09 !important;
+          color: #e7e5e4 !important;
           background-image:
             radial-gradient(circle at 50% 0%, rgba(234, 88, 12, 0.15) 0%, transparent 55%),
             radial-gradient(circle at 85% 85%, rgba(245, 158, 11, 0.08) 0%, transparent 50%),
-            linear-gradient(to bottom, #0c0a09 0%, #14100d 100%);
-          background-attachment: fixed;
+            linear-gradient(to bottom, #0c0a09 0%, #14100d 100%) !important;
+          background-attachment: fixed !important;
         }
 
+        /* 1. Шрифты и заголовки */
+        h1, h2, h3, h4, .font-serif {
+          font-family: 'Cinzel', Georgia, serif;
+          color: #fef3c7;
+        }
         .fox-embossed {
           background: linear-gradient(180deg, #fef08a 0%, #f59e0b 50%, #ea580c 100%);
           -webkit-background-clip: text;
@@ -63,49 +62,97 @@
           filter: drop-shadow(0 2px 4px rgba(0,0,0,0.85));
         }
 
-        .fox-card {
-          background: linear-gradient(160deg, rgba(32, 26, 22, 0.94) 0%, rgba(18, 14, 12, 0.98) 100%);
-          border: 1px solid rgba(245, 158, 11, 0.28);
-          box-shadow: 0 16px 36px -10px rgba(0,0,0,0.85), inset 0 1px 0 rgba(254, 215, 170, 0.08);
+        /* 2. Три значка в карточках хаба (⚔️, 🧙, 🧬) */
+        .bg-amber-500\/20 {
+          background-color: rgba(245, 158, 11, 0.22) !important;
+          border-color: rgba(245, 158, 11, 0.45) !important;
         }
-        .fox-card:hover {
-          border-color: rgba(249, 115, 22, 0.65);
-          box-shadow: 0 20px 42px -10px rgba(0,0,0,0.92), 0 0 20px rgba(234, 88, 12, 0.20);
+        .bg-emerald-500\/20 {
+          background-color: rgba(16, 185, 129, 0.25) !important;
+          border-color: rgba(16, 185, 129, 0.45) !important;
         }
-
-        .fox-tray {
-          background: radial-gradient(circle at center, #2e1208 0%, #1a0a04 75%, #0f0502 100%);
-          border: 2px solid rgba(245, 158, 11, 0.40);
-          box-shadow: inset 0 8px 24px rgba(0,0,0,0.92), 0 12px 28px rgba(0,0,0,0.8);
+        .bg-purple-500\/20 {
+          background-color: rgba(168, 85, 247, 0.25) !important;
+          border-color: rgba(168, 85, 247, 0.45) !important;
         }
 
-        .shield-badge {
-          clip-path: polygon(50% 0%, 100% 18%, 100% 65%, 50% 100%, 0% 65%, 0% 18%);
+        /* 3. Плашки «ГЕРОЙ» и «НИП» на карточках */
+        .bg-amber-950\/80 {
+          background-color: rgba(67, 20, 7, 0.85) !important;
+          color: #fde68a !important;
+          border: 1px solid rgba(245, 158, 11, 0.3) !important;
+        }
+        .bg-stone-900\/80 {
+          background-color: rgba(28, 25, 23, 0.9) !important;
+          color: #d6d3d1 !important;
+          border: 1px solid rgba(120, 113, 108, 0.3) !important;
         }
 
-        @keyframes diceShake {
-          0% { transform: scale(1) rotate(0deg); }
-          20% { transform: scale(1.1) rotate(-10deg); }
-          40% { transform: scale(1.12) rotate(10deg); }
-          60% { transform: scale(1.05) rotate(-5deg); }
-          80% { transform: scale(1.02) rotate(4deg); }
-          100% { transform: scale(1) rotate(0deg); }
+        /* 4. Заглушка аватарки (контейнер 40х40) */
+        .border-amber-500\/40 {
+          border-color: rgba(245, 158, 11, 0.4) !important;
         }
-        .shake {
-          animation: diceShake 0.35s ease-in-out;
+        .w-10.h-10.rounded-lg.bg-stone-900,
+        .w-10.h-10.rounded-lg {
+          background-color: #171412 !important;
         }
 
+        /* 5. Карточки хаба и персонажей */
+        .fox-card,
+        .bg-\[\#120d09\]\/95,
+        .bg-\[\#120d09\]\/90,
+        .bg-\[\#0e0907\] {
+          background-color: #120d09 !important;
+          border-color: rgba(67, 20, 7, 0.85) !important;
+        }
+        .border-orange-950,
+        .border-orange-950\/80,
+        .border-orange-950\/90,
+        .border-orange-950\/70 {
+          border-color: rgba(67, 20, 7, 0.85) !important;
+        }
+
+        /* 6. Главная кнопка «Гильдия столов →» */
+        a[href="/parties-lobby"],
+        .bg-gradient-to-r.from-foxOrange-600.to-amber-500 {
+          background: linear-gradient(135deg, #ea580c 0%, #f59e0b 60%, #d97706 100%) !important;
+          color: #0c0a09 !important;
+          font-weight: 800 !important;
+          border: none !important;
+          box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35) !important;
+        }
+
+        /* 7. Второстепенные кнопки (Создать героя, Библиотека рас, Лист →) */
+        .bg-stone-900,
+        .bg-\[\#1c130d\] {
+          background-color: #1c140e !important;
+          border-color: rgba(154, 52, 18, 0.6) !important;
+          color: #fde68a !important;
+        }
+        .bg-\[\#1c130d\]:hover,
+        .bg-stone-900:hover {
+          border-color: #f59e0b !important;
+        }
+
+        /* 8. Переключатели фильтра (Все / Герои / НИПы) */
+        .bg-amber-400 {
+          background-color: #f59e0b !important;
+          color: #0c0a09 !important;
+          font-weight: 700 !important;
+        }
+
+        /* Скроллбар */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #0c0a09; }
         ::-webkit-scrollbar-thumb { background: #4a2810; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #ea580c; }
     </style>
+
     {% block extra_head %}{% endblock %}
 </head>
 <body class="flex flex-col min-h-screen text-stone-200 antialiased selection:bg-foxOrange-600 selection:text-white">
 <header class="sticky top-0 z-40 bg-[#0c0a09]/95 backdrop-blur-md border-b border-orange-950/70 shadow-2xl px-3 py-2.5">
     <div class="max-w-7xl mx-auto flex items-center justify-between gap-2">
-        <!-- Логотип -->
         <a href="/" class="flex items-center space-x-2 group shrink-0">
             <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-500/20 via-foxOrange-600/30 to-black border border-amber-500/40 flex items-center justify-center shadow-lg">
                 <svg class="w-5 h-5 sm:w-6 sm:h-6 text-foxOrange-400 filter drop-shadow" viewBox="0 0 24 24" fill="none"
@@ -119,7 +166,6 @@
             </div>
         </a>
 
-        <!-- Меню справа -->
         <div class="flex items-center space-x-1.5 sm:space-x-3">
             <a href="/spells"
                class="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-amber-500/40 bg-[#171412] text-amber-200 text-xs font-serif font-bold flex items-center gap-1 shadow">
@@ -154,7 +200,6 @@
     </div>
 </header>
 
-
 <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6">
     {% block content %}{% endblock %}
 </main>
@@ -165,16 +210,11 @@
 
 <script>
     async function apiFetch(url, options = {}) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500); // мгновенный таймаут
-    options.signal = controller.signal;
-    options.headers = options.headers || {};
-    if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
-      options.headers['Content-Type'] = 'application/json';
-      options.body = JSON.stringify(options.body);
-    }
-      const token = localStorage.getItem('token');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      options.signal = controller.signal;
       options.headers = options.headers || {};
+      const token = localStorage.getItem('token');
       if (token) {
         options.headers['Authorization'] = `Bearer ${token}`;
       }
@@ -250,3 +290,4 @@
 {% block scripts %}{% endblock %}
 </body>
 </html>
+

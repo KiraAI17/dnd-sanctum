@@ -58,6 +58,11 @@ dnd-companion/
 │   │   ├── banners
 │   │   ├── css
 │   │   ├── js
+│   │   │   ├── map_editor
+│   │   │   │   ├── CanvasRender.js
+│   │   │   │   ├── MapEditorApp.js
+│   │   │   │   ├── MapState.js
+│   │   │   │   └── ToolManager.js
 │   │   │   ├── party
 │   │   │   │   ├── combat
 │   │   │   │   │   ├── ArsenalEngine.js
@@ -101,7 +106,8 @@ dnd-companion/
 │   │   │   ├── party_2_map_1793103960.jpg
 │   │   │   └── party_2_map_1793187968.png
 │   │   ├── tokens
-│   │   │   └── party_2_tok_1793195408.png
+│   │   │   ├── party_2_tok_1793195408.png
+│   │   │   └── party_2_tok_1793210695.png
 │   │   └── uploads
 │   │       └── parties
 │   │           ├── party_2_banner_1793178034_865c2b.jpg
@@ -113,6 +119,7 @@ dnd-companion/
 │   │   ├── auth.html
 │   │   ├── base.html
 │   │   ├── dashboard.html
+│   │   ├── map_editor.html
 │   │   ├── parties.html
 │   │   ├── party_detail.html
 │   │   ├── sheet.html

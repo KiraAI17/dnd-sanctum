@@ -10,6 +10,7 @@ import { LevelUpModal } from './components/LevelUpModal.js';
 import { FighterController } from './modules/FighterController.js';
 import { RogueController } from './modules/RogueController.js';
 import { BardController } from './modules/BardController.js';
+import { RangerController } from './modules/RangerController.js';
 
 class SheetApplication {
   constructor(charId) {
@@ -25,6 +26,7 @@ class SheetApplication {
     this.fighter = new FighterController(this.state, this.api, this.diceRoller);
     this.rogue = new RogueController(this.state, this.api, this.diceRoller);
     this.bard = new BardController(this.state, this.api, this.diceRoller);
+    this.ranger = new RangerController(this.state, this.api, this.diceRoller);
 
     this.levelUpModal = new LevelUpModal(this.state, this.api, (updatedChar) => {
       this.state.set(updatedChar);
@@ -111,6 +113,7 @@ class SheetApplication {
     window.fighterApp = this.fighter;
     window.rogueApp = this.rogue;
     window.bardApp = this.bard;
+    window.rangerApp = this.ranger;
 
     window.openDisguiseModal = () => this.openDisguiseModal();
     window.closeDisguiseModal = () => document.getElementById('disguiseModal')?.classList.add('hidden');
@@ -538,6 +541,13 @@ class SheetApplication {
       if (isBard) this.bard.renderTab();
     }
 
+    const isRanger = cName.includes('следопыт') || cName.includes('ranger');
+    const rangerBtn = document.getElementById('tabBtnRanger');
+    if (rangerBtn) {
+      rangerBtn.classList.toggle('hidden', !isRanger);
+      if (isRanger) this.ranger.renderTab();
+    }
+
     const isCaster = DndRules.isSpellcaster(c);
     const spellsBtn = document.getElementById('tabBtnSpells');
     if (spellsBtn) {
@@ -546,7 +556,7 @@ class SheetApplication {
   }
 
   switchTab(tab) {
-    const tabs = ['Stats', 'Combat', 'BloodHunter', 'MonkKi', 'FighterManeuvers', 'Rogue', 'Bard', 'Spells', 'Inventory', 'Features', 'Bio', 'Settings'];
+    const tabs = ['Stats', 'Combat', 'BloodHunter', 'MonkKi', 'FighterManeuvers', 'Rogue', 'Bard', 'Ranger', 'Spells', 'Inventory', 'Features', 'Bio', 'Settings'];
     tabs.forEach(t => {
       const el = document.getElementById(`tab${t}`);
       const btn = document.getElementById(`tabBtn${t}`);
@@ -618,6 +628,7 @@ class SheetApplication {
       if (this.monkKi) this.monkKi.restoreKiPoints();
       if (this.fighter) this.fighter.restoreDice();
       if (this.rogue) this.rogue.restorePsiDice();
+      if (this.ranger) this.ranger.restoreAllRangerResources();
 
       this.render();
       alert(`Отдых завершён. Здоровье, заклинания и классовые ресурсы восстановлены!`);
