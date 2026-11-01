@@ -93,7 +93,6 @@ export class CharacterWizard {
   }
 
   exportGlobals() {
-    // Делаем экземпляр доступным для обработчиков onclick в HTML
     window.wizard = this;
     window.goToStep = (s) => this.goToStep(s);
     window.nextStep = () => this.nextStep();
@@ -125,33 +124,64 @@ export class CharacterWizard {
         const meRes = await apiFetch('/auth/me');
         if (meRes.ok) {
           const u = await meRes.json();
-          this.isDmMode = (u.role === 'DM' || u.is_dm);
+          this.isDmMode = Boolean(u.role === 'DM' || u.is_dm);
         }
       } catch (e) {}
 
-      let url = `/compendium/races?is_dm=${this.isDmMode}`;
+      let rawList = [];
+
+      // 1. Пробуем загрузить расы для кампании, если перешли по ссылке стола
       if (this.activePartyId) {
-        url = `/parties/${this.activePartyId}/compendium/races`;
-        const pBadge = document.getElementById('partyContextBadge');
-        if (pBadge) {
-          pBadge.textContent = `Кампания #${this.activePartyId}`;
-          pBadge.classList.remove('hidden');
+        try {
+          const pRes = await apiFetch(`/parties/${this.activePartyId}/compendium/races`);
+          if (pRes.ok) {
+            const data = await pRes.json();
+            rawList = Array.isArray(data) ? data : (data.races || []);
+          }
+        } catch (e) {
+          console.warn("Сбой загрузки рас кампании:", e);
         }
       }
 
-      const res = await apiFetch(url);
-      if (res.ok) {
-        const raw = await res.json();
-        const rawList = Array.isArray(raw) ? raw : (raw.races || []);
-        const uniqueMap = new Map();
-        rawList.forEach(r => {
-          if (!r || !r.name) return;
-          const k = r.name.trim().toLowerCase();
-          if (!uniqueMap.has(k) || r.is_custom) uniqueMap.set(k, r);
-        });
-        this.allRaces = Array.from(uniqueMap.values());
-        this.renderRaces();
+      // 2. Если из кампании пусто или ссылки нет — берём базовый компендиум
+      if (!rawList.length) {
+        try {
+          let res = await apiFetch('/compendium/races');
+          if (!res.ok) {
+            res = await fetch('/compendium/races');
+          }
+          if (res.ok) {
+            const data = await res.json();
+            rawList = Array.isArray(data) ? data : (data.races || []);
+          }
+        } catch (e) {
+          console.warn("Сбой загрузки базовых рас:", e);
+        }
       }
+
+      // 3. Fallback, если сервер/база не вернули расы
+      if (!rawList.length) {
+        rawList = [
+          { name: "Человек", speed: 30, ability_bonuses: { str: 1, dex: 1, con: 1, int: 1, wis: 1, cha: 1 }, description: "Адаптивные и амбициозные жители мира." },
+          { name: "Эльф", speed: 30, ability_bonuses: { dex: 2 }, description: "Грациозные долгожители с острыми чувствами и тёмным зрением." },
+          { name: "Дварф", speed: 25, ability_bonuses: { con: 2 }, description: "Стойкие воины и мастера камня, устойчивые к ядам." },
+          { name: "Халфлинг", speed: 25, ability_bonuses: { dex: 2 }, description: "Маленькие и удачливые исследователи, храбрые сердцем." },
+          { name: "Тифлинг", speed: 30, ability_bonuses: { cha: 2, int: 1 }, description: "Несущие наследие планов Нижнего мира, владеющие огнём." },
+          { name: "Драконорождённый", speed: 30, ability_bonuses: { str: 2, cha: 1 }, description: "Гордые потомки драконов с разрушительным стихийным дыханием." },
+          { name: "Полуорк", speed: 30, ability_bonuses: { str: 2, con: 1 }, description: "Несокрушимые бойцы с дикой стойкостью в смертельных битвах." },
+          { name: "Гном", speed: 25, ability_bonuses: { int: 2 }, description: "Изобретательные мыслители с непревзойденной магической смекалкой." },
+          { name: "Чейнджлинг", speed: 30, ability_bonuses: { cha: 2, dex: 1 }, description: "Перевёртыши, способные идеально копировать внешность любой расы." }
+        ];
+      }
+
+      const uniqueMap = new Map();
+      rawList.forEach(r => {
+        if (!r || !r.name) return;
+        const k = r.name.trim().toLowerCase();
+        if (!uniqueMap.has(k) || r.is_custom) uniqueMap.set(k, r);
+      });
+      this.allRaces = Array.from(uniqueMap.values());
+      this.renderRaces();
     } catch (e) {
       console.error("Ошибка загрузки рас:", e);
     }
@@ -378,14 +408,14 @@ export class CharacterWizard {
       const bSel = document.getElementById('bloodMaledictSelect');
       if (bSel) this.state.blood_curse = bSel.value;
     }
-    // Любой воин (включая Альтернативного воина)
+    // Любой воин
     else if (isAnyFighter) {
       fightBlock.classList.remove('hidden');
       const fSel = document.getElementById('lvl1FightingStyleSelect');
       if (fSel) this.state.fighting_style = fSel.value;
     }
 
-        const isRanger = cName.toLowerCase().includes('следопыт') || cName.toLowerCase().includes('ranger');
+    const isRanger = cName.toLowerCase().includes('следопыт') || cName.toLowerCase().includes('ranger');
 
     if (isRanger) {
       subBlock.classList.remove('hidden');
@@ -402,7 +432,6 @@ export class CharacterWizard {
       document.getElementById('lvl1SubclassInfo').textContent = "Преимущество на выслеживание (Выживание) и знания (Интеллект), а также изучение языка врага.";
       this.state.favored_enemy = document.getElementById('lvl1SubclassSelect').value;
 
-      // Выводим также блок боевого стиля, так как стиль выбирается со 2 уровня, но игроки могут подготовить его заранее
       fightBlock.classList.remove('hidden');
       const fSel = document.getElementById('lvl1FightingStyleSelect');
       if (fSel) {
@@ -471,6 +500,54 @@ export class CharacterWizard {
     this.updateSummary();
   }
 
+  async initSpellbookTome(cantripsLimit, spellsLimit, className) {
+    const spellTome = document.getElementById('spellbookTomeBlock');
+    if (!spellTome) return;
+    spellTome.classList.remove('hidden');
+    this.maxCantripsAllowed = cantripsLimit;
+    this.maxSpellsAllowed = spellsLimit;
+    this.selectedCantrips.clear();
+    this.selectedSpells.clear();
+
+    try {
+      const rawBm = localStorage.getItem('user_bookmarked_spells');
+      const bmIds = new Set();
+      if (rawBm) {
+        JSON.parse(rawBm).forEach(x => bmIds.add(String(x).toLowerCase().trim()));
+      }
+
+      if (!this.allCompendiumSpells || this.allCompendiumSpells.length === 0) {
+        let res = await apiFetch('/compendium/spells-list');
+        if (!res.ok) {
+          res = await fetch('/compendium/spells-list');
+        }
+        if (res.ok) this.allCompendiumSpells = await res.json();
+      }
+
+      const normClass = (className || '').toLowerCase().trim();
+      this.bookmarkedSpells = (this.allCompendiumSpells || []).filter(sp => {
+        const spId = String(sp.id || '').toLowerCase().trim();
+        const spName = String(sp.name || '').toLowerCase().trim();
+        if (!bmIds.has(spId) && !bmIds.has(spName)) return false;
+
+        // В конструкторе 1 уровня нужны только заговоры (0) и 1 круг
+        if (sp.level !== 0 && sp.level !== 1) return false;
+
+        const classes = (sp.classes || []).map(c => String(c).toLowerCase().trim());
+        return classes.some(c => c.includes(normClass) || normClass.includes(c));
+      });
+    } catch(e) {
+      console.warn("Сбой загрузки закладок:", e);
+      this.bookmarkedSpells = [];
+    }
+
+    document.getElementById('spellbookClassNotice').textContent = `Гримуар класса ${className}: выберите ${cantripsLimit} заговора и ${spellsLimit} заклинаний 1-го круга.`;
+    this.activeSpellSubTab = 'cantrips';
+    this.renderSpellTabButtons();
+    this.renderSpellTomePages();
+    this.updateSpellCounters();
+  }
+
   renderSpellTomePages() {
     const cantripsGrid = document.getElementById('tomeCantripsPage');
     const level1Grid = document.getElementById('tomeLevel1Page');
@@ -513,51 +590,6 @@ export class CharacterWizard {
       `;
       level1Grid.appendChild(card);
     });
-  }
-
-  async initSpellbookTome(cantripsLimit, spellsLimit, className) {
-    const spellTome = document.getElementById('spellbookTomeBlock');
-    if (!spellTome) return;
-    spellTome.classList.remove('hidden');
-    this.maxCantripsAllowed = cantripsLimit;
-    this.maxSpellsAllowed = spellsLimit;
-    this.selectedCantrips.clear();
-    this.selectedSpells.clear();
-
-    try {
-      const rawBm = localStorage.getItem('user_bookmarked_spells');
-      const bmIds = new Set();
-      if (rawBm) {
-        JSON.parse(rawBm).forEach(x => bmIds.add(String(x).toLowerCase().trim()));
-      }
-
-      if (!this.allCompendiumSpells || this.allCompendiumSpells.length === 0) {
-        const res = await fetch('/compendium/spells-list');
-        if (res.ok) this.allCompendiumSpells = await res.json();
-      }
-
-      const normClass = (className || '').toLowerCase().trim();
-      this.bookmarkedSpells = (this.allCompendiumSpells || []).filter(sp => {
-        const spId = String(sp.id || '').toLowerCase().trim();
-        const spName = String(sp.name || '').toLowerCase().trim();
-        if (!bmIds.has(spId) && !bmIds.has(spName)) return false;
-
-        // В конструкторе 1 уровня нужны только заговоры (0) и 1 круг
-        if (sp.level !== 0 && sp.level !== 1) return false;
-
-        const classes = (sp.classes || []).map(c => String(c).toLowerCase().trim());
-        return classes.some(c => c.includes(normClass) || normClass.includes(c));
-      });
-    } catch(e) {
-      console.warn("Сбой загрузки закладок:", e);
-      this.bookmarkedSpells = [];
-    }
-
-    document.getElementById('spellbookClassNotice').textContent = `Гримуар класса ${className}: выберите ${cantripsLimit} заговора и ${spellsLimit} заклинаний 1-го круга.`;
-    this.activeSpellSubTab = 'cantrips';
-    this.renderSpellTabButtons();
-    this.renderSpellTomePages();
-    this.updateSpellCounters();
   }
 
   renderBookmarksPage() {
@@ -692,37 +724,6 @@ export class CharacterWizard {
     if (tab === 'bookmarks') {
       this.renderBookmarksPage();
     }
-  }
-
-    this.bookmarkedSpells.forEach(s => {
-      const isCantrip = s.level === 0;
-      const isSel = isCantrip ? this.selectedCantrips.has(s.name) : this.selectedSpells.has(s.name);
-
-      const card = document.createElement('div');
-      card.className = `p-2.5 rounded-lg border cursor-pointer transition-all flex flex-col justify-between ${
-        isSel
-          ? 'border-amber-400 bg-amber-950/60 ring-1 ring-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.4)]'
-          : 'border-orange-950 bg-[#120d09] hover:border-amber-500/50'
-      }`;
-      card.onclick = () => this.toggleSpellSelection(s.name, isCantrip ? 'cantrip' : 'spell');
-
-      card.innerHTML = `
-        <div>
-          <div class="flex justify-between items-center mb-1">
-            <span class="font-bold text-amber-200 text-xs flex items-center gap-1">
-              <span class="text-amber-400">⭐</span> ${s.name}
-            </span>
-            <span class="text-[9px] font-mono px-1 rounded bg-black/50 text-stone-300 border border-orange-950">${isCantrip ? 'Заговор' : '1 круг'}</span>
-          </div>
-          <p class="text-[10px] text-stone-400 leading-tight line-clamp-2 font-serif">${s.description || ''}</p>
-        </div>
-        <div class="mt-1 flex justify-between items-center text-[9px] font-mono text-amber-400/80">
-          <span>${s.school || 'Магия'}</span>
-          <span>${s.cast_time || '1 действие'}</span>
-        </div>
-      `;
-      pageBm.appendChild(card);
-    });
   }
 
   // --- ШАГ 3: ХАРАКТЕРИСТИКИ ---
@@ -1031,7 +1032,6 @@ export class CharacterWizard {
     const dexMod = Math.floor(((finalStats.dex || 10) - 10) / 2);
     const armorClass = 10 + dexMod;
 
-    // Считываем боевой стиль, если отображался блок
     const fStyleSelect = document.getElementById('lvl1FightingStyleSelect');
     const fightingStyle = (fStyleSelect && !fStyleSelect.closest('#lvl1FightingStyleBlock').classList.contains('hidden'))
       ? fStyleSelect.value
@@ -1196,4 +1196,3 @@ export class CharacterWizard {
     }
   }
 }
-
